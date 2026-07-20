@@ -1,5 +1,6 @@
 from app.ml.inference import MockModelInference, ModelInference
-from app.schemas.analyze import ClassificationResult, FeatureVector
+from app.schemas.analyze import FeatureVector
+from app.schemas.classification import ClassificationResult
 
 
 class ClassificationService:
@@ -12,4 +13,5 @@ class ClassificationService:
             impact_domain=prediction.impact_domain,
             confidence=prediction.confidence,
             model_version=prediction.model_version,
+            mock=prediction.mock,
         )

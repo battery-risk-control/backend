@@ -41,6 +41,7 @@ uvicorn app.main:app --reload --port 8000
 Swagger:
 
 - http://localhost:8000/docs
+- 검증 화면: [docs/fastapi-swagger.png](docs/fastapi-swagger.png)
 
 ## 3. 현재 구현 범위
 
@@ -75,6 +76,7 @@ FastAPI는 실제 연동 전에도 교체 지점이 분리되어 있습니다.
 - `repositories/`: 향후 PostgreSQL repository 교체 지점
 
 현재 기본값은 `MOCK_MODE=true`이며 ERP repository와 vector store는 in-memory 구현을 사용합니다.
+실제 연동 전에도 입력 기반 Extraction·분류·Severity, RAG 업로드→검색, 모든 option 분기와 공통 오류 응답을 테스트할 수 있습니다.
 
 ## 4. 테스트
 

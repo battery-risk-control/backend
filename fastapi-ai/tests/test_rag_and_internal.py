@@ -8,7 +8,7 @@ client = TestClient(app)
 def test_rag_search_requires_contract_or_supplier() -> None:
     response = client.post("/api/v1/rag/search", json={"query": "가격 조정", "filters": {}})
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "UNPROCESSABLE_ENTITY"
+    assert response.json()["error"]["code"] == "RAG_FILTER_REQUIRED"
 
 
 def test_rag_search_validates_top_k() -> None:
@@ -20,6 +20,11 @@ def test_rag_search_validates_top_k() -> None:
 
 
 def test_rag_search_returns_camel_case_results() -> None:
+    client.post(
+        "/api/v1/rag/contracts",
+        files={"file": ("contract.txt", b"price escalation clause", "text/plain")},
+        data={"contractId": "501", "supplierId": "11", "materialId": "1", "documentType": "LTA"},
+    )
     response = client.post("/api/v1/rag/search", json={
         "query": "가격 조정", "filters": {"contractId": 501}
     })

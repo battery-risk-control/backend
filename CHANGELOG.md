@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-07-20 — FastAPI Mock 인터페이스 완성
+
+- extraction, classification, severity, RAG, briefing 스키마를 도메인별 파일로 분리
+- 내부 API의 `dict` 응답을 구체적인 Swagger response model로 교체
+- 입력 기반 Extraction과 다중 Impact Domain 분류 Mock 구현
+- NORMAL/WARNING/CRITICAL Severity 시나리오 및 계산 상세 추가
+- `/analyze`의 네 가지 option이 실제 파이프라인 단계를 제어하도록 개선
+- TXT/PDF Mock 업로드, chunking, embedding, metadata filter 검색 E2E 구현
+- 의존성 주입과 테스트별 In-memory store 격리 추가
+- 애플리케이션·validation·예상하지 못한 오류의 공통 envelope 처리
+- 7개 API의 OpenAPI request/response schema 자동 검증 추가
+- 실제 Uvicorn `/docs` 및 `/openapi.json` HTTP 200 확인, Swagger 화면 캡처 추가
+
 ## 2026-07-20 — 프로젝트 루트 통합
 
 - 중첩된 프로젝트 두 벌을 바깥 프로젝트 루트로 평탄화

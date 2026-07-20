@@ -17,6 +17,6 @@ class ContractChunker:
             return [DocumentChunk(content="Mock PDF content pending parser integration", index=0, page_number=1)]
         step = max(1, settings.chunk_size - settings.chunk_overlap)
         return [
-            DocumentChunk(content=text[start:start + settings.chunk_size], index=index)
+            DocumentChunk(content=text[start:start + settings.chunk_size], index=index, page_number=1)
             for index, start in enumerate(range(0, len(text), step))
         ]

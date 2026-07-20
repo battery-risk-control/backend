@@ -8,6 +8,8 @@ def classify_impact_domain(features: FeatureVector) -> ClassificationResult:
         domain, confidence = ImpactDomain.PRODUCTION, 0.91
     elif features.actor1_type == "LAB":
         domain, confidence = ImpactDomain.LOGISTICS, 0.82
+    elif features.actor1_type in {"POLICY", "REGULATOR"}:
+        domain, confidence = ImpactDomain.POLICY, 0.84
     elif features.goldstein_scale <= -5:
         domain, confidence = ImpactDomain.GEOPOLITICS, 0.78
     else:

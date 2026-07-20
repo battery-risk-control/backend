@@ -5,7 +5,10 @@ from typing import Optional
 
 from pydantic import Field
 
-from app.schemas.common import ApiModel, ImpactDomain, ProcessingStatus, Severity
+from app.schemas.common import ApiModel, ProcessingStatus
+from app.schemas.extraction import ExtractionResult
+from app.schemas.classification import ClassificationResult
+from app.schemas.severity import SeverityResult
 
 
 class EventInput(ApiModel):
@@ -42,15 +45,6 @@ class AnalyzeRequest(ApiModel):
     feature_overrides: Optional[FeatureOverrides] = None
 
 
-class ExtractionResult(ApiModel):
-    country_code: str
-    affected_materials: list[str]
-    event_type: str
-    tone_score: float = Field(ge=-1.0, le=1.0)
-    impact_domain_draft: ImpactDomain
-    summary_kr: str
-
-
 class FeatureVector(ApiModel):
     goldstein_scale: float
     news_count: int
@@ -60,19 +54,6 @@ class FeatureVector(ApiModel):
     actor1_type: str
     actor2_type: str
     stock_volatility_20d: float
-
-
-class ClassificationResult(ApiModel):
-    impact_domain: ImpactDomain
-    confidence: float = Field(ge=0.0, le=1.0)
-    model_version: str
-
-
-class SeverityResult(ApiModel):
-    severity: Severity
-    score: float = Field(ge=0.0, le=100.0)
-    reason_codes: list[str]
-    rule_version: str
 
 
 class MatchedEntities(ApiModel):
@@ -90,6 +71,9 @@ class AnalyzeResponseData(ApiModel):
     severity: SeverityResult
     matched_entities: MatchedEntities
     briefing_id: Optional[int] = None
+    erp_context_included: bool = False
+    contract_rag_included: bool = False
+    feature_enrichment_applied: bool = False
     mock: bool = False
     mock_reason: Optional[str] = None
     processed_at: datetime
