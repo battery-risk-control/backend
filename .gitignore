@@ -1,0 +1,10 @@
+.venv/
+fastapi-ai/.venv/
+__pycache__/
+*.pyc
+spring-backend/.gradle/
+spring-backend/build/
+_merge_backup/
+project-backups/
+.idea/
+.pytest_cache/
