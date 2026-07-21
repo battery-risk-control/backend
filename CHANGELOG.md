@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-07-21 — 백엔드 책임 구조 v0.2 계획 확정
+
+- Spring Boot를 시스템 분석 오케스트레이터 및 PostgreSQL 단일 읽기·쓰기 주체로 재정의
+- FastAPI를 LLM·XGBoost·Severity·RAG·브리핑 분석 전용 서비스로 재정의
+- FastAPI의 PostgreSQL 직접 접근 계획 제거, ChromaDB 소유권만 유지
+- Spring–FastAPI 연동을 2.5순위로 추가하고 분석 상태·실패·저장 흐름 정의
+- 자동 분석 시작점을 Spring Scheduler로 변경
+- 수정된 전체 To Do List를 `docs/backend-data-modeling-todo-v0.2.md`에 추가
+
 ## 2026-07-20 — FastAPI Mock 인터페이스 완성
 
 - extraction, classification, severity, RAG, briefing 스키마를 도메인별 파일로 분리
