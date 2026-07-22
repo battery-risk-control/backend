@@ -10,43 +10,43 @@ def test_analyze_mock_response() -> None:
         "/api/v1/analyze",
         json={
             "event": {
-                "externalEventId": "GDELT-123456",
+                "external_event_id": "GDELT-123456",
                 "title": "Heavy rainfall disrupts lithium production in Chile",
                 "content": "Heavy rainfall has disrupted operations.",
-                "sourceName": "GDELT",
-                "sourceUrl": "https://example.com/news/123456",
-                "publishedAt": "2026-07-20T07:30:00+09:00",
-                "countryCode": "CL"
+                "source_name": "GDELT",
+                "source_url": "https://example.com/news/123456",
+                "published_at": "2026-07-20T07:30:00+09:00",
+                "country_code": "CL"
             },
             "options": {
-                "enrichFeatures": True,
-                "includeErpContext": True,
-                "includeContractRag": True,
-                "generateBriefing": True
+                "enrich_features": True,
+                "include_erp_context": True,
+                "include_contract_rag": True,
+                "generate_briefing": True
             }
         }
     )
     assert response.status_code == 200
     body = response.json()
     assert body["success"] is True
-    assert body["data"]["classification"]["impactDomain"] == "PRODUCTION"
+    assert body["data"]["classification"]["impact_domain"] == "PRODUCTION"
     assert body["data"]["severity"]["severity"] == "CRITICAL"
 
 
 def test_analyze_applies_feature_overrides() -> None:
     response = client.post("/api/v1/analyze", json={
         "event": {
-            "externalEventId": "EVENT-1",
+            "external_event_id": "EVENT-1",
             "title": "Event",
             "content": "Content",
-            "sourceName": "TEST",
-            "publishedAt": "2026-07-20T07:30:00+09:00"
+            "source_name": "TEST",
+            "published_at": "2026-07-20T07:30:00+09:00"
         },
-        "featureOverrides": {"newsCount": 3, "rainfall24hMm": 10.5}
+        "feature_overrides": {"news_count": 3, "rainfall_24h_mm": 10.5}
     })
     assert response.status_code == 200
-    assert response.json()["data"]["features"]["newsCount"] == 3
-    assert response.json()["data"]["features"]["rainfall24hMm"] == 10.5
+    assert response.json()["data"]["features"]["news_count"] == 3
+    assert response.json()["data"]["features"]["rainfall_24h_mm"] == 10.5
 
 
 def test_validation_error_uses_common_envelope() -> None:

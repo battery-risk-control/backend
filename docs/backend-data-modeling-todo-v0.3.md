@@ -1,6 +1,6 @@
 ---
 
-# 📌 데이터 / 모델링 / 백엔드 To Do List
+# 📌 데이터 / 모델링 / 백엔드 To Do List v0.3
 
 ## 프로젝트 기본 구조
 
@@ -117,6 +117,334 @@ FastAPI는 PostgreSQL 테이블의 소유권을 갖지 않으며, 분석 요청�
 
 ---
 
+# 🎯 업무 기능 정의
+
+기술 우선순위와 별개로 시스템이 제공해야 하는 업무 기능을 정의한다. 각 기능은 이후 0~15순위 구현 단계와 연결한다.
+
+## F1. ERP 영향 분석 AI 에이전트
+
+### 목표
+
+감지된 리스크를 자재·공급사·재고·발주·계약 데이터와 연결하여 실제 구매 업무에 미치는 영향을 설명한다.
+
+### 주요 기능
+
+- 이벤트와 자재·공급사 매칭
+- 현재 재고와 안전재고 비교
+- 재고 소진 일수 계산
+- 공급사 의존도 계산
+- 발주·입고 예정일 확인
+- 계약 단가와 가격 조정 임계치 비교
+- 자재별 영향도와 근거 생성
+- ERP Context Snapshot 보존
+
+### 책임
+
+- Spring Boot: ERP 조회, Context 구성, FastAPI 호출, 결과 저장·조회
+- FastAPI: 이벤트·ERP Context 결합 분석, 근거와 권장 조치 반환
+
+## F2. RAG 기반 계약·대체 공급망 분석
+
+### 대상 문서
+
+- 장기공급계약서 및 요약본
+- 구매 가이드라인
+- 공급사 평가 기준
+- 품질 인증서
+- 규제 문서
+- 소재 기술 스펙
+
+### 주요 기능
+
+- PDF/TXT 업로드
+- 조항 단위 청킹
+- ChromaDB Embedding
+- 계약·공급사·자재 Metadata Filter
+- 원문·페이지·조항 근거 반환
+- 계약 대응 방안 생성
+- 적격 대체 공급사 후보 제시
+
+### 책임
+
+- Spring Boot: 파일 접수·검증, 메타데이터와 처리 상태 저장, FastAPI 호출
+- FastAPI: 문서 처리, ChromaDB 저장·검색, 근거 기반 대안 생성
+
+## F3. AI 기반 공급망 리스크 분석
+
+### 주요 기능
+
+- LLM 뉴스 정보 추출
+- Feature 생성
+- XGBoost Impact Domain 분류
+- 규칙 기반 Severity 계산
+- 판단 근거·신뢰도·버전 반환
+- Mock/실제 분석 결과 구분
+- 실패·재시도·재분석
+
+### 역할 고정
+
+```text
+XGBoost → PRODUCTION / LOGISTICS / POLICY / MARKET / GEOPOLITICS 분류
+Severity Rule Engine → NORMAL / WARNING / CRITICAL 계산
+```
+
+## F4. 멀티스피드 외부 데이터 모니터링
+
+### Fast Track
+
+- GDELT DOC API
+- GDACS
+- 기상·재난
+- 광산 기업 주가·환율
+- AIS 및 당일 ERP 증분
+- 실행 주기: 15분~4시간
+
+### Slow Track
+
+- 공식 원자재 종가
+- ERP Full Sync
+- 관세청 수입 물량
+- Google News RSS 보완 수집
+- 실행 주기: 1일~1개월
+
+### 주요 기능
+
+- 수집 주기·활성 상태 관리
+- Full/Incremental Sync
+- Cursor와 마지막 성공 시각
+- 중복 이벤트 제거
+- 부분 성공·재시도
+- 데이터 신선도 경고
+
+## F5. 구매 브리핑·대시보드·보고서
+
+- 재고 관점과 계약 관점 분리
+- 자재·공급사 영향 요약
+- 대체 공급사 비교표
+- 예상 원가 영향 그래프용 데이터
+- 협상 포인트와 권장 조치
+- 근거 문서 참조
+- 보고서 버전 관리
+- PDF/Excel 다운로드
+
+## F6. 개체 식별·Master Data 정규화
+
+- 자재·공급사 Alias 사전
+- 국가·항만 코드 표준화
+- 사업자등록번호 우선 매칭
+- 명칭 유사도 후보 매칭
+- 자동 매칭 confidence
+- 사람 승인·거절
+- 병합 이력과 미매칭 데이터 관리
+
+## F7. 출처·근거·데이터 계보
+
+- 원본 URL·수집 시각·기준 시각
+- 원본 Hash와 파싱 버전
+- Feature·모델·규칙 버전
+- ERP Context Snapshot
+- RAG 문서·페이지·조항
+- `CONFIRMED / REFERENCE / WARNING` 근거 구분
+- 요청 전체 Trace ID
+
+## F8. 규제 Hard Gate·정책 유효성
+
+- FEOC·CRMA 규제 판정
+- 관할 지역과 적용 시장
+- 효력 시작일·종료일
+- 현재 유효 여부
+- 정책 문서 버전
+- 규제 위반 시 CRITICAL 강제 승격
+- 만료·폐지된 규칙의 자동 제외
+
+## F9. 공급사 자격·대체 공급사 추천
+
+- IATF 16949와 PPAP
+- FEOC·규제 적합성
+- 배터리급 자재 공급 가능 여부
+- 생산 능력·MOQ·리드타임
+- 가격·품질·과거 리스크
+- 적격 후보 필터와 추천 근거
+- 최종 결정은 사용자가 수행
+
+## F10. 알림·에스컬레이션
+
+- Severity별 알림 정책
+- 관심 자재·공급사 구독
+- 이메일·Slack·Teams 연동
+- 중복 알림 억제
+- 확인·미확인 상태
+- 미확인 Critical 자동 에스컬레이션
+- Quiet Hours와 발송 이력
+
+## F11. 사용자 계층별 대시보드
+
+- 구매팀: 재고·계약·공급사·실행 조치
+- 경영기획: 사업부·공급사·지역별 노출과 추이
+- 경영진: 핵심 KPI, Critical 리스크, 재무 영향, 대응 상태
+- 실시간 지도 마커·알림 목록·AI Feature 근거 조회
+- Spring 공개 API `GET /api/v1/map/realtime-alerts`
+- 역할: `BUYER / PLANNING / EXECUTIVE / ADMIN`
+
+## F12. 대응 조치·업무 추적
+
+- 권장 조치를 Task로 전환
+- 담당자·기한·우선순위
+- 진행 상태·댓글·첨부파일
+- 승인과 완료
+- 리스크 종료 및 대응 이력
+
+---
+
+# 🧩 공통 기반 기능
+
+## C1. 파일 업로드
+
+- Multipart 업로드
+- 확장자·MIME·크기 검증
+- SHA-256 Hash와 중복 방지
+- 로컬/Docker Volume, 이후 S3 전환
+- 업로드 사용자·처리 상태·재처리
+- 다운로드·삭제 권한
+
+## C2. 인증·권한
+
+- 회원가입·로그인·로그아웃
+- BCrypt
+- JWT Access/Refresh Token
+- 역할 기반 접근 제어
+- 관리자 승인 정책
+- 파일·분석·보고서 권한
+
+## C3. 분석 작업·재시도
+
+- `PENDING / PROCESSING / COMPLETED / FAILED`
+- 시작·종료 시각
+- 재시도 횟수
+- 오류 코드·메시지
+- 요청 사용자와 Mock 여부
+- 모델·규칙 버전
+
+## C4. 감사 로그
+
+- 로그인·권한 변경
+- 문서 업로드·삭제
+- 분석·재분석
+- 브리핑 재생성
+- 수집 작업 수동 실행
+- 보고서 다운로드
+
+## C5. Idempotency
+
+- `Idempotency-Key`
+- `external_event_id`
+- 문서 Hash
+- 동일 요청의 중복 저장·중복 실행 방지
+
+## C6. 관측성
+
+- Spring/FastAPI/PostgreSQL/ChromaDB Health
+- 외부 API와 모델 상태
+- 구조화 로그와 Trace ID
+- 분석 단계별 처리 시간
+- 오류율·Fallback 사용률
+
+## C7. LLM 안전장치
+
+- Prompt Version
+- 입력 길이와 민감정보 제한
+- Prompt Injection 방어
+- 출력 JSON Schema 검증
+- 근거 없는 추천 차단
+- 단정 표현 제한
+- Token·비용·timeout 기록
+
+---
+
+# 🤖 AI·데이터 품질 기능
+
+## M1. 사람 검증 라벨링
+
+- LLM 초안 라벨과 최종 라벨 분리
+- Blind Review
+- 불일치·재검토
+- Cohen's Kappa
+- 라벨 버전·변경 이력
+
+## M2. Dataset·Feature 버전 관리
+
+- Dataset Manifest
+- 수집 기간·소스·Seed
+- Feature Schema
+- 클래스 분포
+- 시계열 Train/Validation/Test 구간
+- Checksum과 생성 스크립트 버전
+
+## M3. Model Registry
+
+- 모델·학습 데이터 버전
+- 평가 지표와 승인 상태
+- Production 모델 지정
+- Artifact Checksum
+- 배포·Rollback·폐기
+
+## M4. 시계열 학습 검증
+
+- Random Shuffle 금지
+- Look-ahead Bias 방지
+- 동일 기사·사건 Cluster 분리 방지
+- 기간별 Precision/Recall/F1
+- Confusion Matrix
+
+## M5. 설명 가능성
+
+- SHAP 상위 Feature
+- 기여 방향·분류 Confidence
+- Severity 계산 근거
+- LLM 설명과 SHAP 방향 일치 검증
+
+## M6. 모델·데이터 모니터링
+
+- 입력·클래스 분포 변화
+- 결측치·오류율 증가
+- Confidence 하락
+- 국가·언어·뉴스 소스 편향
+- 모델 상태 `HEALTHY / WARNING / DEGRADED / UNAVAILABLE`
+
+## D1. 중복 뉴스·사건 군집화
+
+- URL 정규화
+- 제목·본문 Hash/유사도
+- GDELT Event ID
+- 사건 Cluster와 대표 기사
+- 보도량 집계
+
+## D2. 소스 신뢰도
+
+- `OFFICIAL / VERIFIED_MEDIA / INDUSTRY_SOURCE / UNVERIFIED`
+- Severity 보조 근거
+- RAG 우선순위
+- 브리핑 인용 가능 여부
+
+## D3. 데이터 품질 검증
+
+- 국가·자재·공급사 식별 검증
+- 음수 재고·잘못된 계약 기간
+- 가격·통화·단위 이상값
+- 중복 이벤트 ID
+- 오래된 ERP Snapshot
+- `VALID / WARNING / INVALID / QUARANTINED`
+
+## D4. 단위·통화 표준화
+
+- 통화 환산과 환율 기준 시각
+- TON/KG 변환
+- 광물 가격 단위
+- 배터리급 Grade
+- 현물·선물·기준 시장 구분
+
+---
+
 # ✅ 0순위. API 계약 및 서비스 책임 확정
 
 ## 목표
@@ -189,6 +517,7 @@ GET /api/v1/contracts/{contract_id}
 GET /api/v1/risks/{risk_id}/briefing
 POST /api/v1/analyses
 GET /api/v1/analyses/{analysis_id}
+GET /api/v1/map/realtime-alerts
 ```
 
 ## FastAPI 핵심 API
@@ -245,6 +574,7 @@ GET /api/v1/risks/{risk_id}
 GET /api/v1/contracts
 GET /api/v1/contracts/{contract_id}
 GET /api/v1/risks/{risk_id}/briefing
+GET /api/v1/map/realtime-alerts
 ```
 
 ## 더미 응답 원칙
@@ -253,29 +583,42 @@ GET /api/v1/risks/{risk_id}/briefing
 
 ```
 {
-  "success":true,
-  "data": {
-    "risk_id":101,
-    "title":"칠레 리튬 생산 지역 폭우 발생",
-    "material_id":1,
-    "material_name":"Lithium",
-    "supplier_id":11,
-    "supplier_name":"SQM",
-    "country_code":"CL",
-    "impact_domain":"PRODUCTION",
-    "severity":"CRITICAL",
-    "severity_score":87.3,
-    "stock_days":12,
-    "evidence_type":"CONFIRMED",
-    "detected_at": "2026-07-20T08:45:00+09:00"
-  },
-  "timestamp":"2026-07-20T09:30:00+09:00"
+  "timestamp": "2026-07-21T11:45:00Z",
+  "alerts": [
+    {
+      "event_id": 123456789,
+      "country_code": "ID",
+      "country_name_kr": "인도네시아",
+      "coordinates": [113.9213, -0.7893],
+      "affected_materials": ["Nickel"],
+      "news_info": {
+        "title": "인도네시아 술라웨시 니켈 광산 폭우로 조업 중단",
+        "impact_domain": "생산",
+        "summary_kr": "폭우로 니켈 채굴 및 제련 시설 가동이 중단됨.",
+        "url": "https://example.com/mock-news/123456789"
+      },
+      "risk_assessment": {
+        "final_level": "High",
+        "ai_evidence": {
+          "tone_score": -0.85,
+          "goldstein_scale": -7.2,
+          "news_count": 15,
+          "country_is_mining_hub": 1,
+          "rainfall_24h_mm": 185.0,
+          "gdacs_alert_level": 2,
+          "actor1_type": "GOV",
+          "actor2_type": "BUS",
+          "stock_volatility_20d": 14.5
+        }
+      }
+    }
+  ]
 }
 ```
 
 ## 완료 기준
 
-- 6개 API HTTP 200 자동 테스트 통과
+- 7개 API HTTP 200 자동 테스트 통과
 - 잘못된 리스크·계약·브리핑 ID의 404 테스트 통과
 - 잘못된 Enum 및 요청 파라미터의 400 테스트 통과
 - React 개발 환경에서 최소 1개 API 실제 호출 성공
@@ -413,7 +756,7 @@ POST /api/v1/internal/briefings
 - 실제 모델이 없을 경우 동일 스키마의 Mock 응답 사용
 - 모든 JSON은 `snake_case`
 - Pydantic 내부 Python 필드는 `snake_case` 사용 가능
-- Alias Generator로 `snake_case` 직렬화
+- Pydantic 필드명을 그대로 `snake_case`로 직렬화
 
 ## 완료 기준
 
@@ -1204,6 +1547,116 @@ EC2
 
 ---
 
+# ✅ 12순위. Master Data·데이터 품질·계보
+
+## 관련 기능
+
+F6, F7, F8, D1~D4, C5
+
+## 구현 작업
+
+- 자재·공급사 Alias와 개체 매칭
+- 국가·항만·통화·단위 표준화
+- 뉴스 중복 제거와 사건 군집화
+- 소스 신뢰도와 데이터 품질 상태
+- 원본→Feature→분석 결과 Lineage
+- ERP Context Snapshot과 분석 재현
+- 규제 버전·효력·Hard Gate
+- Idempotency 적용
+
+## 완료 기준
+
+- 동일 공급사·자재의 중복 개체가 생성되지 않음
+- Invalid 데이터가 분석 전에 격리됨
+- 동일 이벤트 재처리 시 중복 결과가 생성되지 않음
+- 모든 분석 결과에서 입력 Snapshot과 근거 추적 가능
+- 만료된 정책은 Severity 판정에 사용되지 않음
+
+---
+
+# ✅ 13순위. AI 학습·검증·모델 운영
+
+## 관련 기능
+
+M1~M6
+
+## 구현 작업
+
+- LLM 라벨 생성과 사람 Blind Review
+- Cohen's Kappa와 최종 라벨 확정
+- Dataset·Feature Manifest
+- TimeSeriesSplit과 누출 방지
+- Logistic Regression Baseline
+- XGBoost 학습·평가
+- SHAP 설명
+- Model Registry와 승인·배포·Rollback
+- 데이터·모델 Drift 모니터링
+
+## 완료 기준
+
+- 사람 검증 300~500건 또는 합의한 목표 달성
+- 클래스당 최소 표본 확보
+- 시계열 분할과 재현 가능한 학습 완료
+- 모델 Artifact·Metadata·평가 지표 저장
+- FastAPI가 승인된 모델만 로드
+- 모델 설명과 브리핑 근거 방향 일치
+
+---
+
+# ✅ 14순위. 알림·대응 조치·사용자별 업무화
+
+## 관련 기능
+
+F10~F12, C2, C4
+
+## 구현 작업
+
+- BUYER/PLANNING/EXECUTIVE/ADMIN 권한
+- 사용자별 관심 자재·공급사
+- Severity 알림과 중복 억제
+- Critical 미확인 에스컬레이션
+- 권장 조치 Task 전환
+- 담당자·기한·승인·완료
+- 감사 로그
+
+## 완료 기준
+
+- 권한별 화면·API 접근 차단
+- Critical 발생 시 지정 사용자에게 알림
+- 조치 담당자와 완료 이력 추적
+- 주요 변경·실행 이벤트 감사 가능
+
+---
+
+# ✅ 15순위. 선택적 고도화
+
+## Knowledge Graph
+
+- Neo4j 노드·관계 스키마
+- 광산→자재→공급사→계약→고객 영향 경로
+- 정책 유효성 노드
+- PostgreSQL만으로도 핵심 기능이 유지되도록 선택 모듈화
+
+## AIS 실시간 검증
+
+- 물류 도메인에서만 호출
+- ERP ETA와 실제 선박 위치·ETA 비교
+- 괴리 경고와 Confidence 보정
+
+## 과거 유사 사례 참고 범위
+
+- 핵심 Severity와 분리
+- 표본 수·관찰 범위·불확실성 표시
+- 미래 예측이 아니라 과거 사례 참고임을 명시
+
+## What-if 스트레스 테스트
+
+- 입고 지연·공급 감소·대체 공급사 가격 가정
+- 사용자 입력 가정 기반 계산
+- 실제 예측과 구분하여 표시
+
+---
+
 # 📅 1일차 목표
 
 - Interface Specification v0.2 확정
@@ -1258,3 +1711,38 @@ EC2
 | 최종 | 테스트, 예외 처리, Docker, 배포, 시연 | 100% |
 
 진행률은 기반 작업 개수가 아니라 실제 기능 및 통합 완성도를 기준으로 계산한다.
+
+---
+
+# 🧭 기능–구현 단계 매핑
+
+| 구현 단계 | 핵심 기능 | 권장 범위 |
+| --- | --- | --- |
+| 0~2순위 | API 계약, Dummy API, FastAPI Mock | MVP 필수 |
+| 2.5~5순위 | 서비스 통합, DB, Mock 데이터, RAG 기반 | MVP 필수 |
+| 6~9순위 | 외부 데이터, Feature, XGBoost, Severity | MVP 필수 |
+| 10~11순위 | ERP·RAG 브리핑, E2E, 배포 | MVP 필수 |
+| 12순위 | Master Data, 품질, 계보, 규제 Hard Gate | 운영 전 필수 |
+| 13순위 | 학습 검증, Registry, Drift 모니터링 | 실제 모델 전환 시 필수 |
+| 14순위 | 인증, 알림, 대응 조치, 감사 로그 | 실사용 전 필수 |
+| 15순위 | Knowledge Graph, AIS, What-if | 선택 고도화 |
+
+## MVP에서 반드시 보여줄 사용자 흐름
+
+1. 외부 이벤트 또는 사용자 분석 요청을 Spring Boot가 접수한다.
+2. Spring Boot가 ERP·계약 Context를 구성해 FastAPI `/api/v1/analyze`를 호출한다.
+3. FastAPI가 Extraction → Impact Domain → Severity → RAG → Briefing을 수행한다.
+4. Spring Boot가 응답을 검증하고 PostgreSQL에 결과와 근거를 저장한다.
+5. React가 Spring Boot 조회 API로 리스크, 영향도, 근거, 권장 조치를 표시한다.
+6. 실패 시 상태와 오류 원인을 확인하고 안전하게 재시도할 수 있다.
+
+## MVP 이후로 미룰 수 있는 항목
+
+- 실제 LLM·Embedding·XGBoost 모델 연동과 Model Registry
+- Neo4j Knowledge Graph
+- AIS 실시간 선박 추적
+- Slack·Teams 등 외부 알림 채널
+- 고급 What-if 시뮬레이션
+- S3 등 외부 Object Storage
+
+Mock 단계에서도 API 스키마, 책임 경계, 상태 전이, 근거 구조는 실제 운영 형태와 동일하게 유지한다.

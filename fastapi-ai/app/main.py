@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1.analyze import router as analyze_router
 from app.api.v1.rag import router as rag_router
 from app.api.v1.internal import router as internal_router
+from app.api.v1.documents import router as documents_router
 from app.schemas.common import ApiErrorResponse, ErrorBody
 from app.core.config import get_settings
 from app.core.exceptions import AppException
@@ -19,11 +20,12 @@ app = FastAPI(
 app.include_router(analyze_router)
 app.include_router(rag_router)
 app.include_router(internal_router)
+app.include_router(documents_router)
 
 
 def error_response(status_code: int, code: str, message: str, details=None) -> JSONResponse:
     body = ApiErrorResponse(error=ErrorBody(code=code, message=message, details=details))
-    return JSONResponse(status_code=status_code, content=body.model_dump(mode="json", by_alias=True))
+    return JSONResponse(status_code=status_code, content=body.model_dump(mode="json"))
 
 
 @app.exception_handler(HTTPException)

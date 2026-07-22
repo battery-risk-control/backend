@@ -8,3 +8,5 @@ _merge_backup/
 project-backups/
 .idea/
 .pytest_cache/
+.env
+uploads/

@@ -10,12 +10,12 @@ from app.services.severity_service import SeverityService
 client = TestClient(app)
 
 BASE_EVENT = {
-    "externalEventId": "EVENT-100",
+    "external_event_id": "EVENT-100",
     "title": "Heavy rain disrupts lithium production",
     "content": "Flooding stopped lithium operations in Chile.",
-    "sourceName": "TEST",
-    "publishedAt": "2026-07-20T07:30:00+09:00",
-    "countryCode": "CL",
+    "source_name": "TEST",
+    "published_at": "2026-07-20T07:30:00+09:00",
+    "country_code": "CL",
 }
 
 
@@ -26,11 +26,11 @@ def test_extraction_mock_changes_with_input() -> None:
         ("Lithium price volatility", "리튬 가격 변동성", "LITHIUM", "MARKET_VOLATILITY", "MARKET"),
     ]
     for title, content, material, event_type, domain in cases:
-        response = client.post("/api/v1/internal/llm/extract", json={"title": title, "content": content, "countryCode": "CL"})
+        response = client.post("/api/v1/internal/llm/extract", json={"title": title, "content": content, "country_code": "CL"})
         data = response.json()["data"]
-        assert material in data["affectedMaterials"]
-        assert data["eventType"] == event_type
-        assert data["impactDomainDraft"] == domain
+        assert material in data["affected_materials"]
+        assert data["event_type"] == event_type
+        assert data["impact_domain_draft"] == domain
         assert data["mock"] is True
 
 
@@ -65,26 +65,26 @@ def test_severity_mock_supports_all_three_levels() -> None:
 
 def test_analyze_options_control_all_optional_steps() -> None:
     payload = {"event": deepcopy(BASE_EVENT), "options": {
-        "enrichFeatures": False, "includeErpContext": False,
-        "includeContractRag": False, "generateBriefing": False,
+        "enrich_features": False, "include_erp_context": False,
+        "include_contract_rag": False, "generate_briefing": False,
     }}
     data = client.post("/api/v1/analyze", json=payload).json()["data"]
-    assert data["featureEnrichmentApplied"] is False
-    assert data["features"]["newsCount"] == 0
-    assert data["erpContextIncluded"] is False
-    assert data["matchedEntities"]["supplierIds"] == []
-    assert data["contractRagIncluded"] is False
-    assert data["briefingId"] is None
+    assert data["feature_enrichment_applied"] is False
+    assert data["features"]["news_count"] == 0
+    assert data["erp_context_included"] is False
+    assert data["matched_entities"]["supplier_ids"] == []
+    assert data["contract_rag_included"] is False
+    assert data["briefing_id"] is None
 
 
 def test_analyze_options_enable_all_mock_steps() -> None:
     data = client.post("/api/v1/analyze", json={"event": deepcopy(BASE_EVENT)}).json()["data"]
-    assert data["featureEnrichmentApplied"] is True
-    assert data["features"]["newsCount"] == 15
-    assert data["erpContextIncluded"] is True
-    assert data["matchedEntities"]["supplierIds"] == [11]
-    assert data["contractRagIncluded"] is True
-    assert data["briefingId"] == 7001
+    assert data["feature_enrichment_applied"] is True
+    assert data["features"]["news_count"] == 15
+    assert data["erp_context_included"] is True
+    assert data["matched_entities"]["supplier_ids"] == [11]
+    assert data["contract_rag_included"] is True
+    assert data["briefing_id"] == 7001
 
 
 def test_rag_upload_search_filters_and_test_isolation() -> None:
@@ -96,39 +96,39 @@ def test_rag_upload_search_filters_and_test_isolation() -> None:
         response = client.post(
             "/api/v1/rag/contracts",
             files={"file": (f"{contract_id}.txt", text.encode(), "text/plain")},
-            data={"contractId": str(contract_id), "supplierId": str(supplier_id), "materialId": "1", "documentType": "LTA"},
+            data={"contract_id": str(contract_id), "supplier_id": str(supplier_id), "material_id": "1", "document_type": "LTA"},
         )
         assert response.status_code == 200
-        assert response.json()["data"]["chunkCount"] >= 1
+        assert response.json()["data"]["chunk_count"] >= 1
 
-    response = client.post("/api/v1/rag/search", json={"query": "price", "filters": {"supplierId": 11}, "topK": 5})
+    response = client.post("/api/v1/rag/search", json={"query": "price", "filters": {"supplier_id": 11}, "top_k": 5})
     results = response.json()["data"]["results"]
     assert len(results) == 1
-    assert results[0]["contractId"] == 501
-    assert results[0]["supplierId"] == 11
-    assert results[0]["pageNumber"] == 1
+    assert results[0]["contract_id"] == 501
+    assert results[0]["supplier_id"] == 11
+    assert results[0]["page_number"] == 1
 
 
 def test_rag_rejects_unsupported_file_type_with_common_error() -> None:
     response = client.post(
         "/api/v1/rag/contracts",
         files={"file": ("contract.docx", b"content", "application/octet-stream")},
-        data={"contractId": "501", "supplierId": "11", "materialId": "1"},
+        data={"contract_id": "501", "supplier_id": "11", "material_id": "1"},
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "UNSUPPORTED_DOCUMENT_TYPE"
 
 
-def test_pdf_mock_upload_uses_placeholder_chunk_until_parser_is_connected() -> None:
+def test_invalid_pdf_is_rejected_by_real_parser() -> None:
     response = client.post(
         "/api/v1/rag/contracts",
         files={"file": ("contract.pdf", b"%PDF-1.4 mock", "application/pdf")},
-        data={"contractId": "503", "supplierId": "13", "materialId": "2"},
+        data={"contract_id": "503", "supplier_id": "13", "material_id": "2"},
     )
-    assert response.status_code == 200
-    assert response.json()["data"]["chunkCount"] == 1
-    search = client.post("/api/v1/rag/search", json={"query": "contract", "filters": {"contractId": 503}})
-    assert search.json()["data"]["results"][0]["pageNumber"] == 1
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "UNSUPPORTED_DOCUMENT_TYPE"
+    search = client.post("/api/v1/rag/search", json={"query": "contract", "filters": {"contract_id": 503}})
+    assert search.json()["data"]["results"] == []
 
 
 def test_all_seven_apis_have_concrete_openapi_contracts() -> None:

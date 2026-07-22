@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: battery-risk-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-battery_risk}
+      POSTGRES_USER: ${POSTGRES_USER:-battery_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-battery_app_password}
+      TZ: Asia/Seoul
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - battery_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  battery_postgres_data:

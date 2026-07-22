@@ -14,7 +14,7 @@ class UnsupportedDocumentType(AppException):
 
 class RagFilterRequired(AppException):
     def __init__(self) -> None:
-        super().__init__("RAG_FILTER_REQUIRED", "contractId 또는 supplierId가 필요합니다.", 422)
+        super().__init__("RAG_FILTER_REQUIRED", "contract_id 또는 supplier_id가 필요합니다.", 422)
 
 
 class ModelUnavailable(AppException):

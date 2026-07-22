@@ -1,4 +1,4 @@
-from app.ml.inference import MockModelInference, ModelInference
+from app.models.inference import MockModelInference, ModelInference
 from app.schemas.analyze import FeatureVector
 from app.schemas.classification import ClassificationResult
 

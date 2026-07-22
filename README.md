@@ -1,6 +1,6 @@
 # Battery Risk MVP Starter
 
-Interface Specification v0.1을 기준으로 만든 초기 구현입니다.
+Interface Specification v0.2를 기준으로 만든 초기 구현입니다.
 
 ## 1. Spring Boot 실행
 
@@ -49,9 +49,9 @@ Swagger:
 
 - `GET /api/v1/dashboard/summary`
 - `GET /api/v1/risks`
-- `GET /api/v1/risks/{riskId}`
-- `GET /api/v1/contracts/{contractId}`
-- `GET /api/v1/risks/{riskId}/briefing`
+- `GET /api/v1/risks/{risk_id}`
+- `GET /api/v1/contracts/{contract_id}`
+- `GET /api/v1/risks/{risk_id}/briefing`
 - `GET /api/v1/contracts`
 
 ### FastAPI
@@ -88,6 +88,98 @@ cd ../fastapi-ai
 python -m pytest
 ```
 
-인터페이스 기준은 [docs/interface-spec-v0.1.md](docs/interface-spec-v0.1.md), 변경 이력은 [CHANGELOG.md](CHANGELOG.md)를 확인합니다.
+인터페이스 기준은 [docs/interface-spec-v0.2.md](docs/interface-spec-v0.2.md), 변경 이력은 [CHANGELOG.md](CHANGELOG.md)를 확인합니다.
 
 Spring CORS는 기본적으로 React 개발 주소 `http://localhost:3000`과 `http://localhost:5173`을 허용합니다. 배포 환경에서는 `CORS_ALLOWED_ORIGINS` 환경 변수로 변경합니다.
+# PostgreSQL 기본 환경
+
+PostgreSQL은 Spring Boot만 읽고 쓰며, FastAPI에는 PostgreSQL 계정·Driver·ORM을 추가하지 않습니다.
+
+## 1. 환경 변수 준비
+
+프로젝트 루트의 `.env.example`을 참고하여 필요하면 `.env`를 만듭니다. 기본 로컬 값은 별도 `.env` 없이도 동작합니다.
+
+## 2. PostgreSQL 실행
+
+Docker Desktop을 먼저 실행한 다음 프로젝트 루트에서 실행합니다.
+
+```powershell
+cd C:\aivleschool\bigproject\battery-risk-mvp-starter
+docker compose up -d postgres
+docker compose ps
+```
+
+`battery-risk-postgres`가 `healthy`가 되면 준비된 상태입니다.
+
+## 3. Spring Boot·Flyway 실행
+
+```powershell
+cd C:\aivleschool\bigproject\battery-risk-mvp-starter\spring-backend
+.\gradlew.bat bootRun
+```
+
+Spring Boot 시작 시 Flyway가 `V1__create_master_and_document_schema.sql`을 적용합니다.
+
+- PostgreSQL: `localhost:5432/battery_risk`
+- Spring Health: `http://localhost:8080/actuator/health`
+- Spring Swagger: `http://localhost:8080/swagger-ui.html`
+
+## 4. 종료와 데이터 유지
+
+```powershell
+docker compose stop postgres
+docker compose start postgres
+```
+
+Named Volume `battery_postgres_data`를 사용하므로 컨테이너를 정지·재시작해도 데이터가 유지됩니다. `docker compose down -v`는 Volume까지 삭제하므로 데이터 초기화가 명확히 필요할 때만 사용합니다.
+
+## Migration 책임
+
+- `V1`: F6 최소 Master Data와 C1 문서 Schema
+- `V2`: C2 인증·권한 담당자 예약
+- 적용된 Migration은 수정하지 않고 새 버전을 추가
+- 전체 규칙: `spring-backend/src/main/resources/db/migration/README.md`
+
+---
+
+# C1 문서 업로드 실행
+
+C1 업로드는 React가 Spring Boot만 호출하고, Spring Boot가 FastAPI 문서 처리 API를 호출하는 구조입니다.
+
+## 1. FastAPI 실행
+
+```powershell
+cd C:\aivleschool\bigproject\battery-risk-mvp-starter\fastapi-ai
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+- Swagger: `http://localhost:8000/docs`
+- 내부 문서 처리 API: `POST /api/v1/documents/process`
+
+## 2. Spring Boot 실행
+
+```powershell
+cd C:\aivleschool\bigproject\battery-risk-mvp-starter\spring-backend
+.\gradlew.bat bootRun
+```
+
+- Swagger: `http://localhost:8080/swagger-ui.html`
+- 프론트엔드 업로드 API: `POST /api/v1/documents`
+
+## 업로드 요청
+
+`multipart/form-data` 필드:
+
+| 필드 | 형식 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `file` | PDF/TXT | 예 | 최대 10MB |
+| `contract_id` | 양의 정수 | 예 | 계약 ID |
+| `supplier_id` | 양의 정수 | 예 | 공급사 ID |
+| `material_id` | 양의 정수 | 예 | 자재 ID |
+| `document_type` | 문자열 | 아니요 | 기본값 `LTA` |
+
+현재 Spring Boot와 FastAPI의 문서 Repository는 In-memory 구현입니다. 서버를 재시작하면 Metadata와 처리한 문서가 사라지며, 추후 Spring Repository는 PostgreSQL로, FastAPI Repository는 ChromaDB로 교체할 수 있습니다.
+
+---

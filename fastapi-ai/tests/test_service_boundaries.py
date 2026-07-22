@@ -1,5 +1,5 @@
 from app.core.config import get_settings
-from app.rag.chunker import ContractChunker
+from app.services.document_service import DocumentService
 from app.repositories.erp_repository import InMemoryErpRepository
 from app.services.classification_service import ClassificationService
 from app.services.erp_context_service import ErpContextService
@@ -32,7 +32,7 @@ def test_classification_and_severity_are_deterministic() -> None:
     assert severity.score == 87.3
 
 
-def test_chunker_returns_stable_placeholder_for_unparsed_pdf() -> None:
-    chunks = ContractChunker().chunk("")
-    assert len(chunks) == 1
-    assert chunks[0].page_number == 1
+def test_document_chunker_returns_stable_chunks() -> None:
+    chunks = DocumentService._chunk_text("A" * 50, chunk_size=20, overlap=5)
+    assert len(chunks) == 3
+    assert chunks[0] == "A" * 20

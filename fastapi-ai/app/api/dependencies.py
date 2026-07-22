@@ -9,6 +9,7 @@ from app.services.extraction_service import ExtractionService
 from app.services.feature_service import FeatureService
 from app.services.rag_service import RagService
 from app.services.severity_service import SeverityService
+from app.services.document_service import DocumentService
 
 
 @lru_cache
@@ -44,6 +45,10 @@ def get_rag_service() -> RagService: return RagService()
 
 
 @lru_cache
+def get_document_service() -> DocumentService: return DocumentService()
+
+
+@lru_cache
 def get_orchestration_service():
     from app.services.orchestration_service import OrchestrationService
     return OrchestrationService(
@@ -58,6 +63,6 @@ def reset_dependencies() -> None:
     for dependency in (
         get_extraction_service, get_feature_service, get_classification_service,
         get_severity_service, get_erp_context_service, get_briefing_service,
-        get_risk_repository, get_rag_service, get_orchestration_service,
+        get_risk_repository, get_rag_service, get_document_service, get_orchestration_service,
     ):
         dependency.cache_clear()

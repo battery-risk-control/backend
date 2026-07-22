@@ -15,10 +15,10 @@ ERRORS = {422: {"model": ApiErrorResponse}, 500: {"model": ApiErrorResponse}, 50
 @router.post("/contracts", response_model=ApiResponse[ContractUploadResult], responses=ERRORS)
 async def upload_contract(
     file: Annotated[UploadFile, File()],
-    contract_id: Annotated[int, Form(alias="contractId")],
-    supplier_id: Annotated[int, Form(alias="supplierId")],
-    material_id: Annotated[int, Form(alias="materialId")],
-    document_type: Annotated[str, Form(alias="documentType")] = "LTA",
+    contract_id: Annotated[int, Form()],
+    supplier_id: Annotated[int, Form()],
+    material_id: Annotated[int, Form()],
+    document_type: Annotated[str, Form()] = "LTA",
     service: RagService = Depends(get_rag_service),
 ) -> ApiResponse[ContractUploadResult]:
     try:
@@ -32,7 +32,7 @@ async def upload_contract(
         document_id=summary.document_id, contract_id=contract_id,
         file_name=summary.file_name, chunk_count=summary.chunk_count,
         embedding_status="COMPLETED",
-        metadata={"supplierId": supplier_id, "materialId": material_id, "documentType": document_type},
+        metadata={"supplier_id": supplier_id, "material_id": material_id, "document_type": document_type},
         mock=True,
     ))
 
