@@ -51,3 +51,7 @@ app:
     secret: ${JWT_SECRET:change-this-development-only-secret-key-please-override-in-env-32bytes+}
     access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:3600}
     refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:1209600}
+  erp:
+    seed:
+      enabled: ${ERP_SEED_ENABLED:false}
+      directory: ${ERP_SEED_DIRECTORY:}

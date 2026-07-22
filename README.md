@@ -200,9 +200,31 @@ FastAPI 내부 API `POST /api/v1/documents/process`는 Spring Boot가 발급한 
 | `document_type` | 문서 유형 |
 | `content_hash` | 원본 파일의 SHA-256 |
 
-이 배열이 5단계의 Embedding·ChromaDB 입력입니다. 5단계에서는 파일을 다시 읽거나 다시 청킹하지 않습니다. 현재 단계에는 Embedding과 ChromaDB 저장은 포함되지 않습니다.
+이 배열이 Embedding·ChromaDB 입력입니다. 이후 단계에서는 파일을 다시 읽거나 다시 청킹하지 않습니다. 현재 Mock Embedding은 구현되었고 ChromaDB 저장·검색은 태희님 구현과 통합할 예정입니다.
 
 문서 처리 오류 코드는 `EMPTY_DOCUMENT`, `UNSUPPORTED_DOCUMENT_TYPE`, `INVALID_PDF`, `TEXT_EXTRACTION_FAILED`, `CHUNKING_FAILED`로 구분합니다.
+
+## 6단계 Mock Embedding
+
+기본 설정은 API Key가 필요 없는 결정론적 Mock Provider입니다.
+
+```dotenv
+EMBEDDING_PROVIDER=mock
+EMBEDDING_DIMENSION=1536
+```
+
+`MockEmbedding`은 Chroma/LangChain에서 사용하는 다음 두 메서드 계약을 제공합니다.
+
+```python
+provider.embed_documents(["첫 번째 청크", "두 번째 청크"])
+provider.embed_query("리튬 가격 조정")
+```
+
+- 동일한 텍스트는 실행과 재시작에 관계없이 동일한 벡터를 생성합니다.
+- 기본 벡터 차원은 `text-embedding-3-small` 기본값과 같은 1,536입니다.
+- `EMBEDDING_PROVIDER=openai`일 때는 실제 Provider 객체를 외부에서 주입해야 합니다.
+- Mock과 OpenAI 벡터는 같은 Chroma Collection에 혼합하지 않습니다.
+- 실제 OpenAI API Key는 코드에 작성하지 않고 환경변수로만 전달합니다.
 
 ---
 
@@ -216,5 +238,40 @@ Spring Swagger의 `Authorize` 버튼에 로그인 응답의 `access_token`을 �
 - JSON 토큰 필드: `access_token`, `refresh_token`, `token_type`, `expires_in`, `refresh_expires_in`
 
 JWT 비밀키는 실행 환경의 `JWT_SECRET`으로 설정합니다. 로그아웃된 JWT 세션은 PostgreSQL `revoked_token_sessions`에 저장되므로 Spring 재시작 후에도 차단 상태가 유지됩니다. 만료된 세션 행은 Scheduler가 주기적으로 정리합니다.
+
+---
+
+# F6 ERP Seed와 F1 ERP Context 계산
+
+F6는 외부 ERP의 문자열 ID를 보존하면서 Spring/PostgreSQL 내부 PK와 분리합니다. 예를 들어 `MAT-LI-CARB`는 `materials.erp_material_id`에 저장되고, 관계 테이블은 내부 `material_id` BIGINT를 FK로 사용합니다.
+
+CSV 적재는 명시적으로 활성화할 때만 실행됩니다.
+
+```powershell
+$env:ERP_SEED_ENABLED='true'
+$env:ERP_SEED_DIRECTORY='C:\aivleschool\bigproject\spring-csv'
+cd C:\aivleschool\bigproject\battery-risk-mvp-starter\spring-backend
+.\gradlew.bat bootRun
+```
+
+`00_manifest.csv`의 순서와 행 수를 검증한 뒤 10개 CSV를 하나의 트랜잭션으로 upsert합니다. 같은 CSV를 다시 적재해도 외부 ERP ID를 기준으로 갱신되며 중복 행을 만들지 않습니다.
+
+인증 후 아래 Spring API로 F1의 결정적 ERP 수치를 계산할 수 있습니다.
+
+```http
+POST /api/v1/erp/context
+Authorization: Bearer {access_token}
+Content-Type: application/json
+```
+
+```json
+{
+  "erp_material_id": "MAT-LI-CARB",
+  "erp_supplier_id": "SUP-CHL-01",
+  "as_of": "2026-07-22T12:00:00+09:00"
+}
+```
+
+응답에는 가용재고, 평균 일사용량, 재고일수, 안전재고일수·부족량, 다음 입고일·남은 일수, 예상 공급 공백, 미입고 수량, 공급사 의존도가 포함됩니다. 이 단계의 데이터 출처는 `ERP_MOCK`이며 실제 ERP 연결 또는 FastAPI의 설명 생성 기능은 아직 포함하지 않습니다.
 
 ---
