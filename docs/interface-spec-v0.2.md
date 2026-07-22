@@ -22,9 +22,17 @@
 - ImpactDomain: `PRODUCTION`, `LOGISTICS`, `POLICY`, `MARKET`, `GEOPOLITICS`, `IRRELEVANT`
 - EvidenceType: `CONFIRMED`, `REFERENCE`, `WARNING`
 - ProcessingStatus: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
+- Role: `PURCHASING`, `STRATEGY`, `EXECUTIVE`
 
 ## Spring Boot 공개 API
 
+- `POST /api/v1/auth/signup`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/documents`
+- `GET /api/v1/documents/{document_id}`
 - `GET /api/v1/dashboard/summary`
 - `GET /api/v1/map/realtime-alerts`
 - `GET /api/v1/risks`
@@ -34,6 +42,16 @@
 - `GET /api/v1/risks/{risk_id}/briefing`
 
 리스크 상세 응답은 `source`, `material`, `supplier`, `analysis`, `inventory` 객체를 포함한다. 목록 API는 `content`, `page`, `size`, `total_elements`, `total_pages` 페이지 구조를 사용한다.
+
+### 인증·인가 규칙
+
+- 인증 없이 호출 가능: `signup`, `login`, `refresh`, `/api/v1/dashboard/**`, Swagger, Health
+- JWT Access Token 필요: `logout`, `me`, 문서 API와 그 외 `/api/v1/**`
+- Refresh Token은 `/refresh`에서만 사용하며 보호 API 인증에는 사용할 수 없다.
+- 로그인 응답 필드: `access_token`, `refresh_token`, `token_type`, `expires_in`, `refresh_expires_in`
+- 공개 회원가입에서 `PURCHASING`, `STRATEGY`, `EXECUTIVE` 역할을 선택할 수 있다.
+- 로그아웃 시 같은 세션 ID의 Access/Refresh Token이 함께 무효화된다.
+- 로그아웃 세션 ID와 만료 시각은 PostgreSQL `revoked_token_sessions`에 저장하며 서버 재시작 후에도 무효 상태를 유지한다.
 
 ### 실시간 관제 알림
 

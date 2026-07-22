@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-07-22 — C2 로그아웃 세션 PostgreSQL 영속화
+
+- In-memory `ConcurrentHashMap` 블랙리스트 제거
+- Flyway `V3__create_revoked_token_sessions.sql` 추가
+- `RevokedTokenSession` JPA Entity와 Repository 추가
+- `TokenBlacklistService`를 PostgreSQL 조회·저장·만료 행 정리 방식으로 교체
+- Spring 재시작 후 DB 세션 행 유지와 로그아웃 Token HTTP 401 차단 검증
+
+## 2026-07-22 — C1-A와 C2 로그인·인증·권한 통합
+
+- Spring Security, BCrypt, JJWT Access/Refresh Token 인증 추가
+- `users` 테이블을 Flyway `V2__create_auth_tables.sql`로 PostgreSQL에 적용
+- 회원가입·로그인·갱신·로그아웃·현재 사용자 조회 API 추가
+- `PURCHASING`, `STRATEGY`, `EXECUTIVE` 세 역할 회원가입 지원
+- `/api/v1/dashboard/**` 공개, 그 외 `/api/v1/**` 인증 필요 정책 적용
+- C1과 C2 공통 성공·오류 응답 및 `GlobalExceptionHandler` 병합
+- 인증 JSON과 Swagger Schema를 `snake_case`로 통일
+- Swagger Bearer Authorize 구성과 공개·보호 Operation 표시 분리
+- 원본 C2 인증 4개 시나리오와 C1 테스트를 포함한 Spring 11개 테스트 통과
+- 실제 PostgreSQL에서 V2, 세 역할 가입·로그인, 인증된 C1 업로드 E2E 검증
+
 ## 2026-07-22 — C1-A 업로드·영구 저장 완료
 
 - 최소 Material/Supplier/Contract 참조 데이터를 반복 가능 Flyway Seed로 추가

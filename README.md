@@ -118,7 +118,7 @@ cd C:\aivleschool\bigproject\battery-risk-mvp-starter\spring-backend
 .\gradlew.bat bootRun
 ```
 
-Spring Boot 시작 시 Flyway가 `V1__create_master_and_document_schema.sql`을 적용합니다.
+Spring Boot 시작 시 Flyway가 V1 Master/문서 Schema와 V2 인증 Schema를 순서대로 적용합니다.
 
 - PostgreSQL: `localhost:5432/battery_risk`
 - Spring Health: `http://localhost:8080/actuator/health`
@@ -136,7 +136,7 @@ Named Volume `battery_postgres_data`를 사용하므로 컨테이너를 정지·
 ## Migration 책임
 
 - `V1`: F6 최소 Master Data와 C1 문서 Schema
-- `V2`: C2 인증·권한 담당자 예약
+- `V2`: C2 사용자·인증·권한 Schema
 - 적용된 Migration은 수정하지 않고 새 버전을 추가
 - 전체 규칙: `spring-backend/src/main/resources/db/migration/README.md`
 
@@ -180,6 +180,19 @@ cd C:\aivleschool\bigproject\battery-risk-mvp-starter\spring-backend
 | `material_id` | 양의 정수 | 예 | 자재 ID |
 | `document_type` | 문자열 | 아니요 | 기본값 `LTA` |
 
-현재 Spring Boot와 FastAPI의 문서 Repository는 In-memory 구현입니다. 서버를 재시작하면 Metadata와 처리한 문서가 사라지며, 추후 Spring Repository는 PostgreSQL로, FastAPI Repository는 ChromaDB로 교체할 수 있습니다.
+Spring Boot의 문서 Metadata는 PostgreSQL에, 원본 파일은 `uploads/contracts/{document_id}`에 영구 저장됩니다. FastAPI의 검색용 문서 저장은 아직 In-memory Mock이며 추후 ChromaDB로 교체합니다.
+
+---
+
+# C2 로그인·인증·권한 실행
+
+Spring Swagger의 `Authorize` 버튼에 로그인 응답의 `access_token`을 입력해 보호 API를 테스트할 수 있습니다.
+
+- 공개: `POST /api/v1/auth/signup`, `/login`, `/refresh`, `/api/v1/dashboard/**`
+- 인증 필요: `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`, 그 외 `/api/v1/**`
+- 회원가입 역할: `PURCHASING`, `STRATEGY`, `EXECUTIVE`
+- JSON 토큰 필드: `access_token`, `refresh_token`, `token_type`, `expires_in`, `refresh_expires_in`
+
+JWT 비밀키는 실행 환경의 `JWT_SECRET`으로 설정합니다. 로그아웃된 JWT 세션은 PostgreSQL `revoked_token_sessions`에 저장되므로 Spring 재시작 후에도 차단 상태가 유지됩니다. 만료된 세션 행은 Scheduler가 주기적으로 정리합니다.
 
 ---

@@ -10,6 +10,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
 
 import java.time.Instant;
 
@@ -18,6 +19,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -27,6 +29,7 @@ class DocumentControllerTest {
     @MockBean DocumentService documentService;
 
     @Test
+    @WithMockUser(username = "purchaser", roles = "PURCHASING")
     void uploadsDocumentWithSnakeCaseResponse() throws Exception {
         when(documentService.upload(any(), anyLong(), anyLong(), anyLong(), anyString()))
                 .thenReturn(new DocumentDto.UploadResponse(
@@ -38,6 +41,7 @@ class DocumentControllerTest {
 
         mockMvc.perform(multipart("/api/v1/documents")
                         .file(file)
+                        .with(csrf())
                         .param("contract_id", "1")
                         .param("supplier_id", "2")
                         .param("material_id", "3")

@@ -8,12 +8,6 @@ import java.time.Instant;
 public final class DocumentDto {
     private DocumentDto() {}
 
-    public record ApiResponse<T>(boolean success, T data, Instant timestamp) {
-        public static <T> ApiResponse<T> success(T data) {
-            return new ApiResponse<>(true, data, Instant.now());
-        }
-    }
-
     public record UploadResponse(
             @JsonProperty("document_id") String documentId,
             @JsonProperty("contract_id") Long contractId,
@@ -66,11 +60,4 @@ public final class DocumentDto {
             @JsonProperty("processed_at") Instant processedAt
     ) {}
 
-    public record ErrorResponse(boolean success, ErrorBody error, Instant timestamp) {
-        public static ErrorResponse of(String code, String message) {
-            return new ErrorResponse(false, new ErrorBody(code, message), Instant.now());
-        }
-    }
-
-    public record ErrorBody(String code, String message) {}
 }

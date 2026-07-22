@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +25,7 @@ class RealtimeAlertControllerTest {
     @MockBean RealtimeAlertService realtimeAlertService;
 
     @Test
+    @WithMockUser(username = "purchaser", roles = "PURCHASING")
     void returnsApprovedRealtimeAlertContractInSnakeCase() throws Exception {
         RealtimeAlertDto.AiEvidence evidence = new RealtimeAlertDto.AiEvidence(
                 -0.85, -7.2, 15, 1, 185.0, 2, "GOV", "BUS", 14.5);

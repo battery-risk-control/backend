@@ -47,3 +47,7 @@ app:
   upload:
     max-file-size: ${UPLOAD_MAX_FILE_SIZE:10485760}
     root: ${UPLOAD_ROOT:../uploads}
+  jwt:
+    secret: ${JWT_SECRET:change-this-development-only-secret-key-please-override-in-env-32bytes+}
+    access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:3600}
+    refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:1209600}
