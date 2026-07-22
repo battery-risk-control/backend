@@ -14,6 +14,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -105,7 +106,7 @@ public class DocumentService {
         documentRepository.saveAndFlush(document);
 
         try {
-            DocumentDto.FastApiData data = processWithFastApi(document, content);
+            DocumentDto.FastApiData data = processWithFastApi(document, content, false);
             document.markCompleted(
                     data.chunkCount(), data.embeddingType(), data.embeddingVersion());
             documentRepository.saveAndFlush(document);
@@ -138,7 +139,58 @@ public class DocumentService {
         return toStatusResponse(document);
     }
 
-    private DocumentDto.FastApiData processWithFastApi(Document document, byte[] content) {
+    public DocumentDto.UploadResponse reprocess(String documentId) {
+        Document document = findDocument(documentId);
+        Path storedFile = resolveStoredFile(Path.of(document.getFilePath()));
+        byte[] content;
+        try {
+            content = Files.readAllBytes(storedFile);
+        } catch (IOException exception) {
+            document.markFailed("ORIGINAL_FILE_NOT_FOUND", "저장된 원본 문서를 읽을 수 없습니다.");
+            documentRepository.saveAndFlush(document);
+            throw new DocumentUploadException(
+                    "ORIGINAL_FILE_NOT_FOUND",
+                    "저장된 원본 문서를 읽을 수 없습니다.",
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        document.markProcessing();
+        documentRepository.saveAndFlush(document);
+        try {
+            DocumentDto.FastApiData data = processWithFastApi(document, content, true);
+            document.markCompleted(
+                    data.chunkCount(), data.embeddingType(), data.embeddingVersion());
+            documentRepository.saveAndFlush(document);
+            return toUploadResponse(document, false, data.mock());
+        } catch (DocumentUploadException exception) {
+            document.markFailed(exception.getCode(), exception.getMessage());
+            documentRepository.saveAndFlush(document);
+            throw exception;
+        } catch (RuntimeException exception) {
+            log.error("Unexpected error while reprocessing document {}", document.getDocumentId(), exception);
+            document.markFailed("DOCUMENT_PROCESSING_UNEXPECTED", "문서 재처리에 실패했습니다.");
+            try {
+                documentRepository.saveAndFlush(document);
+            } catch (RuntimeException saveException) {
+                log.error("Failed to persist FAILED status for document {}", document.getDocumentId(), saveException);
+            }
+            throw exception;
+        }
+    }
+
+    private Document findDocument(String documentId) {
+        UUID id;
+        try {
+            id = UUID.fromString(documentId);
+        } catch (IllegalArgumentException exception) {
+            throw new DocumentNotFoundException(documentId);
+        }
+        return documentRepository.findById(id)
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
+    }
+
+    private DocumentDto.FastApiData processWithFastApi(
+            Document document, byte[] content, boolean forceReprocess) {
         MultiValueMap<String, HttpEntity<?>> parts = new LinkedMultiValueMap<>();
         HttpHeaders fileHeaders = new HttpHeaders();
         fileHeaders.setContentType(MediaType.parseMediaType(document.getMimeType()));
@@ -151,6 +203,7 @@ public class DocumentService {
         parts.add("supplier_id", new HttpEntity<>(document.getSupplierId().toString()));
         parts.add("material_id", new HttpEntity<>(document.getMaterialId().toString()));
         parts.add("document_type", new HttpEntity<>(document.getDocumentType()));
+        parts.add("force_reprocess", new HttpEntity<>(Boolean.toString(forceReprocess)));
 
         DocumentDto.FastApiResponse response;
         try {
@@ -167,16 +220,20 @@ public class DocumentService {
         } catch (Exception exception) {
             log.warn("FastAPI document processing connection failed", exception);
             throw new DocumentUploadException(
-                    "FASTAPI_DOCUMENT_PROCESSING_FAILED", "FastAPI 문서 처리에 실패했습니다.");
+                    "FASTAPI_UNAVAILABLE",
+                    "FastAPI 문서 처리 서버에 연결할 수 없습니다.",
+                    HttpStatus.SERVICE_UNAVAILABLE);
         }
         if (response == null || !response.success() || response.data() == null) {
             throw new DocumentUploadException(
-                    "INVALID_FASTAPI_RESPONSE", "FastAPI 응답이 올바르지 않습니다.");
+                    "INVALID_FASTAPI_RESPONSE", "FastAPI 응답이 올바르지 않습니다.",
+                    HttpStatus.BAD_GATEWAY);
         }
         DocumentDto.FastApiData data = response.data();
         if (!document.getDocumentId().toString().equals(data.documentId())) {
             throw new DocumentUploadException(
-                    "DOCUMENT_ID_MISMATCH", "Spring과 FastAPI의 document_id가 일치하지 않습니다.");
+                    "DOCUMENT_ID_MISMATCH", "Spring과 FastAPI의 document_id가 일치하지 않습니다.",
+                    HttpStatus.BAD_GATEWAY);
         }
         return data;
     }
@@ -190,13 +247,15 @@ public class DocumentService {
             if (!code.isBlank()) {
                 return new DocumentUploadException(
                         code,
-                        message.isBlank() ? "FastAPI 문서 처리에 실패했습니다." : message);
+                        message.isBlank() ? "FastAPI 문서 처리에 실패했습니다." : message,
+                        exception.getStatusCode());
             }
         } catch (Exception parseException) {
             log.debug("FastAPI error response parsing failed", parseException);
         }
         return new DocumentUploadException(
-                "FASTAPI_DOCUMENT_PROCESSING_FAILED", "FastAPI 문서 처리에 실패했습니다.");
+                "FASTAPI_DOCUMENT_PROCESSING_FAILED", "FastAPI 문서 처리에 실패했습니다.",
+                exception.getStatusCode());
     }
 
     private FileMetadata validate(

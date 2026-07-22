@@ -1,9 +1,54 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.core.config import Settings
+import app.services.document_service as document_service_module
 
 
 client = TestClient(app)
+
+
+def make_text_pdf(page_texts: list[str]) -> bytes:
+    objects: list[bytes] = []
+    page_numbers = [3 + index * 2 for index in range(len(page_texts))]
+    font_number = 3 + len(page_texts) * 2
+    objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
+    kids = " ".join(f"{number} 0 R" for number in page_numbers)
+    objects.append(f"<< /Type /Pages /Kids [{kids}] /Count {len(page_texts)} >>".encode())
+    for index, text in enumerate(page_texts):
+        page_number = page_numbers[index]
+        content_number = page_number + 1
+        escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+        stream = f"BT /F1 12 Tf 72 720 Td ({escaped}) Tj ET".encode("latin-1")
+        objects.append(
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            f"/Resources << /Font << /F1 {font_number} 0 R >> >> "
+            f"/Contents {content_number} 0 R >>".encode()
+        )
+        objects.append(
+            f"<< /Length {len(stream)} >>\nstream\n".encode()
+            + stream
+            + b"\nendstream"
+        )
+    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for number, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{number} 0 obj\n".encode())
+        pdf.extend(obj)
+        pdf.extend(b"\nendobj\n")
+    xref = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode())
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode())
+    pdf.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{xref}\n%%EOF\n".encode()
+    )
+    return bytes(pdf)
 
 
 def upload(content: bytes = b"Price adjustment clause for lithium supply."):
@@ -86,3 +131,76 @@ def test_health_reports_chroma_collection() -> None:
     assert response.json()["status"] == "UP"
     assert response.json()["vector_store"]["status"] == "UP"
     assert response.json()["vector_store"]["collection_name"] == "contract_documents_mock_v1"
+
+
+def test_force_reprocess_reuses_document_id_without_duplicate_chunks() -> None:
+    first = upload(b"Article 1 Price adjustment\nLithium price clause")
+    assert first.status_code == 200
+
+    second = client.post(
+        "/api/v1/documents/process",
+        files={"file": (
+            "contract.txt",
+            b"Article 1 Price adjustment\nLithium price clause",
+            "text/plain",
+        )},
+        data={
+            "document_id": "11111111-1111-1111-1111-111111111111",
+            "contract_id": "1",
+            "supplier_id": "2",
+            "material_id": "3",
+            "document_type": "LTA",
+            "force_reprocess": "true",
+        },
+    )
+
+    assert second.status_code == 200
+    assert second.json()["data"]["document_id"] == first.json()["data"]["document_id"]
+    assert second.json()["data"]["duplicate"] is False
+    assert second.json()["data"]["chunk_count"] == first.json()["data"]["chunk_count"]
+
+
+def test_valid_pdf_keeps_real_one_based_page_numbers() -> None:
+    response = client.post(
+        "/api/v1/documents/process",
+        files={"file": (
+            "contract.pdf",
+            make_text_pdf(["Article 1 Purpose", "Article 2 Price adjustment"]),
+            "application/pdf",
+        )},
+        data={
+            "document_id": "33333333-3333-3333-3333-333333333333",
+            "contract_id": "1",
+            "supplier_id": "2",
+            "material_id": "3",
+            "document_type": "LTA",
+        },
+    )
+
+    assert response.status_code == 200
+    chunks = response.json()["data"]["chunks"]
+    assert [item["page_number"] for item in chunks] == [1, 2]
+    assert [item["chunk_index"] for item in chunks] == [0, 1]
+
+
+def test_chunking_failure_uses_explicit_error_code(monkeypatch) -> None:
+    monkeypatch.setattr(
+        document_service_module,
+        "get_settings",
+        lambda: Settings(chunk_size=10, chunk_overlap=10),
+    )
+
+    response = client.post(
+        "/api/v1/documents/process",
+        files={"file": ("contract.txt", b"unique chunking failure text", "text/plain")},
+        data={
+            "document_id": "44444444-4444-4444-4444-444444444444",
+            "contract_id": "1",
+            "supplier_id": "2",
+            "material_id": "3",
+            "document_type": "LTA",
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "CHUNKING_FAILED"

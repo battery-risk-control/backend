@@ -257,6 +257,48 @@ CHROMA_COLLECTION_PREFIX=contract_documents
 
 Mock 적재 성공 시 Spring Boot의 `contract_documents`에는 `embedding_type=MOCK_TOKEN_HASH`, `embedding_version=mock-v1`이 저장됩니다. 실제 Embedding은 아직 연결하지 않았습니다.
 
+## 7단계 C1-B 실제 업로드·검색 E2E
+
+React와 Swagger는 인증 후 Spring Boot만 호출합니다.
+
+```http
+POST /api/v1/documents
+GET  /api/v1/documents/{document_id}
+POST /api/v1/documents/{document_id}/reprocess
+POST /api/v1/rag/search
+```
+
+검색 요청 예시:
+
+```json
+{
+  "query": "리튬 가격 조정 조건",
+  "filters": {
+    "contract_id": 1,
+    "supplier_id": 1,
+    "material_id": 1
+  },
+  "top_k": 5
+}
+```
+
+`contract_id` 또는 `supplier_id` 중 하나는 필수입니다. Spring의 검색 서비스는 FastAPI `/api/v1/rag/search`를 호출하며 검색 장애가 발생해도 이미 완료된 PostgreSQL 문서 상태는 변경하지 않습니다.
+
+문서 재처리는 저장된 원본 파일과 같은 `document_id`를 사용하고 FastAPI에 `force_reprocess=true`를 전달합니다. FastAPI는 기존 Chroma 청크를 삭제한 뒤 다시 적재하므로 오래된 청크가 남지 않습니다.
+
+오류 상태:
+
+| 상황 | PostgreSQL `processing_status` | `error_code` |
+| --- | --- | --- |
+| FastAPI 연결 실패 | `FAILED` | `FASTAPI_UNAVAILABLE` |
+| 손상 PDF | `FAILED` | `INVALID_PDF` |
+| TXT 디코딩 실패 | `FAILED` | `TEXT_EXTRACTION_FAILED` |
+| 청킹 실패 | `FAILED` | `CHUNKING_FAILED` |
+| Chroma 연결 실패 | `FAILED` | `VECTOR_STORE_UNAVAILABLE` |
+| Chroma 적재 실패 | `FAILED` | `VECTOR_STORE_FAILED` |
+
+실제 네 서비스 E2E에서 정상 TXT·2페이지 PDF 업로드, 중복·재처리, Metadata Filter, 장애 상태 저장, PostgreSQL·Chroma 재시작 후 영속성을 확인했습니다. 상세 결과는 `docs/c1-b-e2e-implementation.md`를 참고합니다.
+
 ---
 
 # C2 로그인·인증·권한 실행

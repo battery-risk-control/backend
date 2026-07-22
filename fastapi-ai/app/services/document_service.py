@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -124,10 +124,24 @@ class DocumentService:
         material_id: int,
         document_type: str,
         document_id: str,
+        force_reprocess: bool = False,
     ) -> tuple[ProcessedDocument, bool]:
         content_hash = sha256(content).hexdigest()
         existing = self.store.find_by_hash(contract_id, content_hash)
         if existing:
+            if (
+                force_reprocess
+                and existing.document_id == document_id
+                and self.vector_store is not None
+            ):
+                write_result = self.vector_store.upsert_chunks(existing.chunks)
+                refreshed = replace(
+                    existing,
+                    embedding_type=write_result.embedding_type,
+                    embedding_version=write_result.embedding_version,
+                    mock_embedding=write_result.mock_embedding,
+                )
+                return self.store.save(refreshed), False
             return existing, True
 
         pages = self._extract_pages(content, file_name)

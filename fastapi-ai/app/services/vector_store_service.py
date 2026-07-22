@@ -1,8 +1,10 @@
 import re
+import logging
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 import chromadb
+import httpx
 from chromadb.config import Settings as ChromaClientSettings
 
 from app.core.config import Settings, get_settings
@@ -13,6 +15,9 @@ from app.core.exceptions import (
     VectorStoreUnavailable,
 )
 from app.services.embedding_service import EmbeddingProvider
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -144,7 +149,22 @@ class ChromaVectorStore:
                 metadatas=metadatas,
             )
         except Exception as exception:
-            raise VectorStoreFailed("ChromaDB 문서 청크 저장에 실패했습니다.") from exception
+            cleanup_failed = False
+            for document_id in document_ids:
+                try:
+                    self.delete_document(document_id)
+                except Exception:
+                    cleanup_failed = True
+                    logger.exception(
+                        "Failed to clean partially stored Chroma chunks: document_id=%s",
+                        document_id,
+                    )
+            if self._is_connection_error(exception):
+                raise VectorStoreUnavailable() from exception
+            message = "ChromaDB 문서 청크 저장에 실패했습니다."
+            if cleanup_failed:
+                message = "ChromaDB 부분 적재 실패 후 청크 정리에도 실패했습니다."
+            raise VectorStoreFailed(message) from exception
 
         return VectorStoreWriteResult(
             document_ids=document_ids,
@@ -186,7 +206,7 @@ class ChromaVectorStore:
                 include=["documents", "metadatas", "distances"],
             )
         except Exception as exception:
-            raise VectorStoreFailed("ChromaDB 문서 검색에 실패했습니다.") from exception
+            self._raise_operation_error(exception, "ChromaDB 문서 검색에 실패했습니다.")
 
         ids = (result.get("ids") or [[]])[0]
         documents = (result.get("documents") or [[]])[0]
@@ -211,7 +231,7 @@ class ChromaVectorStore:
                 include=["documents", "metadatas"],
             )
         except Exception as exception:
-            raise VectorStoreFailed("ChromaDB 문서 청크 조회에 실패했습니다.") from exception
+            self._raise_operation_error(exception, "ChromaDB 문서 청크 조회에 실패했습니다.")
 
         documents = result.get("documents") or []
         metadatas = result.get("metadatas") or []
@@ -237,6 +257,8 @@ class ChromaVectorStore:
                 self._collection.delete(ids=ids)
             return len(ids)
         except Exception as exception:
+            if self._is_connection_error(exception):
+                raise VectorStoreUnavailable() from exception
             raise VectorStoreDeleteFailed() from exception
 
     def clear(self) -> int:
@@ -307,3 +329,32 @@ class ChromaVectorStore:
     @staticmethod
     def _cosine_similarity(distance: float) -> float:
         return round(max(0.0, min(1.0, 1.0 - float(distance))), 6)
+
+    @staticmethod
+    def _is_connection_error(exception: BaseException) -> bool:
+        current: BaseException | None = exception
+        visited: set[int] = set()
+        while current is not None and id(current) not in visited:
+            visited.add(id(current))
+            if isinstance(
+                current,
+                (httpx.TimeoutException, httpx.NetworkError, ConnectionError, OSError),
+            ):
+                return True
+            message = str(current).casefold()
+            if any(token in message for token in (
+                "connection refused",
+                "connection reset",
+                "failed to establish a new connection",
+                "timed out",
+                "all connection attempts failed",
+            )):
+                return True
+            current = current.__cause__ or current.__context__
+        return False
+
+    @classmethod
+    def _raise_operation_error(cls, exception: Exception, message: str) -> None:
+        if cls._is_connection_error(exception):
+            raise VectorStoreUnavailable() from exception
+        raise VectorStoreFailed(message) from exception

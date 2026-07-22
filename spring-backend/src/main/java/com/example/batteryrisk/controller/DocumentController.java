@@ -43,4 +43,11 @@ public class DocumentController {
             @PathVariable("document_id") String documentId) {
         return ApiResponse.ok(documentService.get(documentId));
     }
+
+    @Operation(summary = "RAG 문서 재처리", description = "저장된 원본 문서를 같은 document_id로 다시 ChromaDB에 적재합니다.")
+    @PostMapping("/{document_id}/reprocess")
+    public ApiResponse<DocumentDto.UploadResponse> reprocess(
+            @PathVariable("document_id") String documentId) {
+        return ApiResponse.ok(documentService.reprocess(documentId));
+    }
 }

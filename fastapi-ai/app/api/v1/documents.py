@@ -19,11 +19,13 @@ async def process_document(
     supplier_id: Annotated[int, Form(gt=0)],
     material_id: Annotated[int, Form(gt=0)],
     document_type: Annotated[str, Form()] = "LTA",
+    force_reprocess: Annotated[bool, Form()] = False,
     service: DocumentService = Depends(get_document_service),
 ) -> ApiResponse[DocumentProcessResult]:
     document, duplicate = service.process(
         await file.read(), file.filename or "document", contract_id,
         supplier_id, material_id, document_type, document_id=document_id,
+        force_reprocess=force_reprocess,
     )
 
     return ApiResponse(data=DocumentProcessResult(

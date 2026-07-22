@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -54,5 +55,20 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.data.embedding_type").value("MOCK_TOKEN_HASH"))
                 .andExpect(jsonPath("$.data.embedding_version").value("mock-v1"))
                 .andExpect(jsonPath("$.data.documentId").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = "purchaser", roles = "PURCHASING")
+    void reprocessesStoredDocumentWithSameDocumentId() throws Exception {
+        when(documentService.reprocess("DOC-ABC"))
+                .thenReturn(new DocumentDto.UploadResponse(
+                        "DOC-ABC", 1L, 2L, 3L, "LTA", "contract.txt", "hash", 1,
+                        "COMPLETED", "MOCK_TOKEN_HASH", "mock-v1", false, true,
+                        Instant.parse("2026-07-22T00:00:00Z")));
+
+        mockMvc.perform(post("/api/v1/documents/DOC-ABC/reprocess").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.document_id").value("DOC-ABC"))
+                .andExpect(jsonPath("$.data.duplicate").value(false));
     }
 }

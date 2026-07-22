@@ -11,3 +11,5 @@ project-backups/
 .env
 uploads/
 fastapi-ai/data/
+frontend/node_modules/
+frontend/dist/

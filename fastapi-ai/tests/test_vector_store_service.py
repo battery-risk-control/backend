@@ -2,9 +2,14 @@ from hashlib import sha256
 from uuid import uuid4
 
 import pytest
+import httpx
 
 from app.core.config import Settings
-from app.core.exceptions import RagFilterRequired, VectorStoreFailed
+from app.core.exceptions import (
+    RagFilterRequired,
+    VectorStoreFailed,
+    VectorStoreUnavailable,
+)
 from app.services.embedding_service import MockEmbedding
 from app.services.vector_store_service import ChromaVectorStore
 
@@ -100,3 +105,74 @@ def test_all_nine_chunk_fields_are_required() -> None:
 
     assert exception.value.code == "VECTOR_STORE_FAILED"
     assert "content_hash" in exception.value.message
+
+
+class PartialFailureCollection:
+    def __init__(self) -> None:
+        self.records: dict[str, tuple[str, dict[str, object]]] = {}
+
+    def get(self, where=None, include=None):
+        ids = [
+            vector_id for vector_id, (_content, metadata) in self.records.items()
+            if where is None or metadata.get("document_id") == where.get("document_id")
+        ]
+        return {
+            "ids": ids,
+            "documents": [self.records[vector_id][0] for vector_id in ids],
+            "metadatas": [self.records[vector_id][1] for vector_id in ids],
+        }
+
+    def delete(self, ids):
+        for vector_id in ids:
+            self.records.pop(vector_id, None)
+
+    def upsert(self, ids, embeddings, documents, metadatas):
+        self.records[ids[0]] = (documents[0], metadatas[0])
+        raise RuntimeError("partial write")
+
+    def count(self):
+        return len(self.records)
+
+
+class SearchUnavailableCollection(PartialFailureCollection):
+    def query(self, **_kwargs):
+        raise httpx.ConnectError("All connection attempts failed")
+
+
+class FakeClient:
+    def __init__(self, collection) -> None:
+        self.collection = collection
+
+    def get_or_create_collection(self, **_kwargs):
+        return self.collection
+
+    def heartbeat(self):
+        return 1
+
+
+def test_partial_upsert_failure_removes_partially_written_chunks() -> None:
+    collection = PartialFailureCollection()
+    store = ChromaVectorStore(
+        MockEmbedding(dimension=64),
+        Settings(embedding_dimension=64, chroma_mode="ephemeral"),
+        client=FakeClient(collection),
+    )
+
+    with pytest.raises(VectorStoreFailed):
+        store.upsert_chunks([
+            chunk("DOC-PARTIAL", 0, "리튬 가격 조정"),
+            chunk("DOC-PARTIAL", 1, "공급 지연 위약금"),
+        ])
+
+    assert collection.records == {}
+
+
+def test_search_connection_failure_returns_vector_store_unavailable() -> None:
+    store = ChromaVectorStore(
+        MockEmbedding(dimension=64),
+        Settings(embedding_dimension=64, chroma_mode="ephemeral"),
+        client=FakeClient(SearchUnavailableCollection()),
+    )
+
+    with pytest.raises(VectorStoreUnavailable):
+        store.search("리튬", contract_id=1, supplier_id=None)

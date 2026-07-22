@@ -4,6 +4,7 @@ import com.example.batteryrisk.dto.ApiErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -19,14 +20,43 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     public static class DocumentUploadException extends RuntimeException {
         private final String code;
+        private final HttpStatusCode status;
 
         public DocumentUploadException(String code, String message) {
+            this(code, message, HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+
+        public DocumentUploadException(String code, String message, HttpStatusCode status) {
             super(message);
             this.code = code;
+            this.status = status;
         }
 
         public String getCode() {
             return code;
+        }
+
+        public HttpStatusCode getStatus() {
+            return status;
+        }
+    }
+
+    public static class RagSearchException extends RuntimeException {
+        private final String code;
+        private final HttpStatusCode status;
+
+        public RagSearchException(String code, String message, HttpStatusCode status) {
+            super(message);
+            this.code = code;
+            this.status = status;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public HttpStatusCode getStatus() {
+            return status;
         }
     }
 
@@ -45,7 +75,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DocumentUploadException.class)
     ResponseEntity<ApiErrorResponse> handleDocumentUpload(DocumentUploadException exception) {
-        return ResponseEntity.unprocessableEntity()
+        return ResponseEntity.status(exception.getStatus())
+                .body(ApiErrorResponse.of(exception.getCode(), exception.getMessage()));
+    }
+
+    @ExceptionHandler(RagSearchException.class)
+    ResponseEntity<ApiErrorResponse> handleRagSearch(RagSearchException exception) {
+        return ResponseEntity.status(exception.getStatus())
                 .body(ApiErrorResponse.of(exception.getCode(), exception.getMessage()));
     }
 
