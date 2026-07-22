@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -9,6 +9,8 @@ from app.api.v1.documents import router as documents_router
 from app.schemas.common import ApiErrorResponse, ErrorBody
 from app.core.config import get_settings
 from app.core.exceptions import AppException
+from app.api.dependencies import get_vector_store
+from app.services.vector_store_service import ChromaVectorStore
 
 settings = get_settings()
 
@@ -50,5 +52,7 @@ async def unexpected_exception_handler(_request: Request, exception: Exception) 
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health(
+    vector_store: ChromaVectorStore = Depends(get_vector_store),
+) -> dict[str, object]:
+    return {"status": "UP", "vector_store": vector_store.health_check()}

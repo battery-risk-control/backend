@@ -1,5 +1,7 @@
 package com.example.batteryrisk.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.batteryrisk.domain.Document;
 import com.example.batteryrisk.dto.DocumentDto;
 import com.example.batteryrisk.exception.GlobalExceptionHandler.DocumentNotFoundException;
@@ -36,6 +38,7 @@ import java.util.UUID;
 @Service
 public class DocumentService {
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
+    private static final ObjectMapper ERROR_BODY_MAPPER = new ObjectMapper();
     private static final Map<String, Set<String>> ALLOWED_MIME_TYPES = Map.of(
             "pdf", Set.of("application/pdf"),
             "txt", Set.of("text/plain")
@@ -103,7 +106,8 @@ public class DocumentService {
 
         try {
             DocumentDto.FastApiData data = processWithFastApi(document, content);
-            document.markCompleted(data.chunkCount());
+            document.markCompleted(
+                    data.chunkCount(), data.embeddingType(), data.embeddingVersion());
             documentRepository.saveAndFlush(document);
             return toUploadResponse(document, data.duplicate(), data.mock());
         } catch (DocumentUploadException exception) {
@@ -159,8 +163,7 @@ public class DocumentService {
         } catch (RestClientResponseException exception) {
             log.warn("FastAPI document processing failed: status={}, body={}",
                     exception.getStatusCode(), exception.getResponseBodyAsString());
-            throw new DocumentUploadException(
-                    "FASTAPI_DOCUMENT_PROCESSING_FAILED", "FastAPI 문서 처리에 실패했습니다.");
+            throw mapFastApiError(exception);
         } catch (Exception exception) {
             log.warn("FastAPI document processing connection failed", exception);
             throw new DocumentUploadException(
@@ -176,6 +179,24 @@ public class DocumentService {
                     "DOCUMENT_ID_MISMATCH", "Spring과 FastAPI의 document_id가 일치하지 않습니다.");
         }
         return data;
+    }
+
+    private DocumentUploadException mapFastApiError(RestClientResponseException exception) {
+        try {
+            JsonNode error = ERROR_BODY_MAPPER.readTree(exception.getResponseBodyAsString())
+                    .path("error");
+            String code = error.path("code").asText("").trim();
+            String message = error.path("message").asText("").trim();
+            if (!code.isBlank()) {
+                return new DocumentUploadException(
+                        code,
+                        message.isBlank() ? "FastAPI 문서 처리에 실패했습니다." : message);
+            }
+        } catch (Exception parseException) {
+            log.debug("FastAPI error response parsing failed", parseException);
+        }
+        return new DocumentUploadException(
+                "FASTAPI_DOCUMENT_PROCESSING_FAILED", "FastAPI 문서 처리에 실패했습니다.");
     }
 
     private FileMetadata validate(
@@ -284,6 +305,7 @@ public class DocumentService {
                 document.getDocumentId().toString(), document.getContractId(), document.getSupplierId(),
                 document.getMaterialId(), document.getDocumentType(), document.getOriginalFileName(),
                 document.getContentHash(), document.getChunkCount(), document.getProcessingStatus(),
+                document.getEmbeddingType(), document.getEmbeddingVersion(),
                 duplicate, mock, document.getProcessedAt());
     }
 

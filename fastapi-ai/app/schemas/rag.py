@@ -31,11 +31,17 @@ class RagSearchItem(ApiModel):
     contract_id: int
     supplier_id: int
     material_id: int
+    document_type: str
+    chunk_index: int
     clause_id: int | None = None
     clause_type: str | None = None
     content: str
+    content_hash: str
     similarity_score: float
-    page_number: int | None = None
+    page_number: int
+    embedding_type: str
+    embedding_version: str
+    mock_embedding: bool
 
 
 class RagSearchResult(ApiModel):

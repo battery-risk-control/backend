@@ -48,6 +48,7 @@ public final class ErpDto {
             String purchaseOrderStatus,
             String alternativeSupplierStatus,
             String supplierStatus,
+            String feocStatus,
             Long primarySupplierId,
             String erpSupplierId,
             Long primaryContractId,

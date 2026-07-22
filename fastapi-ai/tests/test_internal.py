@@ -21,7 +21,15 @@ def test_internal_classify():
 
 def test_internal_severity():
     response = client.post("/api/v1/internal/severity/score", json={
-        "features": FEATURES, "stock_days": 12, "feoc_status": False
+        "inventory_days": 12,
+        "safety_stock_days": 20,
+        "expected_supply_gap_days": 8,
+        "supplier_dependency_ratio": 0.72,
+        "price_change_rate": 11.5,
+        "logistics_delay_days": 7,
+        "gdacs_alert_level": 2,
+        "feoc_status": "NO",
+        "data_quality_status": "VALID",
     })
     assert response.status_code == 200
     assert response.json()["data"]["severity"] == "CRITICAL"

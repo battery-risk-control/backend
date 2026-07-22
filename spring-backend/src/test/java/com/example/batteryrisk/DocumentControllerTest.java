@@ -34,7 +34,8 @@ class DocumentControllerTest {
         when(documentService.upload(any(), anyLong(), anyLong(), anyLong(), anyString()))
                 .thenReturn(new DocumentDto.UploadResponse(
                         "DOC-ABC", 1L, 2L, 3L, "LTA", "contract.txt", "hash", 1,
-                        "COMPLETED", false, true, Instant.parse("2026-07-21T00:00:00Z")));
+                        "COMPLETED", "MOCK_TOKEN_HASH", "mock-v1", false, true,
+                        Instant.parse("2026-07-21T00:00:00Z")));
 
         MockMultipartFile file = new MockMultipartFile(
                 "file", "contract.txt", "text/plain", "price clause".getBytes());
@@ -50,6 +51,8 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.document_id").value("DOC-ABC"))
                 .andExpect(jsonPath("$.data.processing_status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.embedding_type").value("MOCK_TOKEN_HASH"))
+                .andExpect(jsonPath("$.data.embedding_version").value("mock-v1"))
                 .andExpect(jsonPath("$.data.documentId").doesNotExist());
     }
 }

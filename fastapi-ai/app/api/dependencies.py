@@ -10,6 +10,11 @@ from app.services.feature_service import FeatureService
 from app.services.rag_service import RagService
 from app.services.severity_service import SeverityService
 from app.services.document_service import DocumentService
+from app.services.embedding_service import (
+    EmbeddingProvider,
+    get_embedding_provider as build_embedding_provider,
+)
+from app.services.vector_store_service import ChromaVectorStore
 
 
 @lru_cache
@@ -41,11 +46,21 @@ def get_risk_repository() -> InMemoryRiskRepository: return InMemoryRiskReposito
 
 
 @lru_cache
-def get_rag_service() -> RagService: return RagService()
+def get_embedding_service() -> EmbeddingProvider: return build_embedding_provider()
 
 
 @lru_cache
-def get_document_service() -> DocumentService: return DocumentService()
+def get_vector_store() -> ChromaVectorStore:
+    return ChromaVectorStore(get_embedding_service())
+
+
+@lru_cache
+def get_rag_service() -> RagService: return RagService(vector_store=get_vector_store())
+
+
+@lru_cache
+def get_document_service() -> DocumentService:
+    return DocumentService(vector_store=get_vector_store())
 
 
 @lru_cache
@@ -63,6 +78,7 @@ def reset_dependencies() -> None:
     for dependency in (
         get_extraction_service, get_feature_service, get_classification_service,
         get_severity_service, get_erp_context_service, get_briefing_service,
-        get_risk_repository, get_rag_service, get_document_service, get_orchestration_service,
+        get_risk_repository, get_embedding_service, get_vector_store,
+        get_rag_service, get_document_service, get_orchestration_service,
     ):
         dependency.cache_clear()

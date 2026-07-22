@@ -29,8 +29,15 @@ async def upload_contract(
         document_id=summary.document_id, contract_id=contract_id,
         file_name=summary.file_name, chunk_count=summary.chunk_count,
         embedding_status="COMPLETED",
-        metadata={"supplier_id": supplier_id, "material_id": material_id, "document_type": document_type},
-        mock=True,
+        metadata={
+            "supplier_id": supplier_id,
+            "material_id": material_id,
+            "document_type": document_type,
+            "embedding_type": summary.embedding_type,
+            "embedding_version": summary.embedding_version,
+            "mock_embedding": summary.mock_embedding,
+        },
+        mock=summary.mock_embedding,
     ))
 
 
@@ -44,11 +51,17 @@ def search_contracts(
     chunks = service.search(
         request.query, request.filters.contract_id,
         request.filters.supplier_id, request.top_k,
+        request.filters.material_id,
     )
     results = [RagSearchItem(
         document_id=item.document_id, contract_id=item.contract_id,
         supplier_id=item.supplier_id, material_id=item.material_id,
-        content=item.chunk.content, similarity_score=0.92,
-        page_number=item.chunk.page_number,
-    ) for item in chunks if request.filters.material_id is None or item.material_id == request.filters.material_id]
-    return ApiResponse(data=RagSearchResult(results=results, mock=True))
+        document_type=item.document_type, chunk_index=item.chunk_index,
+        content=item.content, content_hash=item.content_hash,
+        similarity_score=item.similarity_score,
+        page_number=item.page_number,
+        embedding_type=item.embedding_type,
+        embedding_version=item.embedding_version,
+        mock_embedding=item.mock_embedding,
+    ) for item in chunks]
+    return ApiResponse(data=RagSearchResult(results=results, mock=service.mock_embedding))

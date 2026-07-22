@@ -152,7 +152,7 @@ C1 업로드는 React가 Spring Boot만 호출하고, Spring Boot가 FastAPI 문
 cd C:\aivleschool\bigproject\battery-risk-mvp-starter\fastapi-ai
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000 --env-file ../.env
 ```
 
 - Swagger: `http://localhost:8000/docs`
@@ -180,7 +180,7 @@ cd C:\aivleschool\bigproject\battery-risk-mvp-starter\spring-backend
 | `material_id` | 양의 정수 | 예 | 자재 ID |
 | `document_type` | 문자열 | 아니요 | 기본값 `LTA` |
 
-Spring Boot의 문서 Metadata는 PostgreSQL에, 원본 파일은 `uploads/contracts/{document_id}`에 영구 저장됩니다. FastAPI의 검색용 문서 저장은 아직 In-memory Mock이며 추후 ChromaDB로 교체합니다.
+Spring Boot의 문서 Metadata는 PostgreSQL에, 원본 파일은 `uploads/contracts/{document_id}`에 영구 저장됩니다. FastAPI는 추출한 청크를 Mock Embedding으로 변환하여 ChromaDB에 저장합니다.
 
 ## 4단계 문서 추출·청킹 출력 계약
 
@@ -200,7 +200,7 @@ FastAPI 내부 API `POST /api/v1/documents/process`는 Spring Boot가 발급한 
 | `document_type` | 문서 유형 |
 | `content_hash` | 원본 파일의 SHA-256 |
 
-이 배열이 Embedding·ChromaDB 입력입니다. 이후 단계에서는 파일을 다시 읽거나 다시 청킹하지 않습니다. 현재 Mock Embedding은 구현되었고 ChromaDB 저장·검색은 태희님 구현과 통합할 예정입니다.
+이 배열이 Embedding·ChromaDB 입력입니다. 이후 단계에서는 파일을 다시 읽거나 다시 청킹하지 않습니다. `content`만 Embedding 본문으로 사용하고 나머지 필드는 Chroma Metadata로 저장합니다.
 
 문서 처리 오류 코드는 `EMPTY_DOCUMENT`, `UNSUPPORTED_DOCUMENT_TYPE`, `INVALID_PDF`, `TEXT_EXTRACTION_FAILED`, `CHUNKING_FAILED`로 구분합니다.
 
@@ -225,6 +225,37 @@ provider.embed_query("리튬 가격 조정")
 - `EMBEDDING_PROVIDER=openai`일 때는 실제 Provider 객체를 외부에서 주입해야 합니다.
 - Mock과 OpenAI 벡터는 같은 Chroma Collection에 혼합하지 않습니다.
 - 실제 OpenAI API Key는 코드에 작성하지 않고 환경변수로만 전달합니다.
+
+## 5~6단계 ChromaDB·Mock Embedding 연결
+
+Docker ChromaDB는 FastAPI의 `8000` 포트와 겹치지 않도록 호스트 `8001` 포트를 사용합니다.
+
+```powershell
+cd C:\aivleschool\bigproject\battery-risk-mvp-starter
+docker compose up -d chroma
+```
+
+FastAPI를 Docker ChromaDB에 연결할 때는 다음 환경변수를 지정합니다.
+
+```dotenv
+CHROMA_MODE=http
+CHROMA_HOST=localhost
+CHROMA_PORT=8001
+CHROMA_SSL=false
+CHROMA_COLLECTION_PREFIX=contract_documents
+```
+
+별도 Chroma 컨테이너 없이 로컬 개발을 할 때는 `CHROMA_MODE=persistent`와 `CHROMA_PERSIST_DIRECTORY=./data/chroma`를 사용합니다. 테스트는 운영 데이터를 지우지 않도록 `ephemeral` 모드에서 격리됩니다.
+
+- Mock Collection: `contract_documents_mock_v1`
+- 청크 ID: `{document_id}:{chunk_index}`
+- 재적재: 같은 `document_id`의 기존 청크를 지운 뒤 새 청크 저장
+- 검색: `contract_id` 또는 `supplier_id` 필수 필터 후 Vector 검색, `material_id` 선택 필터
+- 검색 점수: cosine distance를 `0.0~1.0` 유사도로 변환
+- Health Check: `GET http://localhost:8000/health`
+- 저장 Metadata: 원본 4단계 Metadata와 `embedding_type`, `embedding_version`, `mock_embedding`
+
+Mock 적재 성공 시 Spring Boot의 `contract_documents`에는 `embedding_type=MOCK_TOKEN_HASH`, `embedding_version=mock-v1`이 저장됩니다. 실제 Embedding은 아직 연결하지 않았습니다.
 
 ---
 
@@ -273,5 +304,45 @@ Content-Type: application/json
 ```
 
 응답에는 가용재고, 평균 일사용량, 재고일수, 안전재고일수·부족량, 다음 입고일·남은 일수, 예상 공급 공백, 미입고 수량, 공급사 의존도가 포함됩니다. 이 단계의 데이터 출처는 `ERP_MOCK`이며 실제 ERP 연결 또는 FastAPI의 설명 생성 기능은 아직 포함하지 않습니다.
+
+---
+
+# 11단계 Severity Rule Engine
+
+Spring은 F1 ERP Context와 외부 위험 신호를 조합하여 FastAPI의 결정적 규칙 엔진을 호출하고, 입력 Snapshot과 결과를 PostgreSQL `severity_assessments`에 저장합니다. React는 FastAPI를 직접 호출하지 않습니다.
+
+```http
+POST /api/v1/severity/assessments
+GET  /api/v1/severity/assessments/{assessment_id}
+```
+
+Spring 요청 예시:
+
+```json
+{
+  "erp_material_id": "MAT-LI-CARB",
+  "erp_supplier_id": "SUP-CHL-01",
+  "as_of": "2026-07-22T12:00:00+09:00",
+  "price_change_rate": 11.5,
+  "logistics_delay_days": 7,
+  "gdacs_alert_level": 2
+}
+```
+
+내부 FastAPI API는 다음 9개 입력을 받습니다.
+
+```http
+POST /api/v1/internal/severity/score
+```
+
+```text
+inventory_days, safety_stock_days, expected_supply_gap_days,
+supplier_dependency_ratio, price_change_rate, logistics_delay_days,
+gdacs_alert_level, feoc_status, data_quality_status
+```
+
+규칙 버전 `severity-rule-v1`의 등급 기준은 `NORMAL < 30`, `WARNING 30~69.9`, `CRITICAL >= 70`입니다. 사용 가능한 수치가 전혀 없거나 데이터 품질이 `INVALID`이면 `UNKNOWN`을 반환합니다. `feoc_status=YES`는 Hard Gate이므로 100점 `CRITICAL`로 강제 격상하고 `FEOC_HARD_GATE` 근거 코드를 남깁니다.
+
+누락된 외부 신호는 임의 생성하지 않고 `null`로 전달합니다. 응답의 `calculation_details`에는 항목별 점수, 사용한 입력, 누락 입력, 등급 임계치와 강제 격상 여부가 포함됩니다.
 
 ---

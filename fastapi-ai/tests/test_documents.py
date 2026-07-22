@@ -22,6 +22,9 @@ def test_process_text_document_and_detect_duplicate():
     assert first.json()["data"]["document_id"] == "11111111-1111-1111-1111-111111111111"
     assert first.json()["data"]["chunk_count"] == 1
     assert first.json()["data"]["duplicate"] is False
+    assert first.json()["data"]["embedding_type"] == "MOCK_TOKEN_HASH"
+    assert first.json()["data"]["embedding_version"] == "mock-v1"
+    assert first.json()["data"]["mock_embedding"] is True
     chunk = first.json()["data"]["chunks"][0]
     assert chunk == {
         "document_id": "11111111-1111-1111-1111-111111111111",
@@ -75,3 +78,11 @@ def test_document_chunk_output_is_exposed_in_openapi():
         "contract_id", "supplier_id", "material_id", "document_type",
         "content_hash",
     }
+
+
+def test_health_reports_chroma_collection() -> None:
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "UP"
+    assert response.json()["vector_store"]["status"] == "UP"
+    assert response.json()["vector_store"]["collection_name"] == "contract_documents_mock_v1"

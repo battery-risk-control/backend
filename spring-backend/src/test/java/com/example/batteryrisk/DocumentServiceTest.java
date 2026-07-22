@@ -29,6 +29,8 @@ import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
+import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 
 class DocumentServiceTest {
     @TempDir Path tempDir;
@@ -105,6 +107,8 @@ class DocumentServiceTest {
                         {"success":true,"data":{"document_id":"%s","contract_id":1,
                         "supplier_id":2,"material_id":3,"document_type":"LTA","file_name":"contract.txt",
                         "content_hash":"hash","chunk_count":1,"processing_status":"COMPLETED",
+                        "embedding_type":"MOCK_TOKEN_HASH","embedding_version":"mock-v1",
+                        "mock_embedding":true,
                         "duplicate":false,"mock":true},"timestamp":"2026-07-21T00:00:00Z"}
                         """.formatted(savedDocument.get().getDocumentId()), APPLICATION_JSON).createResponse(request));
 
@@ -117,10 +121,46 @@ class DocumentServiceTest {
 
         assertEquals(savedDocument.get().getDocumentId().toString(), result.documentId());
         assertEquals("COMPLETED", result.processingStatus());
+        assertEquals("MOCK_TOKEN_HASH", result.embeddingType());
+        assertEquals("mock-v1", result.embeddingVersion());
         assertEquals("contract.txt", result.fileName());
         assertTrue(Files.exists(tempDir.resolve("contracts")
                 .resolve(result.documentId()).resolve("original.txt")));
         verify(repository, atLeast(3)).saveAndFlush(any(Document.class));
+        server.verify();
+    }
+
+    @Test
+    void preservesVectorStoreFailureCodeFromFastApi() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://localhost:8000");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        AtomicReference<Document> savedDocument = new AtomicReference<>();
+        when(repository.findByContractIdAndContentHash(any(), any())).thenReturn(Optional.empty());
+        when(repository.saveAndFlush(any(Document.class))).thenAnswer(invocation -> {
+            Document document = invocation.getArgument(0);
+            savedDocument.set(document);
+            return document;
+        });
+        server.expect(requestTo("http://localhost:8000/api/v1/documents/process"))
+                .andExpect(method(POST))
+                .andRespond(withStatus(INTERNAL_SERVER_ERROR)
+                        .contentType(APPLICATION_JSON)
+                        .body("""
+                                {"success":false,"error":{"code":"VECTOR_STORE_FAILED",
+                                "message":"ChromaDB 문서 청크 저장에 실패했습니다."}}
+                                """));
+
+        DocumentService linkedService = new DocumentService(
+                builder.build(), repository, 1024, tempDir.toString());
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "contract.txt", "text/plain", "price clause".getBytes());
+
+        DocumentUploadException exception = assertThrows(DocumentUploadException.class,
+                () -> linkedService.upload(file, 1L, 2L, 3L, "LTA"));
+
+        assertEquals("VECTOR_STORE_FAILED", exception.getCode());
+        assertEquals("FAILED", savedDocument.get().getProcessingStatus());
+        assertEquals("VECTOR_STORE_FAILED", savedDocument.get().getErrorCode());
         server.verify();
     }
 }

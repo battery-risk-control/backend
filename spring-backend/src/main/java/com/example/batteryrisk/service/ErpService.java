@@ -91,6 +91,7 @@ public class ErpService {
                 inbound == null ? "NONE" : inbound.orderStatus(),
                 alternativeStatus,
                 supply.supplierStatus(),
+                supply.feocStatus(),
                 supply.supplierId(),
                 supply.erpSupplierId(),
                 supply.contractId(),

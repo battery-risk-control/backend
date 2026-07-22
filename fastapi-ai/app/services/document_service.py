@@ -17,6 +17,7 @@ from app.core.exceptions import (
     TextExtractionFailed,
     UnsupportedDocumentType,
 )
+from app.services.vector_store_service import ChromaVectorStore
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,9 @@ class ProcessedDocument:
     file_name: str
     content_hash: str
     chunks: tuple[DocumentChunk, ...]
+    embedding_type: str
+    embedding_version: str
+    mock_embedding: bool
 
 
 class InMemoryDocumentStore:
@@ -103,8 +107,13 @@ class DocumentService:
     )
     _PARAGRAPH_BREAK = re.compile(r"\n\s*\n+")
 
-    def __init__(self, store: InMemoryDocumentStore | None = None) -> None:
+    def __init__(
+        self,
+        store: InMemoryDocumentStore | None = None,
+        vector_store: ChromaVectorStore | None = None,
+    ) -> None:
         self.store = store or InMemoryDocumentStore()
+        self.vector_store = vector_store
 
     def process(
         self,
@@ -149,6 +158,15 @@ class DocumentService:
             )
             for index, (page_number, chunk_text) in enumerate(page_chunks)
         )
+        embedding_type = "NOT_STORED"
+        embedding_version = "none"
+        mock_embedding = True
+        if self.vector_store is not None:
+            write_result = self.vector_store.upsert_chunks(chunks)
+            embedding_type = write_result.embedding_type
+            embedding_version = write_result.embedding_version
+            mock_embedding = write_result.mock_embedding
+
         document = ProcessedDocument(
             document_id=document_id,
             contract_id=contract_id,
@@ -158,6 +176,9 @@ class DocumentService:
             file_name=file_name,
             content_hash=content_hash,
             chunks=chunks,
+            embedding_type=embedding_type,
+            embedding_version=embedding_version,
+            mock_embedding=mock_embedding,
         )
         return self.store.save(document), False
 

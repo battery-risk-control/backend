@@ -23,6 +23,9 @@ class DocumentProcessResult(ApiModel):
     content_hash: str
     chunk_count: int
     chunks: list[DocumentChunkResult]
+    embedding_type: str
+    embedding_version: str
+    mock_embedding: bool
     processing_status: str = "COMPLETED"
     duplicate: bool = False
     mock: bool = True

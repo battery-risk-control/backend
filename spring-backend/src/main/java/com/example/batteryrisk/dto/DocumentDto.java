@@ -18,6 +18,8 @@ public final class DocumentDto {
             @JsonProperty("content_hash") String contentHash,
             @JsonProperty("chunk_count") int chunkCount,
             @JsonProperty("processing_status") String processingStatus,
+            @JsonProperty("embedding_type") String embeddingType,
+            @JsonProperty("embedding_version") String embeddingVersion,
             boolean duplicate,
             boolean mock,
             @JsonProperty("processed_at") Instant processedAt
@@ -35,6 +37,9 @@ public final class DocumentDto {
             @JsonProperty("content_hash") String contentHash,
             @JsonProperty("chunk_count") int chunkCount,
             @JsonProperty("processing_status") String processingStatus,
+            @JsonProperty("embedding_type") String embeddingType,
+            @JsonProperty("embedding_version") String embeddingVersion,
+            @JsonProperty("mock_embedding") boolean mockEmbedding,
             boolean duplicate,
             boolean mock
     ) {}

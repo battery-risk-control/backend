@@ -20,6 +20,7 @@ class Severity(str, Enum):
     NORMAL = "NORMAL"
     WARNING = "WARNING"
     CRITICAL = "CRITICAL"
+    UNKNOWN = "UNKNOWN"
 
 
 class ImpactDomain(str, Enum):

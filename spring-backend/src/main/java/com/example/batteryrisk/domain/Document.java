@@ -98,11 +98,11 @@ public class Document {
         errorMessage = null;
     }
 
-    public void markCompleted(int chunkCount) {
+    public void markCompleted(int chunkCount, String embeddingType, String embeddingVersion) {
         processingStatus = "COMPLETED";
         this.chunkCount = chunkCount;
-        embeddingType = null;
-        embeddingVersion = null;
+        this.embeddingType = embeddingType;
+        this.embeddingVersion = embeddingVersion;
         errorCode = null;
         errorMessage = null;
         processedAt = Instant.now();

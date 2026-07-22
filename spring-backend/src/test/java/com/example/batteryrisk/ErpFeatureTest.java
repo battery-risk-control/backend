@@ -44,7 +44,7 @@ class ErpFeatureTest {
                 .thenReturn(new ErpRepository.ConsumptionRow(bd("1000"), 3, 0, 0));
         when(repository.findSupply(1L, null, AS_OF.toLocalDate()))
                 .thenReturn(Optional.of(new ErpRepository.SupplyRow(
-                        11L, "SUP-CHL-01", "ACTIVE", 101L, "CTR-001", bd("0.45"))));
+                        11L, "SUP-CHL-01", "ACTIVE", "NO", 101L, "CTR-001", bd("0.45"))));
         when(repository.findNextInbound(1L, AS_OF.toLocalDate()))
                 .thenReturn(Optional.of(new ErpRepository.InboundRow(
                         LocalDate.parse("2026-07-30"), "CONFIRMED")));
@@ -66,6 +66,7 @@ class ErpFeatureTest {
         assertThat(response.supplierDependencyRatio()).isEqualByComparingTo("0.45");
         assertThat(response.remainingQuantity()).isEqualByComparingTo("134900");
         assertThat(response.alternativeSupplierStatus()).isEqualTo("APPROVED");
+        assertThat(response.feocStatus()).isEqualTo("NO");
         assertThat(response.dataQualityStatus()).isEqualTo("VALID");
         assertThat(response.dataSource()).isEqualTo("ERP_MOCK");
         assertThat(response.mock()).isTrue();
@@ -83,7 +84,7 @@ class ErpFeatureTest {
                 .thenReturn(new ErpRepository.ConsumptionRow(null, 1, 1, 1));
         when(repository.findSupply(2L, null, AS_OF.toLocalDate()))
                 .thenReturn(Optional.of(new ErpRepository.SupplyRow(
-                        12L, "SUP-ZAF-01", "ACTIVE", 102L, "CTR-010", bd("0.60"))));
+                        12L, "SUP-ZAF-01", "ACTIVE", "NO", 102L, "CTR-010", bd("0.60"))));
         when(repository.findNextInbound(2L, AS_OF.toLocalDate()))
                 .thenReturn(Optional.of(new ErpRepository.InboundRow(
                         LocalDate.parse("2026-08-20"), "CONFIRMED")));

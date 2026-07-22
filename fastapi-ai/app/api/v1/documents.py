@@ -49,5 +49,8 @@ async def process_document(
             )
             for chunk in document.chunks
         ],
+        embedding_type=document.embedding_type,
+        embedding_version=document.embedding_version,
+        mock_embedding=document.mock_embedding,
         duplicate=duplicate,
     ))

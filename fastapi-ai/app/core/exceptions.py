@@ -44,3 +44,26 @@ class RagFilterRequired(AppException):
 class ModelUnavailable(AppException):
     def __init__(self) -> None:
         super().__init__("MODEL_UNAVAILABLE", "모델을 사용할 수 없습니다.", 503)
+
+
+class VectorStoreUnavailable(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            "VECTOR_STORE_UNAVAILABLE",
+            "ChromaDB에 연결할 수 없습니다.",
+            503,
+        )
+
+
+class VectorStoreFailed(AppException):
+    def __init__(self, message: str = "ChromaDB 처리에 실패했습니다.") -> None:
+        super().__init__("VECTOR_STORE_FAILED", message, 500)
+
+
+class VectorStoreDeleteFailed(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            "VECTOR_STORE_DELETE_FAILED",
+            "ChromaDB의 기존 문서 청크 삭제에 실패했습니다.",
+            500,
+        )

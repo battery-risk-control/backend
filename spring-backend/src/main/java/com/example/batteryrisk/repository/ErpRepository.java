@@ -89,6 +89,7 @@ public class ErpRepository {
                     s.supplier_id,
                     s.erp_supplier_id,
                     s.supplier_status,
+                    s.feoc_status,
                     c.contract_id,
                     c.erp_contract_id,
                     sm.supply_share_ratio
@@ -107,6 +108,7 @@ public class ErpRepository {
                 rs.getLong("supplier_id"),
                 rs.getString("erp_supplier_id"),
                 rs.getString("supplier_status"),
+                rs.getString("feoc_status"),
                 rs.getLong("contract_id"),
                 rs.getString("erp_contract_id"),
                 rs.getBigDecimal("supply_share_ratio"))));
@@ -205,6 +207,7 @@ public class ErpRepository {
             long supplierId,
             String erpSupplierId,
             String supplierStatus,
+            String feocStatus,
             long contractId,
             String erpContractId,
             BigDecimal dependencyRatio

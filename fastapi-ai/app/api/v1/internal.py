@@ -6,7 +6,6 @@ from app.api.dependencies import (
     get_briefing_service, get_classification_service, get_extraction_service,
     get_feature_service, get_severity_service,
 )
-from app.repositories.erp_repository import ErpContext
 from app.schemas.analyze import EventInput
 from app.schemas.briefing import BriefingGenerationRequest, BriefingGenerationResult
 from app.schemas.classification import ClassificationResult
@@ -46,12 +45,8 @@ def classify(
 def score(
     request: SeverityScoreRequest,
     service: SeverityService = Depends(get_severity_service),
-    feature_service: FeatureService = Depends(get_feature_service),
 ) -> ApiResponse[SeverityResult]:
-    context = None
-    if request.stock_days is not None:
-        context = ErpContext(1, [11], [501], request.stock_days, 20, "2026-08-04")
-    return ApiResponse(data=service.score(request.features or feature_service.build(None), context))
+    return ApiResponse(data=service.evaluate(request))
 
 
 @router.post("/briefings", response_model=ApiResponse[BriefingGenerationResult], responses=ERRORS)

@@ -10,3 +10,4 @@ project-backups/
 .pytest_cache/
 .env
 uploads/
+fastapi-ai/data/

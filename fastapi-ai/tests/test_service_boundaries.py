@@ -30,7 +30,7 @@ def test_classification_and_severity_are_deterministic() -> None:
     severity = SeverityService().score(features, InMemoryErpRepository().find_context("CL", ["LITHIUM"]))
     assert classification.impact_domain == "PRODUCTION"
     assert severity.severity == "CRITICAL"
-    assert severity.score == 87.3
+    assert severity.score == 70.0
 
 
 def test_document_chunker_returns_stable_chunks() -> None:

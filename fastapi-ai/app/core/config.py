@@ -10,11 +10,17 @@ class Settings:
     environment: str = "local"
     mock_mode: bool = True
     model_version: str = "xgboost-impact-domain-v0.1"
-    severity_rule_version: str = "severity-rule-v0.1"
+    severity_rule_version: str = "severity-rule-v1"
     chunk_size: int = 900
     chunk_overlap: int = 120
     embedding_provider: str = "mock"
     embedding_dimension: int = 1536
+    chroma_mode: str = "persistent"
+    chroma_host: str = "localhost"
+    chroma_port: int = 8001
+    chroma_ssl: bool = False
+    chroma_persist_directory: str = "./data/chroma"
+    chroma_collection_prefix: str = "contract_documents"
 
 
 def _as_bool(value: str) -> bool:
@@ -27,9 +33,17 @@ def get_settings() -> Settings:
         environment=os.getenv("APP_ENV", "local"),
         mock_mode=_as_bool(os.getenv("MOCK_MODE", "true")),
         model_version=os.getenv("MODEL_VERSION", "xgboost-impact-domain-v0.1"),
-        severity_rule_version=os.getenv("SEVERITY_RULE_VERSION", "severity-rule-v0.1"),
+        severity_rule_version=os.getenv("SEVERITY_RULE_VERSION", "severity-rule-v1"),
         chunk_size=int(os.getenv("RAG_CHUNK_SIZE", "900")),
         chunk_overlap=int(os.getenv("RAG_CHUNK_OVERLAP", "120")),
         embedding_provider=os.getenv("EMBEDDING_PROVIDER", "mock").strip().lower(),
         embedding_dimension=int(os.getenv("EMBEDDING_DIMENSION", "1536")),
+        chroma_mode=os.getenv("CHROMA_MODE", "persistent").strip().lower(),
+        chroma_host=os.getenv("CHROMA_HOST", "localhost").strip(),
+        chroma_port=int(os.getenv("CHROMA_PORT", "8001")),
+        chroma_ssl=_as_bool(os.getenv("CHROMA_SSL", "false")),
+        chroma_persist_directory=os.getenv("CHROMA_PERSIST_DIRECTORY", "./data/chroma").strip(),
+        chroma_collection_prefix=os.getenv(
+            "CHROMA_COLLECTION_PREFIX", "contract_documents"
+        ).strip(),
     )

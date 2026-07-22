@@ -24,6 +24,9 @@ class MockEmbedding:
 
     provider_name = "mock"
     model_name = "mock-hashing-v1"
+    embedding_type = "MOCK_TOKEN_HASH"
+    embedding_version = "mock-v1"
+    mock_embedding = True
     _TOKEN_PATTERN = re.compile(r"\w+", re.UNICODE)
 
     def __init__(self, dimension: int = 1536) -> None:
