@@ -182,6 +182,28 @@ cd C:\aivleschool\bigproject\battery-risk-mvp-starter\spring-backend
 
 Spring Boot의 문서 Metadata는 PostgreSQL에, 원본 파일은 `uploads/contracts/{document_id}`에 영구 저장됩니다. FastAPI의 검색용 문서 저장은 아직 In-memory Mock이며 추후 ChromaDB로 교체합니다.
 
+## 4단계 문서 추출·청킹 출력 계약
+
+FastAPI 내부 API `POST /api/v1/documents/process`는 Spring Boot가 발급한 `document_id`를 그대로 사용합니다. PDF는 실제 페이지 번호를 보존하고, 계약 조항을 먼저 나눈 뒤 문단 단위로 묶으며, 한 문단이 너무 긴 경우에만 길이와 overlap을 적용합니다.
+
+`data.chunks[]`는 다음 `snake_case` 필드를 반환합니다.
+
+| 필드 | 설명 |
+| --- | --- |
+| `document_id` | Spring Boot에서 발급한 문서 ID |
+| `chunk_index` | 문서 전체에서 0부터 시작하는 청크 순서 |
+| `page_number` | 원본 PDF의 1부터 시작하는 페이지 번호; TXT는 1 |
+| `content` | 추출·청킹된 텍스트 |
+| `contract_id` | 계약 ID |
+| `supplier_id` | 공급사 ID |
+| `material_id` | 자재 ID |
+| `document_type` | 문서 유형 |
+| `content_hash` | 원본 파일의 SHA-256 |
+
+이 배열이 5단계의 Embedding·ChromaDB 입력입니다. 5단계에서는 파일을 다시 읽거나 다시 청킹하지 않습니다. 현재 단계에는 Embedding과 ChromaDB 저장은 포함되지 않습니다.
+
+문서 처리 오류 코드는 `EMPTY_DOCUMENT`, `UNSUPPORTED_DOCUMENT_TYPE`, `INVALID_PDF`, `TEXT_EXTRACTION_FAILED`, `CHUNKING_FAILED`로 구분합니다.
+
 ---
 
 # C2 로그인·인증·권한 실행

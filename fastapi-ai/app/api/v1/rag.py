@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from app.api.dependencies import get_rag_service
-from app.core.exceptions import RagFilterRequired, UnsupportedDocumentType
+from app.core.exceptions import RagFilterRequired
 from app.schemas.common import ApiErrorResponse, ApiResponse
 from app.schemas.rag import ContractUploadResult, RagSearchItem, RagSearchRequest, RagSearchResult
 from app.services.rag_service import RagService
@@ -21,13 +21,10 @@ async def upload_contract(
     document_type: Annotated[str, Form()] = "LTA",
     service: RagService = Depends(get_rag_service),
 ) -> ApiResponse[ContractUploadResult]:
-    try:
-        summary = service.upload(
-            await file.read(), file.filename or "contract.pdf", contract_id,
-            supplier_id, material_id, document_type,
-        )
-    except ValueError as exception:
-        raise UnsupportedDocumentType(file.filename or "unknown") from exception
+    summary = service.upload(
+        await file.read(), file.filename or "contract.pdf", contract_id,
+        supplier_id, material_id, document_type,
+    )
     return ApiResponse(data=ContractUploadResult(
         document_id=summary.document_id, contract_id=contract_id,
         file_name=summary.file_name, chunk_count=summary.chunk_count,

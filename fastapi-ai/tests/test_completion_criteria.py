@@ -126,7 +126,7 @@ def test_invalid_pdf_is_rejected_by_real_parser() -> None:
         data={"contract_id": "503", "supplier_id": "13", "material_id": "2"},
     )
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "UNSUPPORTED_DOCUMENT_TYPE"
+    assert response.json()["error"]["code"] == "INVALID_PDF"
     search = client.post("/api/v1/rag/search", json={"query": "contract", "filters": {"contract_id": 503}})
     assert search.json()["data"]["results"] == []
 

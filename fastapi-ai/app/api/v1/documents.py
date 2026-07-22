@@ -3,10 +3,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from app.api.dependencies import get_document_service
-from app.core.exceptions import UnsupportedDocumentType
 from app.schemas.common import ApiErrorResponse, ApiResponse
-from app.schemas.document import DocumentProcessResult
-from app.services.document_service import DocumentService, EmptyDocumentError, UnsupportedDocumentError
+from app.schemas.document import DocumentChunkResult, DocumentProcessResult
+from app.services.document_service import DocumentService
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
 ERRORS = {422: {"model": ApiErrorResponse}, 500: {"model": ApiErrorResponse}}
@@ -22,15 +21,10 @@ async def process_document(
     document_type: Annotated[str, Form()] = "LTA",
     service: DocumentService = Depends(get_document_service),
 ) -> ApiResponse[DocumentProcessResult]:
-    try:
-        document, duplicate = service.process(
-            await file.read(), file.filename or "document", contract_id,
-            supplier_id, material_id, document_type, document_id=document_id,
-        )
-    except EmptyDocumentError as exception:
-        raise UnsupportedDocumentType(file.filename or "unknown") from exception
-    except UnsupportedDocumentError as exception:
-        raise UnsupportedDocumentType(file.filename or "unknown") from exception
+    document, duplicate = service.process(
+        await file.read(), file.filename or "document", contract_id,
+        supplier_id, material_id, document_type, document_id=document_id,
+    )
 
     return ApiResponse(data=DocumentProcessResult(
         document_id=document.document_id,
@@ -41,5 +35,19 @@ async def process_document(
         file_name=document.file_name,
         content_hash=document.content_hash,
         chunk_count=len(document.chunks),
+        chunks=[
+            DocumentChunkResult(
+                document_id=chunk.document_id,
+                chunk_index=chunk.chunk_index,
+                page_number=chunk.page_number,
+                content=chunk.content,
+                contract_id=chunk.contract_id,
+                supplier_id=chunk.supplier_id,
+                material_id=chunk.material_id,
+                document_type=chunk.document_type,
+                content_hash=chunk.content_hash,
+            )
+            for chunk in document.chunks
+        ],
         duplicate=duplicate,
     ))

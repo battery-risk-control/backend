@@ -9,7 +9,31 @@ class AppException(Exception):
 
 class UnsupportedDocumentType(AppException):
     def __init__(self, file_name: str) -> None:
-        super().__init__("UNSUPPORTED_DOCUMENT_TYPE", f"지원하지 않는 문서 형식입니다: {file_name}", 422)
+        super().__init__(
+            "UNSUPPORTED_DOCUMENT_TYPE",
+            f"지원하지 않는 문서 형식입니다: {file_name}",
+            422,
+        )
+
+
+class EmptyDocument(AppException):
+    def __init__(self) -> None:
+        super().__init__("EMPTY_DOCUMENT", "문서에서 처리할 텍스트를 찾을 수 없습니다.", 422)
+
+
+class InvalidPdf(AppException):
+    def __init__(self) -> None:
+        super().__init__("INVALID_PDF", "올바른 PDF 파일이 아니거나 파일이 손상되었습니다.", 422)
+
+
+class TextExtractionFailed(AppException):
+    def __init__(self, message: str = "문서 텍스트 추출에 실패했습니다.") -> None:
+        super().__init__("TEXT_EXTRACTION_FAILED", message, 422)
+
+
+class ChunkingFailed(AppException):
+    def __init__(self, message: str = "문서 청크 생성에 실패했습니다.") -> None:
+        super().__init__("CHUNKING_FAILED", message, 500)
 
 
 class RagFilterRequired(AppException):

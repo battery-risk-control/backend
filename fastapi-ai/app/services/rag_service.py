@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from uuid import uuid4
 
 from app.services.document_service import DocumentChunk, DocumentService, InMemoryDocumentStore
 
@@ -26,7 +27,8 @@ class RagService:
 
     def upload(self, content: bytes, file_name: str, contract_id: int, supplier_id: int, material_id: int, document_type: str) -> UploadSummary:
         document, _duplicate = self._documents.process(
-            content, file_name, contract_id, supplier_id, material_id, document_type
+            content, file_name, contract_id, supplier_id, material_id, document_type,
+            document_id=f"LEGACY-{uuid4().hex[:12].upper()}",
         )
         return UploadSummary(document.document_id, file_name, len(document.chunks))
 
