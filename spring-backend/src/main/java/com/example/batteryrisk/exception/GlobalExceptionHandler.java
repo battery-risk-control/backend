@@ -3,6 +3,7 @@ package com.example.batteryrisk.exception;
 import com.example.batteryrisk.dto.ApiErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -108,6 +109,33 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException exception) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(ApiErrorResponse.of("FILE_TOO_LARGE", "파일 크기 제한을 초과했습니다."));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+        String detail = exception.getMostSpecificCause().getMessage();
+        String message = duplicateMessageFor(detail);
+        if (message == null) {
+            log.warn("Unmapped data integrity violation", exception);
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiErrorResponse.of("DATA_INTEGRITY_VIOLATION", "데이터 제약 조건을 위반했습니다."));
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiErrorResponse.of("DUPLICATE_KEY", message));
+    }
+
+    private static String duplicateMessageFor(String detail) {
+        if (detail == null) {
+            return null;
+        }
+        if (detail.contains("uq_material_code")) return "이미 사용 중인 자재 코드입니다.";
+        if (detail.contains("uq_supplier_code")) return "이미 사용 중인 공급사 코드입니다.";
+        if (detail.contains("uq_supplier_registration")) return "이미 등록된 사업자등록번호입니다.";
+        if (detail.contains("uq_warehouse_code")) return "이미 사용 중인 창고 코드입니다.";
+        if (detail.contains("uq_contract_number")) return "이미 사용 중인 계약 번호입니다.";
+        if (detail.contains("uq_purchase_order_number")) return "이미 사용 중인 발주 번호입니다.";
+        if (detail.contains("uq_supplier_material_contract")) return "이미 등록된 공급사·자재·계약 조합입니다.";
+        return null;
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
