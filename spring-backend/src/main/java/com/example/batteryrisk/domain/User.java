@@ -28,6 +28,17 @@ public class User {
     @Column(nullable = false, length = 100)
     private String name;
 
+    /** 프론트엔드 로그인 식별자. 기존 username 기반 계정은 비어 있을 수 있다. */
+    @Column(unique = true, length = 255)
+    private String email;
+
+    @Column(name = "org_name", length = 150)
+    private String orgName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false, length = 20)
+    private ApprovalStatus approvalStatus = ApprovalStatus.APPROVED;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;
@@ -45,10 +56,19 @@ public class User {
     }
 
     public User(String username, String password, String name, Role role) {
+        this(username, password, name, role, null, null, ApprovalStatus.APPROVED);
+    }
+
+    public User(
+            String username, String password, String name, Role role,
+            String email, String orgName, ApprovalStatus approvalStatus) {
         this.username = username;
         this.password = password;
         this.name = name;
         this.role = role;
+        this.email = email;
+        this.orgName = orgName;
+        this.approvalStatus = approvalStatus == null ? ApprovalStatus.APPROVED : approvalStatus;
         this.enabled = true;
     }
 
@@ -94,6 +114,26 @@ public class User {
 
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getOrgName() {
+        return orgName;
+    }
+
+    public ApprovalStatus getApprovalStatus() {
+        return approvalStatus;
+    }
+
+    public boolean isApproved() {
+        return approvalStatus == ApprovalStatus.APPROVED;
+    }
+
+    public void approve() {
+        this.approvalStatus = ApprovalStatus.APPROVED;
     }
 
     public void changePassword(String encodedPassword) {

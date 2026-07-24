@@ -41,15 +41,25 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
+        String loginId = request.loginId();
+        if (loginId == null || loginId.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "이메일 또는 아이디를 입력해 주세요.");
+        }
+
         CustomUserDetails userDetails;
         try {
             var authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.username(), request.password()));
+                    new UsernamePasswordAuthenticationToken(loginId, request.password()));
             userDetails = (CustomUserDetails) authentication.getPrincipal();
         } catch (DisabledException exception) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         } catch (AuthenticationException exception) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        // 관리자 승인 전 계정은 토큰을 발급하지 않는다(프론트엔드 승인 대기 화면 대응).
+        if (!userDetails.getUser().isApproved()) {
+            throw new BusinessException(ErrorCode.PENDING_APPROVAL);
         }
 
         String sessionId = UUID.randomUUID().toString();

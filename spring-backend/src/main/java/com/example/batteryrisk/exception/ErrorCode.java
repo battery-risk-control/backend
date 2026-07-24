@@ -11,6 +11,7 @@ public enum ErrorCode {
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 API에 접근할 권한이 없습니다."),
     DUPLICATE_USERNAME(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
+    PENDING_APPROVAL(HttpStatus.FORBIDDEN, "관리자 승인 대기 중입니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청이 올바르지 않습니다."),
     ERP_MATERIAL_NOT_FOUND(HttpStatus.NOT_FOUND, "ERP 자재를 찾을 수 없습니다."),
     ERP_SUPPLIER_NOT_FOUND(HttpStatus.NOT_FOUND, "ERP 공급사를 찾을 수 없습니다."),
