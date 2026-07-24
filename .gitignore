@@ -1,0 +1,21 @@
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# pytest cache
+.pytest_cache/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# ChromaDB local data
+chroma_db/
+.chroma/
+
+# Logs
+*.log
