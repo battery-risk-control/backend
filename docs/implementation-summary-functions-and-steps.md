@@ -299,7 +299,7 @@ React 검증 화면에는 FastAPI URL이 없으며 모든 요청이 Spring Boot�
 
 ## 5. 1~8단계 개발 과정
 
-1~8단계는 서로 독립된 사용자 기능 번호가 아니라 C1과 RAG 기반을 안전하게 완성하기 위해 적용한 개발 순서다.
+1~8단계는 서로 독립된 사용자 기능 번호가 아니라 C1과 RAG 기반을 안전하게 완성하기 위해 적용한 개발 순서다. 이 문서의 `n단계`는 마일스톤 `S0n`과 같은 번호이며, 전체 순서와 현재 상태는 [s01-s16-flow.html](s01-s16-flow.html)에서 그림으로 볼 수 있다.
 
 | 단계 | 관련 기능 | 구현 내용 | 현재 상태 |
 | --- | --- | --- | --- |
@@ -329,52 +329,67 @@ React 검증 화면에는 FastAPI URL이 없으며 모든 요청이 Spring Boot�
 → 대기
 ```
 
-## 6. 현재 코드에 추가로 구현된 범위
+## 6. 9단계 이후 구현 현황
 
-로컬 코드에는 1~8단계 이후 작업도 일부 구현되어 있다.
+9~13단계는 구현과 E2E 검증까지 완료했고, 14~16단계는 미착수다.
 
-| 후속 단계 | 현재 코드 상태 |
-| --- | --- |
-| 9단계 ERP Mock Data | V4 ERP Schema와 ERP 조회 구조 구현 |
-| 10단계 F1 ERP 영향 계산 | Spring `ErpService`와 Context API 구현 |
-| 11단계 Severity Rule Engine | Spring 요청·저장 API와 FastAPI 규칙 엔진 구현 |
-| 12단계 RAG Mock 대응 분석 | 근거 검색까지 구현, 템플릿 대응 보고서 미구현 |
-| 13단계 템플릿 브리핑 | 기존 FastAPI Mock 기반 일부가 있으나 ERP·RAG 통합 저장 흐름 미완료 |
-| 14단계 전체 조회·React | 실시간 알림 Schema 일부와 문서 화면만 존재, 전체 대시보드 미완료 |
-| 15단계 전체 Docker 통합 | PostgreSQL·Chroma 중심 구성, 5개 서비스 통합·전체 장애 검증 미완료 |
-| 16단계 실제 모델 교체 | Adapter 계약 일부 존재, 실제 모델 연결 보류 |
+| 후속 단계 | 현재 코드 상태 | 검증 |
+| --- | --- | --- |
+| 9단계 ERP 데이터 | V4 ERP Schema, ERP 조회 구조, 10개 엔티티 단건 Upsert 갱신 API | Swagger E2E 완료 |
+| 10단계 F1 ERP 영향 계산 | Spring `ErpService`·`ErpRepository` Context API | 정답셋 스크립트 검증 완료 |
+| 11단계 Severity Rule Engine | Spring 요청·저장 API와 FastAPI 규칙 엔진, `rule_version` 반환 | E2E 완료 |
+| 12단계 RAG 대응 분석 | 근거 검색, 적격 대체 공급사 Context 연결, 근거 부족 시 명시 | 5개 시나리오 검증 완료 |
+| 13단계 템플릿 브리핑 | 12단계와 통합 엔드포인트로 구현. `POST /api/v1/briefings`, `GET /api/v1/briefings/{id}`, `briefings` JSONB 저장 | E2E·결정성 검증 완료 |
+| 14단계 전체 조회·React | 브리핑 단건 조회만 존재. 목록·대시보드 조회 API와 역할별 React 화면 미구현 | 미착수 |
+| 15단계 전체 Docker 통합 | `docker-compose.yml`에 PostgreSQL·Chroma 2개만 구성. Spring·FastAPI·React 미포함 | 미착수 |
+| 16단계 실제 모델 교체 | Embedding은 `MOCK_TOKEN_HASH` 고정, 브리핑은 템플릿 함수. 교체 지점은 분리돼 있으나 실제 모델 미연결 | 모델 전달 대기 |
+
+### 12·13단계를 하나로 합친 이유
+
+원래 계획은 12단계 대응 분석과 13단계 브리핑을 나누는 것이었으나, 두 결과가 항상 같은 사건·자재 단위로 함께 조회되므로 엔드포인트 하나로 통합했다.
+
+```text
+Spring BriefingService
+→ ERP Context(10단계)
+→ Severity(11단계)
+→ RAG 근거 검색(F2)
+→ 적격 대체 공급사(F9)
+→ FastAPI POST /api/v1/internal/briefings/compose
+→ briefings 테이블 저장
+```
+
+FastAPI는 규칙으로 문장을 고르고 값만 채운다. LLM을 쓰지 않으므로 동일 입력에 대해 동일 출력이 보장되고, 16단계에서는 이 템플릿 함수만 교체하면 된다. 계약 근거는 항상 담당자 검토가 필요하다는 표현으로만 제시하며, 근거가 없으면 `근거 부족`으로 명시하고 새로운 판단을 만들지 않는다.
 
 ## 7. 남은 작업
 
-### 바로 확인할 작업
+### 14단계 전체 조회·React 대시보드
 
-- 프론트엔드 팀의 정식 React 코드와 업로드 화면 병합
+- Dashboard·Risk·Contract·Briefing 목록 조회 API (현재는 브리핑 단건 조회만 존재)
+- 프론트엔드 팀의 정식 React 코드와 업로드 화면 병합, 역할별 대시보드
 - 실제 로그인 화면이 저장하는 Token Key와 `access_token` 통일
-- 실제 브라우저에서 정상 PDF/TXT 업로드
-- 중복·실패·새로고침 복원 화면 확인
+- 브라우저 수동 E2E — 정상 PDF/TXT 업로드, 중복·실패, 새로고침 복원
+- ERP 데이터 갱신 UI 연동 (백엔드 API 10개는 완료)
 
-### F1 완성을 위한 작업
+> 프론트엔드 팀 작업과 맞물리므로 착수 전 범위 협의가 필요하다.
 
-- 분석 시점 ERP Context Snapshot 영구 저장
-- 사건·뉴스와 ERP Context 연결
-- Spring에서 FastAPI 영향 해석 API 호출
-- FastAPI 템플릿 기반 영향 설명과 권장 확인 사항 생성
-- 분석 결과와 근거 PostgreSQL 저장·조회
+### 15단계 전체 Docker 통합
 
-### F2 완성을 위한 작업
+- Spring·FastAPI·React를 `docker-compose.yml`에 추가해 5개 서비스 통합
+- 서비스 개별 장애 시나리오 검증
 
-- RAG 검색 근거를 사용한 템플릿 대응 분석
-- 적격 대체 공급사 Context 연결
-- 근거 부족과 담당자 검토 필요 상태 표시
-- 계약 대응 결과 저장·조회
+### 16단계 실제 모델 교체
 
-### 이후 업무 기능
+- OpenAI Embedding으로 `MOCK_TOKEN_HASH` 교체 및 기존 청크 재적재
+- XGBoost Impact Domain 분류기 연결
+- 브리핑 템플릿 함수를 LLM 호출로 교체
 
-- F5 템플릿 브리핑과 PostgreSQL 저장
-- Dashboard·Risk·Contract·Briefing 전체 조회 API
-- 정식 React 역할별 대시보드
-- 전체 Docker Compose와 장애 시나리오 검증
-- 실제 XGBoost·LLM·Embedding Adapter 교체
+> ERP 데이터는 교체 대상이 아니다. 1절의 예외 설명을 참고한다.
+
+### 이월된 개별 이슈
+
+- `as_of` 타임존 정규화 — `spring.jackson.time-zone` 설정 또는 커스텀 Deserializer (보류)
+- `agent-csv` 정답셋 REQ-007의 `nextEtaDays` 빈칸이 실제 설계와 불일치 — 정답셋 수정 여부 팀 확인 필요
+- 사건·뉴스(F4) 수집과 ERP Context 연결 — 현재 브리핑은 지정한 자재 기준으로만 생성
 
 ## 8. 조원에게 설명할 때 사용할 요약
 
