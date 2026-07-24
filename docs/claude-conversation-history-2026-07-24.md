@@ -148,26 +148,197 @@ erp_supplier_id 생략 → 200 OK, SUP-CHL-01 자동 선택 (이전: 500)
 
 ---
 
-## 9. 이 세션에서 변경된 파일 목록
+## 9. ERP 데이터 갱신 기능 신규 구현 (10개 엔티티 단건 Upsert)
 
+팀 논의 결과 **ERP Mock 데이터가 이 프로젝트의 최종 데이터 소스**임이 확정되어(보안상 실제 ERP 연동 불가), CSV 일괄 시드 외에 **운영 중 단건 갱신** 수단이 필요해졌다. 사용자 지시로 아래를 확정하고 구현했다.
+
+**확정 사항**
+- 10개 ERP 테이블 전부를 단건 갱신 대상으로 한다 (재고만이 아니라 전체).
+- 수정/신규를 사용자가 구분하지 않고 **외부 ERP ID로 자동 판별하는 단일 Upsert**로 한다.
+- **역할 제한 없음** — PURCHASING/STRATEGY/EXECUTIVE 모두 사용 가능.
+- 프론트엔드는 다른 팀원이 담당하므로 **백엔드 API + Swagger 검증까지만** 범위로 한다.
+
+**신규 파일**: `ErpAdminController.java`(엔드포인트 10개), `ErpAdminService.java`, `ErpAdminDto.java`
+**수정 파일**: `ErpRepository.java`(FK 조회 메서드 추가), `ErrorCode.java`(ERP FK 오류 코드 5개)
+
+**핵심 설계**
+- 일반 8개 테이블: `INSERT ... ON CONFLICT (erp_xxx_id) DO UPDATE` (CSV 시드가 쓰던 패턴 재사용)
+- 스냅샷 2개(`inventory_snapshots`, `material_consumptions`): 기존 행을 `is_current=false`로 내리고 새 행 추가 (`@Transactional`)
+- FK는 내부 PK가 아니라 외부 ERP 문자열 ID로 입력받아 변환
+
+**검증 결과 (실제 서버 curl)**: 재고 갱신 → `/erp/context` 재조회 시 `on_hand 40320→35611`, `inventory_days 36→31.291`로 **S10 계산에 즉시 반영** 확인. 신규/갱신 자동 판별(`created` 플래그), FK 4개 변환, 없는 FK → 404, 3계층 역할 모두 200 확인.
+
+---
+
+## 10. ERP 정답셋 자동 검증 스크립트
+
+`agent-csv`(회귀 테스트 정답셋)가 코드에서 전혀 사용되지 않고 있음을 확인하고, S10 완료 기준("Agent Expected 결과와 비교")을 코드화했다.
+
+**신규 파일**: `scripts/verify_erp_context.py`
+
+`01_erp_agent_requests.csv`의 10개 요청을 `/api/v1/erp/context`에 보내고 `04_erp_exposure_expected.csv`의 기대값(ERP Context 6개 필드)과 자동 대조한다. 실행 결과 8/10 PASS이며, 2건의 불일치는 코드 버그가 아님을 확인했다.
+
+- REQ-001: 수동 검증 중 재고를 변경한 상태여서 발생 (baseline 복원 시 해소)
+- REQ-007: 정답셋의 `nextEtaDays` 빈칸이 실제 설계와 불일치. 코드는 "사용량이 없어도 ETA는 반환"이 의도된 동작이며 `ErpFeatureTest.java:104`에 이미 못박혀 있음 → **정답셋 쪽 값이 보수적으로 비워진 것**
+
+> 참고: exposure 점수 계열 컬럼(`erpExposureScore`, `exposureLevel`, `forcedCritical`)은 `/erp/context` 응답에 없는 별도 점수 엔진 소관이라 이 스크립트 범위 밖이다.
+
+---
+
+## 11. 발견·수정한 버그 (총 3건, 전부 같은 뿌리)
+
+세 건 모두 **"예외 타입에 맞는 핸들러 부재 → 불친절한 500"** 이라는 동일한 문제였다.
+
+| # | 증상 | 원인 | 수정 |
+| --- | --- | --- | --- |
+| 1 | 51MB 업로드 시 `500` | `MaxUploadSizeExceededException` 핸들러 없음 (Multipart Resolver 단계에서 발생해 `DocumentService.validate()`까지 도달조차 못 함) | `GlobalExceptionHandler`에 핸들러 추가 → `422 FILE_TOO_LARGE` |
+| 2 | `erp_supplier_id` 생략 시 `500` | `NamedParameterJdbcTemplate`이 `IS NULL` 자리에만 쓰이는 파라미터의 타입을 PostgreSQL이 추론 못 함 (`could not determine data type of parameter $2`) | `ErpRepository.findSupply()`에 `java.sql.Types.VARCHAR` 타입 힌트 명시 → 우선순위 1 공급사 자동 선택 정상 동작 |
+| 3 | `material_code` 중복 시 `500` | upsert가 `ON CONFLICT (erp_material_id)`만 처리. 다른 UNIQUE 제약(`uq_material_code` 등) 위반은 `DataIntegrityViolationException`으로 터지는데 핸들러 없음 | `GlobalExceptionHandler`에 핸들러 추가. DB 제약명을 읽어 한글 안내 → `409 DUPLICATE_KEY` (10개 admin API 전부에 일괄 적용) |
+
+세 건 모두 수정 후 실제 서버로 재검증 완료.
+
+---
+
+## 12. RAG 검색 정밀 검증 (Metadata Filter 격리)
+
+"검색이 결과를 반환한다"는 것만 확인됐던 상태라, **다른 계약서가 새어나오지 않는지**까지 검증했다. Windows curl의 한글 UTF-8 깨짐 문제를 피하기 위해 Python(urllib)으로 검증했다.
+
+서로 다른 주제의 문서 2개를 다른 계약(계약2/계약3)으로 업로드한 뒤:
+
+| 검증 | 결과 |
+| --- | --- |
+| 계약2 필터로 검색 | 계약2 청크만 반환, `가격 조정` 조항이 sim=0.40으로 최상위 |
+| **계약3 필터로 계약2의 주제("가격 조정") 검색** | **계약2가 전혀 나오지 않고 계약3만 반환** (격리 성공) |
+| 없는 계약(999) 필터 | 0건 |
+| 필터 없는 검색 | `422 RAG_FILTER_REQUIRED`로 거부 |
+
+문서1이 강조한 "다른 공급사 계약서 혼입 방지"(Metadata Hard Filter)가 실제로 작동함을 확인했다.
+
+---
+
+## 13. S11 Severity Rule Engine E2E 검증
+
+코드는 있었으나 실제 서버로 검증된 적이 없어 E2E를 수행했다. **코드 수정 없이 한 번에 전부 통과**했다.
+
+**FastAPI 계산 로직**: NORMAL(5.0) / CRITICAL(100) / FEOC Hard Gate(100, `forced_critical=true`) / UNKNOWN(`INSUFFICIENT_DATA`) / 결정성(동일 입력 → `data` 완전 동일) 확인.
+
+**Spring 전체 파이프라인**: ERP Context 자동 결합 → severity 계산 → PostgreSQL 저장 → GET 조회 → 없는 ID 404 확인.
+
+**가장 중요한 검증**: 실제 FEOC=YES 공급사(`SUP-CHN-01`, 중국 흑연)를 조회해 `MAT-GR-NAT`로 브리핑하면, ERP Context에 `feoc_status=YES`가 담기고 → FastAPI Severity가 다른 조건을 무시하고 CRITICAL로 강제 격상하는 **전체 사슬**이 작동함을 확인했다.
+
+> WARNING 등급만 별도 시나리오로 이름 붙여 돌리지 않았고, 결정성 테스트(42.0)와 Spring E2E(67.0)에서 실제 산출되는 것을 확인했다.
+
+---
+
+## 14. S12·S13 신규 구현 (방식 A: 통합 브리핑)
+
+S12(RAG 대응 분석)와 S13(템플릿 브리핑)을 **엔드포인트 하나로 통합**하는 방식을 사용자가 선택했다(파일 수와 구현 복잡도가 낮은 쪽).
+
+### LLM 없이 템플릿을 만드는 방법
+
+핵심은 **"AI가 새로 생각하게 하지 않고, 이미 계산된 사실을 고정 문장 틀에 끼워 넣는 것"**이다. 규칙으로 문장을 고르고 값만 채우므로 **동일 입력 → 동일 출력**이 보장된다.
+
+```python
+if inventory_days < safety_stock_days:
+    text += f" 안전재고 기준({safety_stock_days:g}일) 미만이라 주의가 필요합니다."
+```
+
+계약 근거는 항상 `"담당자 검토가 필요합니다"`로만 표현하고, 근거가 없으면 `"근거 부족"`으로 명시한다. **"계약 위반 확정" 같은 새 판단은 절대 만들지 않는다.** S16에서 이 템플릿 함수만 LLM 호출로 교체하면 된다.
+
+### 구현 파일
+
+**FastAPI**
+- `app/schemas/briefing.py` — `BriefingComposeRequest/Result`, `ContractEvidenceItem`, `AlternativeSupplierItem` 추가 (기존 `BriefingGenerationRequest`는 orchestration 호환을 위해 유지)
+- `app/services/briefing_service.py` — `compose()` 신규. 섹션별 템플릿 규칙(`_inventory_summary`, `_contract_evidence_summary` 등)으로 결정적 조립
+- `app/api/v1/internal.py` — `POST /api/v1/internal/briefings/compose` 추가
+
+**Spring (신규 5개)**
+- `dto/BriefingDto.java` — 외부 요청/FastAPI 통신/저장 결과 DTO
+- `service/BriefingService.java` — ERP Context(S10) → Severity(S11) → RAG 검색(F2) → 적격 대체공급사(F9) → FastAPI 조립 → 저장
+- `repository/BriefingRepository.java` — JSONB 저장·조회
+- `controller/BriefingController.java` — `POST /api/v1/briefings`, `GET /api/v1/briefings/{id}`
+- `db/migration/V6__create_briefings.sql` — briefings 테이블(JSONB 5개 컬럼)
+
+**수정**: `ErpRepository.findEligibleAlternativeSuppliers()` 추가(F9 — 인증·FEOC·승인상태 포함 후보 목록), `ErrorCode` 3개 추가
+
+기존 `ErpService`·`RagService`·`ErpRepository`·`SeverityDto`를 그대로 재사용했다.
+
+### E2E 검증 결과 (코드 수정 없이 한 번에 통과)
+
+**FastAPI 템플릿 조립 5개 시나리오**
+
+| 시나리오 | 결과 |
+| --- | --- |
+| 근거 부족(계약서 없음) | "관련 계약 조항을 찾지 못했습니다. (근거 부족 — 담당자 확인 필요)" |
+| 계약 근거 + 대체공급사 있음 | 조항 인용 + 페이지·유사도 표시, 인증·Lead Time 포함 후보 목록 |
+| FEOC + 재고부족 + STALE | "FEOC 규제 우려 대상" 문구 + 데이터 품질 경고 자동 추가 |
+| 사용량 없음(UNKNOWN) | "재고 소진 일수를 계산할 수 없습니다 (UNKNOWN)" |
+| 결정성 | 동일 입력 → 동일 브리핑 |
+
+**Spring 전체 파이프라인**
+
+| 검증 | 결과 |
+| --- | --- |
+| MAT-LI-CARB 정상 브리핑 | ERP(재고 36일) + Severity(WARNING/67) + RAG 근거 2건 + 대체공급사 2곳 조립 |
+| MAT-GR-NAT FEOC Hard Gate | CRITICAL/100, FEOC 경고 + 전용 권장 조치 자동 추가 |
+| 저장 후 GET 조회 | JSONB 복원 정상(evidence 2건, checks 3개) |
+| 없는 브리핑 조회 | `404 BRIEFING_NOT_FOUND` |
+| 결정성 | 동일 요청 2회 → 본문 완전 동일 |
+
+가장 의미 있는 결과는 두 시나리오의 대비다. 리튬은 계약서가 ChromaDB에 있어 **RAG로 조항 2건을 찾아 근거로 첨부**했고, 흑연은 계약서가 없어 **"근거 부족"으로 정직하게 표시**하고 대신 FEOC 경고·대체 조달 검토를 권장 조치에 자동 추가했다. 즉 **재고 관점(숫자)과 계약 관점(문서 근거)이 하나의 결론으로 뭉개지지 않고 각각 별도 섹션으로 유지**되는 문서1의 핵심 원칙이 실제로 지켜졌다.
+
+또한 Severity는 `rule_version`, 브리핑은 `template_version`을 각각 반환해 **어떤 규칙·템플릿으로 만들어졌는지 추적 가능**하며, 모든 브리핑에 Mock 경고가 자동으로 붙는다.
+
+---
+
+## 15. 이 세션에서 변경·생성된 파일
+
+**수정**
 ```text
-frontend/src/App.jsx
-frontend/src/documentApi.js
-frontend/src/documentApi.test.js
+frontend/src/App.jsx, documentApi.js, documentApi.test.js
 spring-backend/.../application.yml
 spring-backend/.../service/DocumentService.java
 spring-backend/.../config/OpenApiConfig.java
-spring-backend/.../exception/GlobalExceptionHandler.java
-spring-backend/.../repository/ErpRepository.java
+spring-backend/.../exception/GlobalExceptionHandler.java   (버그 2건 수정)
+spring-backend/.../exception/ErrorCode.java
+spring-backend/.../repository/ErpRepository.java            (버그 1건 + F9 메서드)
 fastapi-ai/app/services/document_service.py
-fastapi-ai/app/services/vector_store_service.py
+fastapi-ai/app/services/vector_store_service.py             (ChromaDB include=[] 버그)
+fastapi-ai/app/schemas/briefing.py
+fastapi-ai/app/services/briefing_service.py
+fastapi-ai/app/api/v1/internal.py
 docs/implementation-summary-functions-and-steps.md
+```
+
+**신규**
+```text
+spring-backend/.../controller/ErpAdminController.java
+spring-backend/.../service/ErpAdminService.java
+spring-backend/.../dto/ErpAdminDto.java
+spring-backend/.../controller/BriefingController.java
+spring-backend/.../service/BriefingService.java
+spring-backend/.../repository/BriefingRepository.java
+spring-backend/.../dto/BriefingDto.java
+spring-backend/.../db/migration/V6__create_briefings.sql
+scripts/verify_erp_context.py
 ```
 
 ---
 
-## 10. 다음에 할 일
+## 16. 마일스톤 현황
 
-1. ERP 데이터 갱신(업로드) 기능 — 팀 논의 후 실제 구현 (`ErpSeedConfig` 로직 재사용 + STRATEGY 권한 제어)
-2. `as_of` 타임존 정규화 이슈 — 필요 시 `application.yml`에 `spring.jackson.time-zone` 설정 또는 커스텀 Deserializer 적용
-3. S12(RAG 대응 분석) 이후 마일스톤 — 아직 미구현 상태, 순서대로 진행
+```text
+S00 ~ S11   완료·검증
+S12 ~ S13   완료·검증 (이번 세션 구현 + E2E)
+S14 ~ S16   미구현
+```
+
+이번 세션에서 S07 재검증부터 S13 구현·검증까지 진행했다. 남은 뼈대는 S14(전체 조회 API·React 대시보드), S15(Docker 통합·장애 검증), S16(실제 모델 Adapter 교체, 모델 전달 대기)이다.
+
+## 17. 다음에 할 일
+
+1. **S14 전체 조회 API·대시보드** — 프론트엔드 팀 작업과 맞물리므로 진행 전 범위 협의 필요
+2. ERP 데이터 갱신 UI — 프론트엔드 팀과 연동 (백엔드 API 10개는 완료)
+3. `as_of` 타임존 정규화 이슈 — `spring.jackson.time-zone` 설정 또는 커스텀 Deserializer (보류 중)
+4. `agent-csv` 정답셋 REQ-007의 `nextEtaDays` 빈칸 — 실제 설계와 불일치하므로 정답셋 수정 여부 팀 확인
+5. S15 Docker 통합 → S16 실제 모델 교체

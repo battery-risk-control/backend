@@ -7,7 +7,12 @@ from app.api.dependencies import (
     get_feature_service, get_severity_service,
 )
 from app.schemas.analyze import EventInput
-from app.schemas.briefing import BriefingGenerationRequest, BriefingGenerationResult
+from app.schemas.briefing import (
+    BriefingComposeRequest,
+    BriefingComposeResult,
+    BriefingGenerationRequest,
+    BriefingGenerationResult,
+)
 from app.schemas.classification import ClassificationResult
 from app.schemas.common import ApiErrorResponse, ApiResponse
 from app.schemas.extraction import ExtractionRequest, ExtractionResult
@@ -55,3 +60,12 @@ def create_briefing(
     service: BriefingService = Depends(get_briefing_service),
 ) -> ApiResponse[BriefingGenerationResult]:
     return ApiResponse(data=service.generate(request))
+
+
+@router.post("/briefings/compose", response_model=ApiResponse[BriefingComposeResult], responses=ERRORS)
+def compose_briefing(
+    request: BriefingComposeRequest,
+    service: BriefingService = Depends(get_briefing_service),
+) -> ApiResponse[BriefingComposeResult]:
+    """13단계: Spring이 모은 ERP·Severity·RAG·대체공급사 값을 템플릿 브리핑으로 조립한다."""
+    return ApiResponse(data=service.compose(request))
