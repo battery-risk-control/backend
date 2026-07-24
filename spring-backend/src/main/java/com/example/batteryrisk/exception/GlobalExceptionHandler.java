@@ -13,6 +13,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -101,6 +102,12 @@ public class GlobalExceptionHandler {
                 : "요청 값을 확인해 주세요.";
         return ResponseEntity.badRequest()
                 .body(ApiErrorResponse.of("INVALID_REQUEST", message));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException exception) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ApiErrorResponse.of("FILE_TOO_LARGE", "파일 크기 제한을 초과했습니다."));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

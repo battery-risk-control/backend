@@ -2,15 +2,22 @@ const API_BASE_URL = (import.meta.env.VITE_SPRING_API_BASE_URL ?? "").replace(/\
 
 export const ACCESS_TOKEN_KEY = "access_token";
 export const LAST_DOCUMENT_ID_KEY = "last_document_id";
-export const MAX_FILE_SIZE = 10 * 1024 * 1024;
+export const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+const ALLOWED_EXTENSIONS = ["pdf", "txt", "csv"];
+const ALLOWED_MIME = {
+  pdf: ["application/pdf"],
+  txt: ["text/plain"],
+  csv: ["text/csv", "text/plain", "application/csv"],
+};
 
 export function validateDocumentFile(file) {
-  if (!file || file.size === 0) return "내용이 있는 PDF 또는 TXT 파일을 선택해 주세요.";
+  if (!file || file.size === 0) return "내용이 있는 파일을 선택해 주세요.";
   const extension = file.name.split(".").pop()?.toLowerCase();
-  if (!["pdf", "txt"].includes(extension)) return "PDF와 TXT 파일만 업로드할 수 있습니다.";
-  if (file.size > MAX_FILE_SIZE) return "파일은 최대 10MB까지 업로드할 수 있습니다.";
-  const allowedMime = extension === "pdf" ? ["application/pdf"] : ["text/plain"];
-  if (file.type && !allowedMime.includes(file.type)) return "파일 확장자와 MIME 형식이 일치하지 않습니다.";
+  if (!ALLOWED_EXTENSIONS.includes(extension)) return "PDF, TXT, CSV 파일만 업로드할 수 있습니다.";
+  if (file.size > MAX_FILE_SIZE) return "파일은 최대 50MB까지 업로드할 수 있습니다.";
+  const allowed = ALLOWED_MIME[extension] ?? [];
+  if (file.type && !allowed.includes(file.type)) return "파일 확장자와 MIME 형식이 일치하지 않습니다.";
   return null;
 }
 

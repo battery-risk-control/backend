@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -57,7 +58,7 @@ class DocumentServiceTest {
                 "file", "malware.exe", "application/octet-stream", "invalid".getBytes());
 
         DocumentUploadException exception = assertThrows(DocumentUploadException.class,
-                () -> service.upload(file, 1L, 2L, 3L, "LTA"));
+                () -> service.upload(file, 1L, 2L, 3L, "CONTRACT"));
 
         assertEquals("UNSUPPORTED_DOCUMENT_TYPE", exception.getCode());
     }
@@ -68,7 +69,7 @@ class DocumentServiceTest {
                 "file", "contract.pdf", "text/plain", "not a pdf".getBytes());
 
         DocumentUploadException exception = assertThrows(DocumentUploadException.class,
-                () -> service.upload(file, 1L, 2L, 3L, "LTA"));
+                () -> service.upload(file, 1L, 2L, 3L, "CONTRACT"));
 
         assertEquals("INVALID_MIME_TYPE", exception.getCode());
     }
@@ -77,7 +78,7 @@ class DocumentServiceTest {
     void rejectsEmptyFile() {
         MockMultipartFile file = new MockMultipartFile("file", "empty.txt", "text/plain", new byte[0]);
         DocumentUploadException exception = assertThrows(DocumentUploadException.class,
-                () -> service.upload(file, 1L, 2L, 3L, "LTA"));
+                () -> service.upload(file, 1L, 2L, 3L, "CONTRACT"));
         assertEquals("EMPTY_FILE", exception.getCode());
     }
 
@@ -87,7 +88,7 @@ class DocumentServiceTest {
                 "file", "large.txt", "text/plain", new byte[1025]);
 
         DocumentUploadException exception = assertThrows(DocumentUploadException.class,
-                () -> service.upload(file, 1L, 2L, 3L, "LTA"));
+                () -> service.upload(file, 1L, 2L, 3L, "CONTRACT"));
 
         assertEquals("FILE_TOO_LARGE", exception.getCode());
     }
@@ -132,7 +133,7 @@ class DocumentServiceTest {
                 .andExpect(method(POST))
                 .andRespond(request -> withSuccess("""
                         {"success":true,"data":{"document_id":"%s","contract_id":1,
-                        "supplier_id":2,"material_id":3,"document_type":"LTA","file_name":"contract.txt",
+                        "supplier_id":2,"material_id":3,"document_type":"CONTRACT","file_name":"contract.txt",
                         "content_hash":"hash","chunk_count":1,"processing_status":"COMPLETED",
                         "embedding_type":"MOCK_TOKEN_HASH","embedding_version":"mock-v1",
                         "mock_embedding":true,
@@ -144,9 +145,11 @@ class DocumentServiceTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "../contract.txt", "text/plain", "price clause".getBytes());
 
-        var result = linkedService.upload(file, 1L, 2L, 3L, "LTA");
+        var result = linkedService.upload(file, 1L, 2L, 3L, "CONTRACT");
 
-        assertEquals(savedDocument.get().getDocumentId().toString(), result.documentId());
+        assertTrue(savedDocument.get().getDocumentId().startsWith("con_"));
+        assertTrue(Pattern.matches("^con_[0-9a-f]{32}$", savedDocument.get().getDocumentId()));
+        assertEquals(savedDocument.get().getDocumentId(), result.documentId());
         assertEquals("COMPLETED", result.processingStatus());
         assertEquals("MOCK_TOKEN_HASH", result.embeddingType());
         assertEquals("mock-v1", result.embeddingVersion());
@@ -183,7 +186,7 @@ class DocumentServiceTest {
                 "file", "contract.txt", "text/plain", "price clause".getBytes());
 
         DocumentUploadException exception = assertThrows(DocumentUploadException.class,
-                () -> linkedService.upload(file, 1L, 2L, 3L, "LTA"));
+                () -> linkedService.upload(file, 1L, 2L, 3L, "CONTRACT"));
 
         assertEquals("VECTOR_STORE_FAILED", exception.getCode());
         assertEquals("FAILED", savedDocument.get().getProcessingStatus());
@@ -195,13 +198,13 @@ class DocumentServiceTest {
     void reprocessesStoredOriginalWithSameDocumentId() throws Exception {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://localhost:8000");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        UUID documentId = UUID.randomUUID();
-        Path relativePath = Path.of("contracts", documentId.toString(), "original.txt");
+        String documentId = "con_" + UUID.randomUUID().toString().replace("-", "");
+        Path relativePath = Path.of("contracts", documentId, "original.txt");
         Path original = tempDir.resolve(relativePath);
         Files.createDirectories(original.getParent());
         Files.writeString(original, "Article 1 Price adjustment clause");
         Document document = Document.pending(
-                documentId, 1L, 2L, 3L, "LTA", "contract.txt", "text/plain",
+                documentId, 1L, 2L, 3L, "CONTRACT", "contract.txt", "text/plain",
                 Files.size(original), "a".repeat(64), relativePath.toString().replace('\\', '/'));
         document.markCompleted(2, "MOCK_TOKEN_HASH", "mock-v1");
         when(repository.findById(documentId)).thenReturn(Optional.of(document));
@@ -211,7 +214,7 @@ class DocumentServiceTest {
                 .andExpect(method(POST))
                 .andRespond(withSuccess("""
                         {"success":true,"data":{"document_id":"%s","contract_id":1,
-                        "supplier_id":2,"material_id":3,"document_type":"LTA","file_name":"contract.txt",
+                        "supplier_id":2,"material_id":3,"document_type":"CONTRACT","file_name":"contract.txt",
                         "content_hash":"hash","chunk_count":1,"processing_status":"COMPLETED",
                         "embedding_type":"MOCK_TOKEN_HASH","embedding_version":"mock-v1",
                         "mock_embedding":true,"duplicate":false,"mock":true},
@@ -220,9 +223,9 @@ class DocumentServiceTest {
 
         DocumentService linkedService = new DocumentService(
                 builder.build(), repository, 1024, tempDir.toString());
-        var result = linkedService.reprocess(documentId.toString());
+        var result = linkedService.reprocess(documentId);
 
-        assertEquals(documentId.toString(), result.documentId());
+        assertEquals(documentId, result.documentId());
         assertEquals("COMPLETED", document.getProcessingStatus());
         assertEquals(1, document.getChunkCount());
         assertTrue(!result.duplicate());
@@ -248,7 +251,7 @@ class DocumentServiceTest {
                 "file", "contract.txt", "text/plain", "price clause".getBytes());
 
         DocumentUploadException exception = assertThrows(DocumentUploadException.class,
-                () -> linkedService.upload(file, 1L, 2L, 3L, "LTA"));
+                () -> linkedService.upload(file, 1L, 2L, 3L, "CONTRACT"));
 
         assertEquals("FASTAPI_UNAVAILABLE", exception.getCode());
         assertEquals(503, exception.getStatus().value());

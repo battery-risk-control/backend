@@ -198,7 +198,7 @@ class DocumentService:
 
     def _extract_pages(self, content: bytes, file_name: str) -> tuple[ExtractedPage, ...]:
         suffix = Path(file_name).suffix.lower()
-        if suffix == ".txt":
+        if suffix in (".txt", ".csv"):
             try:
                 text = content.decode("utf-8-sig").strip()
             except UnicodeDecodeError as exception:

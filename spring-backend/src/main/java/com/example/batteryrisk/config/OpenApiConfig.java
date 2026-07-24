@@ -1,5 +1,7 @@
 package com.example.batteryrisk.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -19,5 +21,10 @@ public class OpenApiConfig {
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")));
+    }
+
+    @Bean
+    public ModelResolver modelResolver(ObjectMapper objectMapper) {
+        return new ModelResolver(objectMapper);
     }
 }

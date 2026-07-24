@@ -250,7 +250,7 @@ class ChromaVectorStore:
         try:
             existing = self._collection.get(
                 where={"document_id": document_id},
-                include=[],
+                include=["metadatas"],
             )
             ids = existing.get("ids") or []
             if ids:
@@ -263,7 +263,7 @@ class ChromaVectorStore:
 
     def clear(self) -> int:
         try:
-            existing = self._collection.get(include=[])
+            existing = self._collection.get(include=["metadatas"])
             ids = existing.get("ids") or []
             if ids:
                 self._collection.delete(ids=ids)

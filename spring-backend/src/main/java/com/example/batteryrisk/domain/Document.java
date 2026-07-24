@@ -8,14 +8,13 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(name = "contract_documents")
 public class Document {
     @Id
-    @Column(name = "document_id", nullable = false)
-    private UUID documentId;
+    @Column(name = "document_id", nullable = false, length = 40)
+    private String documentId;
 
     @Column(name = "contract_id", nullable = false)
     private Long contractId;
@@ -72,7 +71,7 @@ public class Document {
     protected Document() {}
 
     public static Document pending(
-            UUID documentId, Long contractId, Long supplierId, Long materialId,
+            String documentId, Long contractId, Long supplierId, Long materialId,
             String documentType, String originalFileName, String mimeType,
             long fileSizeBytes, String contentHash, String filePath) {
         Document document = new Document();
@@ -115,7 +114,7 @@ public class Document {
         processedAt = Instant.now();
     }
 
-    public UUID getDocumentId() { return documentId; }
+    public String getDocumentId() { return documentId; }
     public Long getContractId() { return contractId; }
     public Long getSupplierId() { return supplierId; }
     public Long getMaterialId() { return materialId; }

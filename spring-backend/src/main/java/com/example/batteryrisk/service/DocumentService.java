@@ -42,11 +42,18 @@ public class DocumentService {
     private static final ObjectMapper ERROR_BODY_MAPPER = new ObjectMapper();
     private static final Map<String, Set<String>> ALLOWED_MIME_TYPES = Map.of(
             "pdf", Set.of("application/pdf"),
-            "txt", Set.of("text/plain")
+            "txt", Set.of("text/plain"),
+            "csv", Set.of("text/csv", "text/plain", "application/csv")
     );
     private static final Set<String> ALLOWED_DOCUMENT_TYPES = Set.of(
-            "LTA", "PURCHASE_GUIDELINE", "SUPPLIER_EVALUATION",
-            "QUALITY_CERTIFICATE", "REGULATION", "TECHNICAL_SPEC"
+            "CONTRACT", "PURCHASE_ORDER", "SPECIFICATION", "CERTIFICATE", "OTHER"
+    );
+    private static final Map<String, String> DOCUMENT_TYPE_PREFIXES = Map.of(
+            "CONTRACT", "con",
+            "PURCHASE_ORDER", "po",
+            "SPECIFICATION", "spc",
+            "CERTIFICATE", "cer",
+            "OTHER", "doc"
     );
 
     private final RestClient fastApiRestClient;
@@ -57,7 +64,7 @@ public class DocumentService {
     public DocumentService(
             RestClient fastApiRestClient,
             DocumentRepository documentRepository,
-            @Value("${app.upload.max-file-size:10485760}") long maxFileSize,
+            @Value("${app.upload.max-file-size:52428800}") long maxFileSize,
             @Value("${app.upload.root:../uploads}") String uploadRoot) {
         this.fastApiRestClient = fastApiRestClient;
         this.documentRepository = documentRepository;
@@ -78,8 +85,8 @@ public class DocumentService {
             return toUploadResponse(existing, true, true);
         }
 
-        UUID documentId = UUID.randomUUID();
-        Path relativePath = Path.of("contracts", documentId.toString(), "original." + metadata.extension());
+        String documentId = generateDocumentId(metadata.documentType());
+        Path relativePath = Path.of("contracts", documentId, "original." + metadata.extension());
         Path storedFile = resolveStoredFile(relativePath);
         writeOriginal(storedFile, content);
 
@@ -128,13 +135,7 @@ public class DocumentService {
     }
 
     public DocumentDto.DocumentStatusResponse get(String documentId) {
-        UUID id;
-        try {
-            id = UUID.fromString(documentId);
-        } catch (IllegalArgumentException exception) {
-            throw new DocumentNotFoundException(documentId);
-        }
-        Document document = documentRepository.findById(id)
+        Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
         return toStatusResponse(document);
     }
@@ -179,13 +180,7 @@ public class DocumentService {
     }
 
     private Document findDocument(String documentId) {
-        UUID id;
-        try {
-            id = UUID.fromString(documentId);
-        } catch (IllegalArgumentException exception) {
-            throw new DocumentNotFoundException(documentId);
-        }
-        return documentRepository.findById(id)
+        return documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
     }
 
@@ -198,7 +193,7 @@ public class DocumentService {
                 .name("file").filename(document.getOriginalFileName()).build());
         parts.add("file", new HttpEntity<>(
                 new NamedByteArrayResource(content, document.getOriginalFileName()), fileHeaders));
-        parts.add("document_id", new HttpEntity<>(document.getDocumentId().toString()));
+        parts.add("document_id", new HttpEntity<>(document.getDocumentId()));
         parts.add("contract_id", new HttpEntity<>(document.getContractId().toString()));
         parts.add("supplier_id", new HttpEntity<>(document.getSupplierId().toString()));
         parts.add("material_id", new HttpEntity<>(document.getMaterialId().toString()));
@@ -230,7 +225,7 @@ public class DocumentService {
                     HttpStatus.BAD_GATEWAY);
         }
         DocumentDto.FastApiData data = response.data();
-        if (!document.getDocumentId().toString().equals(data.documentId())) {
+        if (!document.getDocumentId().equals(data.documentId())) {
             throw new DocumentUploadException(
                     "DOCUMENT_ID_MISMATCH", "Spring과 FastAPI의 document_id가 일치하지 않습니다.",
                     HttpStatus.BAD_GATEWAY);
@@ -286,7 +281,7 @@ public class DocumentService {
         String mimeType = normalizeMimeType(file.getContentType());
         if (!ALLOWED_MIME_TYPES.containsKey(extension)) {
             throw new DocumentUploadException(
-                    "UNSUPPORTED_DOCUMENT_TYPE", "PDF와 TXT 파일만 업로드할 수 있습니다.");
+                    "UNSUPPORTED_DOCUMENT_TYPE", "PDF, TXT, CSV 파일만 업로드할 수 있습니다.");
         }
         if (!ALLOWED_MIME_TYPES.get(extension).contains(mimeType)) {
             throw new DocumentUploadException(
@@ -361,7 +356,7 @@ public class DocumentService {
 
     private DocumentDto.UploadResponse toUploadResponse(Document document, boolean duplicate, boolean mock) {
         return new DocumentDto.UploadResponse(
-                document.getDocumentId().toString(), document.getContractId(), document.getSupplierId(),
+                document.getDocumentId(), document.getContractId(), document.getSupplierId(),
                 document.getMaterialId(), document.getDocumentType(), document.getOriginalFileName(),
                 document.getContentHash(), document.getChunkCount(), document.getProcessingStatus(),
                 document.getEmbeddingType(), document.getEmbeddingVersion(),
@@ -370,12 +365,17 @@ public class DocumentService {
 
     private DocumentDto.DocumentStatusResponse toStatusResponse(Document document) {
         return new DocumentDto.DocumentStatusResponse(
-                document.getDocumentId().toString(), document.getContractId(), document.getSupplierId(),
+                document.getDocumentId(), document.getContractId(), document.getSupplierId(),
                 document.getMaterialId(), document.getDocumentType(), document.getOriginalFileName(),
                 document.getMimeType(), document.getFileSizeBytes(), document.getContentHash(),
                 document.getFilePath(), document.getProcessingStatus(), document.getChunkCount(),
                 document.getEmbeddingType(), document.getEmbeddingVersion(), document.getErrorCode(),
                 document.getErrorMessage(), document.getCreatedAt(), document.getProcessedAt());
+    }
+
+    private String generateDocumentId(String documentType) {
+        String prefix = DOCUMENT_TYPE_PREFIXES.getOrDefault(documentType, "doc");
+        return prefix + "_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     private record FileMetadata(String fileName, String extension, String mimeType, String documentType) {}

@@ -82,7 +82,7 @@ public class ErpRepository {
             long materialId, String requestedErpSupplierId, LocalDate asOfDate) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("materialId", materialId)
-                .addValue("erpSupplierId", blankToNull(requestedErpSupplierId))
+                .addValue("erpSupplierId", blankToNull(requestedErpSupplierId), java.sql.Types.VARCHAR)
                 .addValue("asOfDate", asOfDate);
         return first(jdbc.query("""
                 SELECT
@@ -174,6 +174,42 @@ public class ErpRepository {
                   AND poi.ordered_quantity > poi.received_quantity
                 """, params, BigDecimal.class);
         return result == null ? BigDecimal.ZERO : result;
+    }
+
+    public Optional<Long> resolveMaterialId(String erpMaterialId) {
+        return resolveId("materials", "material_id", "erp_material_id", erpMaterialId);
+    }
+
+    public Optional<Long> resolveSupplierId(String erpSupplierId) {
+        return resolveId("suppliers", "supplier_id", "erp_supplier_id", erpSupplierId);
+    }
+
+    public Optional<Long> resolveWarehouseId(String erpWarehouseId) {
+        return resolveId("warehouses", "warehouse_id", "erp_warehouse_id", erpWarehouseId);
+    }
+
+    public Optional<Long> resolveContractId(String erpContractId) {
+        return resolveId("contracts", "contract_id", "erp_contract_id", erpContractId);
+    }
+
+    public Optional<Long> resolvePurchaseOrderId(String erpPurchaseOrderId) {
+        return resolveId("purchase_orders", "purchase_order_id", "erp_purchase_order_id", erpPurchaseOrderId);
+    }
+
+    public Optional<Long> resolvePurchaseOrderItemId(String erpPurchaseOrderItemId) {
+        return resolveId(
+                "purchase_order_items", "purchase_order_item_id",
+                "erp_purchase_order_item_id", erpPurchaseOrderItemId);
+    }
+
+    private Optional<Long> resolveId(String table, String pkColumn, String erpColumn, String erpId) {
+        String value = blankToNull(erpId);
+        if (value == null) {
+            return Optional.empty();
+        }
+        String sql = "SELECT " + pkColumn + " FROM " + table + " WHERE " + erpColumn + " = :erpId";
+        return first(jdbc.query(sql, new MapSqlParameterSource("erpId", value),
+                (rs, rowNum) -> rs.getLong(pkColumn)));
     }
 
     private static String blankToNull(String value) {

@@ -32,7 +32,7 @@ public class DocumentController {
             @RequestParam("contract_id") Long contractId,
             @RequestParam("supplier_id") Long supplierId,
             @RequestParam("material_id") Long materialId,
-            @RequestParam(name = "document_type", defaultValue = "LTA") String documentType) {
+            @RequestParam(name = "document_type", defaultValue = "CONTRACT") String documentType) {
         return ApiResponse.ok(
                 documentService.upload(file, contractId, supplierId, materialId, documentType));
     }

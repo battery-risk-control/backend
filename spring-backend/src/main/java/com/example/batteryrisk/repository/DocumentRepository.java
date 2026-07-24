@@ -6,9 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
-import java.util.UUID;
 
-public interface DocumentRepository extends JpaRepository<Document, UUID> {
+public interface DocumentRepository extends JpaRepository<Document, String> {
     Optional<Document> findByContractIdAndContentHash(Long contractId, String contentHash);
 
     @Query(value = """

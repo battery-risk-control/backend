@@ -8,7 +8,7 @@ import {
 } from "./documentApi";
 
 const STATUS_COPY = {
-  IDLE: ["업로드 준비", "PDF 또는 TXT 계약 문서를 선택해 주세요."],
+  IDLE: ["업로드 준비", "PDF, TXT, 또는 CSV 파일을 선택해 주세요."],
   PENDING: ["업로드 접수", "파일을 Spring Boot로 안전하게 전송하고 있습니다."],
   PROCESSING: ["문서 처리 중", "텍스트 추출·청킹·Mock Embedding·ChromaDB 적재를 진행합니다."],
   COMPLETED: ["처리 완료", "문서가 검색 가능한 상태로 적재되었습니다."],
@@ -24,7 +24,7 @@ function StatusBadge({ status }) {
 
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem(ACCESS_TOKEN_KEY) ?? "");
-  const [form, setForm] = useState({ contractId: "1", supplierId: "1", materialId: "1", documentType: "LTA" });
+  const [form, setForm] = useState({ contractId: "1", supplierId: "1", materialId: "1", documentType: "CONTRACT" });
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("IDLE");
   const [progress, setProgress] = useState(0);
@@ -145,17 +145,23 @@ export default function App() {
           </details>
 
           <label className={`dropzone ${file ? "dropzone--selected" : ""}`}>
-            <input type="file" accept=".pdf,.txt,application/pdf,text/plain" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError(null); }} />
+            <input type="file" accept=".pdf,.txt,.csv,application/pdf,text/plain,text/csv" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError(null); }} />
             <span className="file-icon">{file ? "✓" : "+"}</span>
-            <strong>{file?.name ?? "PDF 또는 TXT 파일 선택"}</strong>
-            <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "최대 10MB · 파일 형식과 MIME 동시 검증"}</small>
+            <strong>{file?.name ?? "PDF, TXT, 또는 CSV 파일 선택"}</strong>
+            <small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "최대 50MB · PDF / TXT / CSV 지원"}</small>
           </label>
 
           <div className="field-grid">
             <label>계약 ID<input name="contractId" type="number" min="1" required value={form.contractId} onChange={updateForm} /></label>
             <label>공급사 ID<input name="supplierId" type="number" min="1" required value={form.supplierId} onChange={updateForm} /></label>
             <label>자재 ID<input name="materialId" type="number" min="1" required value={form.materialId} onChange={updateForm} /></label>
-            <label>문서 유형<select name="documentType" value={form.documentType} onChange={updateForm}><option value="LTA">장기공급계약</option><option value="GUIDELINE">구매 가이드라인</option><option value="SUPPLIER_EVALUATION">공급사 평가</option><option value="CERTIFICATE">품질 인증서</option><option value="REGULATION">규제 문서</option><option value="TECHNICAL_SPEC">기술 스펙</option></select></label>
+            <label>문서 종류<select name="documentType" value={form.documentType} onChange={updateForm}>
+              <option value="CONTRACT">계약서</option>
+              <option value="PURCHASE_ORDER">발주서</option>
+              <option value="SPECIFICATION">사양서</option>
+              <option value="CERTIFICATE">인증서</option>
+              <option value="OTHER">기타</option>
+            </select></label>
           </div>
 
           <button className="primary" disabled={isBusy}>{isBusy ? "문서를 처리하고 있습니다" : "문서 업로드 시작"}<span>→</span></button>

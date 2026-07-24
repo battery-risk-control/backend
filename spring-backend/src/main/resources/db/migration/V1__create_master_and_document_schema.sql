@@ -51,7 +51,7 @@ CREATE TABLE contracts (
 );
 
 CREATE TABLE contract_documents (
-    document_id UUID PRIMARY KEY,
+    document_id VARCHAR(40) PRIMARY KEY,
     contract_id BIGINT NOT NULL,
     supplier_id BIGINT NOT NULL,
     material_id BIGINT NOT NULL,
@@ -81,12 +81,11 @@ CREATE TABLE contract_documents (
         CHECK (processing_status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')),
     CONSTRAINT ck_document_type
         CHECK (document_type IN (
-            'LTA',
-            'PURCHASE_GUIDELINE',
-            'SUPPLIER_EVALUATION',
-            'QUALITY_CERTIFICATE',
-            'REGULATION',
-            'TECHNICAL_SPEC'
+            'CONTRACT',
+            'PURCHASE_ORDER',
+            'SPECIFICATION',
+            'CERTIFICATE',
+            'OTHER'
         ))
 );
 

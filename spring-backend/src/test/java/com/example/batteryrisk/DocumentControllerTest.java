@@ -34,7 +34,7 @@ class DocumentControllerTest {
     void uploadsDocumentWithSnakeCaseResponse() throws Exception {
         when(documentService.upload(any(), anyLong(), anyLong(), anyLong(), anyString()))
                 .thenReturn(new DocumentDto.UploadResponse(
-                        "DOC-ABC", 1L, 2L, 3L, "LTA", "contract.txt", "hash", 1,
+                        "DOC-ABC", 1L, 2L, 3L, "CONTRACT", "contract.txt", "hash", 1,
                         "COMPLETED", "MOCK_TOKEN_HASH", "mock-v1", false, true,
                         Instant.parse("2026-07-21T00:00:00Z")));
 
@@ -47,7 +47,7 @@ class DocumentControllerTest {
                         .param("contract_id", "1")
                         .param("supplier_id", "2")
                         .param("material_id", "3")
-                        .param("document_type", "LTA"))
+                        .param("document_type", "CONTRACT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.document_id").value("DOC-ABC"))
@@ -62,7 +62,7 @@ class DocumentControllerTest {
     void reprocessesStoredDocumentWithSameDocumentId() throws Exception {
         when(documentService.reprocess("DOC-ABC"))
                 .thenReturn(new DocumentDto.UploadResponse(
-                        "DOC-ABC", 1L, 2L, 3L, "LTA", "contract.txt", "hash", 1,
+                        "DOC-ABC", 1L, 2L, 3L, "CONTRACT", "contract.txt", "hash", 1,
                         "COMPLETED", "MOCK_TOKEN_HASH", "mock-v1", false, true,
                         Instant.parse("2026-07-22T00:00:00Z")));
 

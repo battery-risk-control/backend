@@ -23,8 +23,8 @@ spring:
     locations: classpath:db/migration
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 11MB
+      max-file-size: 50MB
+      max-request-size: 51MB
 
 springdoc:
   swagger-ui:
@@ -45,7 +45,7 @@ app:
   fastapi:
     base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
   upload:
-    max-file-size: ${UPLOAD_MAX_FILE_SIZE:10485760}
+    max-file-size: ${UPLOAD_MAX_FILE_SIZE:52428800}
     root: ${UPLOAD_ROOT:../uploads}
   jwt:
     secret: ${JWT_SECRET:change-this-development-only-secret-key-please-override-in-env-32bytes+}

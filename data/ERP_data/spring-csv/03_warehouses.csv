@@ -1,0 +1,5 @@
+﻿warehouse_id,warehouse_code,warehouse_name,country_code,timezone,warehouse_type,active
+WH-ICN-01,ICN-RM,인천 원자재 중앙창고,KR,Asia/Seoul,RAW_MATERIAL,true
+WH-ULS-01,ULS-PLANT,울산 생산공장 창고,KR,Asia/Seoul,PLANT,true
+WH-GMI-01,GMI-PLANT,구미 생산공장 창고,KR,Asia/Seoul,PLANT,true
+WH-BUS-01,BUS-BONDED,부산 보세창고,KR,Asia/Seoul,BONDED,true
