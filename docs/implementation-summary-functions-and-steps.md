@@ -54,7 +54,7 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | F6 Master Data | 자재·공급사·계약·창고·발주·입고 스키마와 Seed, ERP 데이터 갱신 API 10종 | 완료 |
 | F9 대체 공급사 | 인증·FEOC·승인상태 기준 적격 후보 조회 | 브리핑 연계 범위 완료 |
 | M5 근거 | 검색 유사도, 페이지·청크·Embedding 버전, `rule_version`·`template_version` | 완료 |
-| F11 대시보드 | 업로드 검증 화면만 존재 | 미구현 |
+| F11 대시보드 | Dashboard 요약·목록 조회 API(Dashboard·Risk·Contract·Briefing) | 백엔드 완료, React 화면 미구현 |
 | F4 외부 데이터 수집 | 미구현 (실시간 알림 API는 고정 Mock 응답) | 미구현 |
 
 ### "완료"라는 표현의 범위
@@ -395,9 +395,9 @@ Flyway 마이그레이션은 순서대로 적용된다. `R__`은 반복 적용 �
 | 11. Severity Rule Engine | F3/F8 | Spring 요청·저장, FastAPI 규칙 엔진 | 완료 |
 | 12. RAG 대응 분석 | F2 + F9 | 근거 검색, 적격 대체 공급사, 근거 부족 표시 | 완료 |
 | 13. 템플릿 브리핑 | F5 | 12단계와 통합. 생성·저장·조회 | 완료 |
-| 14. 전체 조회·React | F11 | 목록·대시보드 조회 API와 역할별 화면 | 미착수 |
-| 15. 전체 Docker 통합 | 공통 기반 | 5개 서비스 통합, 장애 시나리오 | 미착수 |
-| 16. 실제 모델 교체 | M | Embedding·XGBoost·LLM 실제 연결 | 모델 전달 대기 |
+| 14. 전체 조회·React | F11 | 목록·대시보드 조회 API와 역할별 화면 | 착수 |
+| 15. 전체 Docker 통합 | 공통 기반 | 5개 서비스 통합, 장애 시나리오 | 완료 |
+| 16. 실제 모델 교체 | M | Embedding·XGBoost·LLM 실제 연결 | 부분 착수 (Embedding 배선 완료, XGBoost·LLM 대기) |
 
 8단계는 표현에 주의가 필요하다. 검증용 React의 코드·단위 테스트·production build는 통과했지만, 프론트엔드 팀의 정식 프로젝트와 병합하지 않았고 브라우저 수동 확인도 남아 있다.
 
@@ -405,7 +405,9 @@ Flyway 마이그레이션은 순서대로 적용된다. `R__`은 반복 적용 �
 
 ### 14단계 전체 조회·React 대시보드
 
-- Dashboard·Risk·Contract·Briefing **목록** 조회 API — 현재는 단건 조회만 있다
+백엔드는 완료됐고(Dashboard·Risk·Contract·Briefing 요약/목록 조회 API), 남은 것은 프론트엔드 쪽이다.
+
+- ~~Dashboard·Risk·Contract·Briefing **목록** 조회 API~~ — 완료 (`DashboardController`, 브리핑 목록 포함)
 - 정식 React 프로젝트와 업로드 화면 병합, 역할별 대시보드
 - 로그인 화면이 저장하는 Token Key와 `access_token` 통일
 - 브라우저 수동 E2E — 정상 PDF/TXT/CSV 업로드, 중복·실패, 새로고침 복원
@@ -415,14 +417,17 @@ Flyway 마이그레이션은 순서대로 적용된다. `R__`은 반복 적용 �
 
 ### 15단계 전체 Docker 통합
 
-- 현재 `docker-compose.yml`에는 PostgreSQL·Chroma 2개만 있다. Spring·FastAPI·React 추가 필요
-- 서비스 개별 장애 시나리오 검증
+완료. 5개 서비스(postgres·chroma·fastapi·spring·frontend)를 하나의 `docker-compose.yml`로 통합했고, 서비스 개별 장애 시나리오 4종을 검증했다. 상세는 [s15-failure-scenario-verification.md](s15-failure-scenario-verification.md) 참고.
+
+- 잔여(의도적 보류): postgres 다운 시 30초 행(HikariCP `connection-timeout`) 하드닝 — 우선순위 낮아 후속 과제
 
 ### 16단계 실제 모델 교체
 
-- `EmbeddingProvider` 계약을 만족하는 OpenAI 구현체 작성·주입, 기존 청크 재적재
-- XGBoost 영향 도메인 분류기 연결
-- `briefing_service.py` 섹션 함수를 LLM 호출로 교체
+Embedding만 부분 착수, 나머지는 대기.
+
+- ~~`EmbeddingProvider` 계약을 만족하는 OpenAI 구현체 작성·주입~~ — 완료 (`OpenAIEmbedding`, `dependencies.py` 배선). **남은 것**: `.env`에 실제 키 투입 후 기존 청크 재적재
+- XGBoost 영향 도메인 분류기 연결 — 팀 모델 전달 대기
+- `briefing_service.py` 섹션 함수를 LLM 호출로 교체 — Claude API(Anthropic) 예정, 키 확보 후 착수
 
 > ERP 데이터는 교체 대상이 아니다. 1절 참고.
 
