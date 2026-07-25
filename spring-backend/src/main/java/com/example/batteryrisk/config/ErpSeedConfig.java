@@ -11,9 +11,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -440,38 +441,64 @@ public class ErpSeedConfig {
         return entries;
     }
 
+    /** CSV 파일 한 개를 읽어 헤더 + 행 목록(CsvTable)으로 변환한다. 첫 줄은 헤더, 이후는 데이터 행. */
     private static CsvTable readCsv(Path path) {
         if (!Files.isRegularFile(path)) {
             throw new IllegalStateException("Required ERP seed file is missing: " + path);
         }
-        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            String headerLine = reader.readLine();
-            if (headerLine == null || headerLine.isBlank()) {
-                throw new IllegalStateException("ERP CSV has no header: " + path);
+        // 인코딩(UTF-8/MS949)을 자동 처리해 모든 줄을 읽어온다.
+        List<String> lines = readAllLinesWithCharsetFallback(path);
+        if (lines.isEmpty() || lines.get(0).isBlank()) {
+            throw new IllegalStateException("ERP CSV has no header: " + path);
+        }
+        // 1번째 줄 = 헤더(컬럼명). 앞에 BOM이 있으면 제거하고 파싱한다.
+        List<String> headers = parseCsvLine(stripBom(lines.get(0)));
+        // 2번째 줄부터 데이터 행. lineNumber는 1-based(사람이 보는 줄 번호)로 유지해 에러 메시지에 쓴다.
+        List<Map<String, String>> rows = new ArrayList<>();
+        for (int lineNumber = 2; lineNumber <= lines.size(); lineNumber++) {
+            String line = lines.get(lineNumber - 1);
+            if (line.isBlank()) {
+                continue; // 빈 줄은 건너뛴다
             }
-            List<String> headers = parseCsvLine(stripBom(headerLine));
-            List<Map<String, String>> rows = new ArrayList<>();
-            String line;
-            int lineNumber = 1;
-            while ((line = reader.readLine()) != null) {
-                lineNumber++;
-                if (line.isBlank()) {
-                    continue;
-                }
-                List<String> values = parseCsvLine(line);
-                if (values.size() != headers.size()) {
-                    throw new IllegalStateException(
-                            path.getFileName() + " line " + lineNumber + " has " + values.size()
-                                    + " columns; expected " + headers.size());
-                }
-                Map<String, String> row = new LinkedHashMap<>();
-                for (int index = 0; index < headers.size(); index++) {
-                    row.put(headers.get(index), values.get(index));
-                }
-                rows.add(row);
+            List<String> values = parseCsvLine(line);
+            // 값 개수가 헤더 개수와 다르면 CSV가 깨진 것 → 몇 번째 줄인지 알려주고 중단한다.
+            if (values.size() != headers.size()) {
+                throw new IllegalStateException(
+                        path.getFileName() + " line " + lineNumber + " has " + values.size()
+                                + " columns; expected " + headers.size());
             }
-            return new CsvTable(List.copyOf(headers), List.copyOf(rows));
+            // 헤더-값을 짝지어 {컬럼명 -> 값} 한 행을 만든다.
+            Map<String, String> row = new LinkedHashMap<>();
+            for (int index = 0; index < headers.size(); index++) {
+                row.put(headers.get(index), values.get(index));
+            }
+            rows.add(row);
+        }
+        return new CsvTable(List.copyOf(headers), List.copyOf(rows));
+    }
+
+    /**
+     * 전략 C(인코딩 폴백): UTF-8로 먼저 엄격하게 디코딩을 시도하고, 잘못된 바이트열이면
+     * 국내 엑셀의 기본 저장 인코딩인 MS949(CP949)로 다시 읽는다.
+     *
+     * <p>{@link Files#readAllLines(Path, java.nio.charset.Charset)}는 UTF-8로 읽을 때
+     * 잘못된 바이트를 만나면 {@link MalformedInputException}을 던지므로(대체 문자로 뭉개지 않음)
+     * "이 파일은 UTF-8이 아니다"를 확실히 감지할 수 있다. MS949는 대부분의 바이트열을 매핑하므로
+     * 최후 폴백으로 안전하다.
+     */
+    private static List<String> readAllLinesWithCharsetFallback(Path path) {
+        try {
+            // 1순위: UTF-8로 엄격하게 읽는다. 바이트가 UTF-8이 아니면 아래 catch로 예외가 넘어온다.
+            return Files.readAllLines(path, StandardCharsets.UTF_8);
+        } catch (MalformedInputException utf8Failure) {
+            // UTF-8이 아님이 확인됨 → 2순위: 국내 엑셀 CSV 기본 인코딩인 MS949로 다시 읽는다.
+            try {
+                return Files.readAllLines(path, Charset.forName("MS949"));
+            } catch (IOException ms949Failure) {
+                throw new IllegalStateException("Failed to read ERP CSV: " + path, ms949Failure);
+            }
         } catch (IOException exception) {
+            // 인코딩과 무관한 입출력 오류(파일 없음/권한 등)
             throw new IllegalStateException("Failed to read ERP CSV: " + path, exception);
         }
     }
