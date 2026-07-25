@@ -61,6 +61,51 @@ class MockEmbedding:
         return [value / norm for value in vector]
 
 
+class OpenAIEmbedding:
+    """OpenAI Embedding API를 사용하는 실제 Provider입니다 (S16 교체 대상)."""
+
+    provider_name = "openai"
+    embedding_type = "OPENAI_API"
+    mock_embedding = False
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "text-embedding-3-small",
+        dimension: int = 1536,
+    ) -> None:
+        if not api_key or not api_key.strip():
+            raise ModelUnavailable()
+        if dimension <= 0:
+            raise ValueError("embedding_dimension은 1 이상이어야 합니다.")
+        # 지연 import: mock 경로와 단위 테스트가 openai 패키지에 의존하지 않도록 한다.
+        from openai import OpenAI
+
+        self._client = OpenAI(api_key=api_key.strip())
+        self.model = model
+        self.dimension = dimension
+        self.embedding_version = f"openai-{model}"
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        cleaned = self._validate(texts)
+        response = self._client.embeddings.create(
+            model=self.model, input=cleaned, dimensions=self.dimension
+        )
+        return [item.embedding for item in response.data]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self.embed_documents([text])[0]
+
+    @staticmethod
+    def _validate(texts: list[str]) -> list[str]:
+        if not texts:
+            raise ValueError("Embedding 입력이 비어 있습니다.")
+        for text in texts:
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError("Embedding 입력 텍스트는 비어 있을 수 없습니다.")
+        return texts
+
+
 def get_embedding_provider(
     settings: Settings | None = None,
     *,

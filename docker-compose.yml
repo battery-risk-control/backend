@@ -40,6 +40,9 @@ services:
       CHROMA_COLLECTION_PREFIX: ${CHROMA_COLLECTION_PREFIX:-contract_documents}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
+      # 실제 임베딩을 쓰려면 EMBEDDING_PROVIDER=openai + OPENAI_API_KEY를 .env에 설정.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
       MOCK_MODE: "true"
     depends_on:

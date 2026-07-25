@@ -21,6 +21,8 @@ class Settings:
     chroma_ssl: bool = False
     chroma_persist_directory: str = "./data/chroma"
     chroma_collection_prefix: str = "contract_documents"
+    openai_api_key: str = ""
+    openai_embedding_model: str = "text-embedding-3-small"
 
 
 def _as_bool(value: str) -> bool:
@@ -45,5 +47,9 @@ def get_settings() -> Settings:
         chroma_persist_directory=os.getenv("CHROMA_PERSIST_DIRECTORY", "./data/chroma").strip(),
         chroma_collection_prefix=os.getenv(
             "CHROMA_COLLECTION_PREFIX", "contract_documents"
+        ).strip(),
+        openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+        openai_embedding_model=os.getenv(
+            "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
         ).strip(),
     )
