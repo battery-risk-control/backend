@@ -291,6 +291,96 @@ if inventory_days < safety_stock_days:
 
 ---
 
+## 14-1. 프론트엔드 ↔ 백엔드 격차 분석
+
+프론트엔드 레포(`C:\aivleschool\bigproject\frontend\frontend`, Phase 9.4까지 진행)를 직접 읽고 백엔드와 대조했다. 상세 결과는 [`docs/frontend-backend-gap-analysis.md`](frontend-backend-gap-analysis.md).
+
+**핵심 발견**
+- 프론트엔드에 **실제 HTTP 호출이 하나도 없다** — `src/` 전체에 `fetch`/`axios` 없음. 전부 `api/*.api.ts` mock이며, `api/types.ts`를 "잠정 계약"으로 선언해두고 구현부만 교체하면 되도록 격리해둔 상태.
+- **중심 개념이 다르다**: 프론트엔드는 `risk_event`(뉴스 사건), 백엔드는 자재·공급사·재고(ERP). 백엔드에 `risk_events` 테이블 자체가 없다(F3/F4 미구현).
+- 프론트엔드가 기대하는 API 14개 중 **7개는 백엔드에 데이터가 아예 없다**(글로벌 리스크 맵, 뉴스 속보, 가격 추이, 사업부별 노출도 등 — 전부 F3/F4 영역).
+- 즉시 해결 가능한 불일치 5개: `org_tier` 값(`planning` vs `STRATEGY`), 로그인 식별자(`email` vs `username`), 승인 대기(PENDING) 개념 부재, `confidence_label` 대응 필드 부재, 리스크 등급 체계 차이.
+
+---
+
+## 14-2. 인증 연동 — 백엔드를 프론트엔드 계약에 맞춤
+
+사용자 방침("협의 없이 백엔드가 프론트엔드에 맞춘다")에 따라 백엔드를 수정했다. **기존 API·테스트를 깨지 않는 하위 호환 방식**을 택했다(C2 인증은 다른 팀원 담당 영역이므로).
+
+### 핵심 설계: DB는 그대로, API 계층에서만 변환
+
+가장 큰 불일치였던 `org_tier`(백엔드 `STRATEGY` ↔ 프론트엔드 `planning`)를 **마이그레이션 없이** 해결했다.
+
+```java
+public enum Role {
+    PURCHASING("purchasing"),
+    STRATEGY("planning"),      // ← 단어가 다른 지점을 여기서만 흡수
+    EXECUTIVE("executive");
+}
+```
+
+### 변경 내역
+
+| 항목 | 방식 |
+| --- | --- |
+| `V7__extend_users_for_frontend_auth.sql` | `email`·`org_name`·`approval_status` 추가. 기존 계정은 `APPROVED` 기본값이라 그대로 로그인 가능 |
+| `Role.java` | `getOrgTier()`/`fromOrgTier()` 매핑 추가 |
+| `LoginRequest` | `email`·`username` 둘 다 optional, `loginId()`가 선택 |
+| `SignupRequest` | 프론트엔드형(`org_tier`)·기존형(`role`) 둘 다 수용 |
+| `CustomUserDetailsService` | username → email 순으로 조회 |
+| `LoginResponse`·`UserSummary` | 기존 필드 유지하고 `org_tier`/`status`/`user_id`만 **추가** |
+| `AuthService.login()` | 승인 전 계정은 `403 PENDING_APPROVAL` |
+| `AuthController` | `POST /auth/users/{id}/approve` 신규(없으면 PENDING이 막다른 길) |
+
+**설계 판단**: `org_tier`로 가입하면 PENDING, `role`로 가입하면 즉시 APPROVED로 갈리게 했다. 프론트엔드 승인 플로우는 살리면서 기존 테스트·검증 스크립트는 깨지지 않게 하기 위해서다.
+
+### 검증 결과
+
+기존 `AuthFlowTest` 4개 전부 통과(하위 호환 확인) + E2E 6가지 통과:
+프론트엔드형 회원가입 → `PENDING` / 승인 전 로그인 → `403 PENDING_APPROVAL` / 승인 → 로그인 시 `org_tier: planning` + `status: APPROVED` / 기존 username 로그인 유지 / 3계층 매핑 / `GET /me`에서 `role: STRATEGY` ↔ `org_tier: planning` 확인.
+
+실제 응답 JSON 7종(회원가입·로그인 성공/PENDING/실패·중복·`/me`)을 캡처해 [`docs/auth-integration-handoff.md`](auth-integration-handoff.md)에 정리했다. 프론트엔드 담당자에게 이 문서 하나만 전달하면 된다.
+
+---
+
+## 14-3. S14 조회·집계 API 구현 및 검증
+
+### 구현
+
+| API | 용도 |
+| --- | --- |
+| `GET /api/v1/dashboard/summary` | 등급별 건수 + 전체 데이터 규모 |
+| `GET /api/v1/dashboard/materials` | 자재별 현재 리스크(게이지·스코어카드용) |
+| `GET /api/v1/dashboard/import-dependency` | 공급사 의존도 분해(도넛차트용) |
+| `GET /api/v1/contracts` | 계약 목록(페이지네이션) |
+| `GET /api/v1/briefings` | 브리핑 목록(필터·페이지네이션) |
+
+**신규 파일**: `DashboardDto`/`DashboardRepository`/`DashboardService`/`DashboardController`, 공통 `PageResponse`
+
+**핵심 설계**: 등급별 집계는 `DISTINCT ON (material_id)`로 **자재별 최신 1건**만 센다. 브리핑처럼 이력이 쌓이는 구조라 누적 건수를 세면 같은 자재를 3번 분석했을 때 "심각 3건"이 되기 때문이다.
+
+`/api/v1/risks`는 `risk_events` 테이블이 없어 만들지 않았다(F3/F4 영역).
+
+### 검증 중 발견해서 고친 문제 2가지
+
+**① 보안 구멍 — 대시보드가 무인증 공개 상태였다**
+
+`SecurityConfig`에 `/api/v1/dashboard/**` permitAll이 있었다. 원래는 빈 경로라 무해했지만, 새 API가 **재고일수·공급사 의존도 같은 ERP 내부 정보**를 반환하므로 그대로 두면 로그인 없이 유출된다. 인증 필수로 바꾸고 관련 테스트도 새 동작에 맞게 수정했다.
+
+> 프론트엔드에 비로그인 공개 대시보드가 있으므로, 공개용 데이터(뉴스·가격 추이)를 만들 땐 별도 경로에 `permitAll`을 두라는 주석을 남겼다.
+
+**② 브리핑이 분석 이력을 남기지 않던 문제**
+
+브리핑을 3건 만들었는데 대시보드는 "분석된 자재 0종"으로 나왔다. S13에서 `BriefingService`가 FastAPI severity를 직접 호출하면서 **계산한 위험 등급을 브리핑 안에만 저장하고 `severity_assessments`에는 남기지 않았기** 때문이다. 브리핑만 만든 사용자는 대시보드가 비어 보였다.
+
+수정 후 `MAT-CU-FOIL` 브리핑을 만들자 분석자재 3→4로 증가하고 목록에 `WARNING/35.0`으로 즉시 등장했다. 문서1의 **F7(근거 계보 — 분석 결과 보존)** 원칙에도 맞는 수정이다.
+
+### 최종 검증 (12개 전부 통과)
+
+집계 정확성 / 심각도 순 정렬 / severity 필터 / 잘못된 값 400 / 수입 의존도(점유율 합계 **1.0**) / 없는 자재 404 / 계약 페이지네이션(29건, 10페이지) / 브리핑 목록·필터 / **무인증 401** / **브리핑→대시보드 자동 반영** / 등급별 합계 == 분석자재 수.
+
+---
+
 ## 15. 이 세션에서 변경·생성된 파일
 
 **수정**
@@ -308,6 +398,24 @@ fastapi-ai/app/schemas/briefing.py
 fastapi-ai/app/services/briefing_service.py
 fastapi-ai/app/api/v1/internal.py
 docs/implementation-summary-functions-and-steps.md
+
+# 인증 연동(14-2)
+spring-backend/.../domain/Role.java                          (org_tier 매핑)
+spring-backend/.../domain/User.java                          (email·승인상태)
+spring-backend/.../dto/auth/LoginRequest.java                (email 로그인)
+spring-backend/.../dto/auth/SignupRequest.java               (org_tier 수용)
+spring-backend/.../dto/auth/LoginResponse.java, UserSummary.java
+spring-backend/.../security/CustomUserDetailsService.java    (email 조회)
+spring-backend/.../service/AuthService.java, UserService.java
+spring-backend/.../controller/AuthController.java            (승인 API)
+
+# S14(14-3)
+spring-backend/.../config/SecurityConfig.java                (보안 구멍 수정)
+spring-backend/.../service/BriefingService.java              (분석 이력 저장 추가)
+spring-backend/.../repository/BriefingRepository.java        (목록 조회)
+spring-backend/.../controller/BriefingController.java        (목록 API)
+spring-backend/.../dto/BriefingDto.java
+spring-backend/src/test/.../AuthFlowTest.java                (대시보드 인증 필수로 변경)
 ```
 
 **신규**
@@ -320,7 +428,16 @@ spring-backend/.../service/BriefingService.java
 spring-backend/.../repository/BriefingRepository.java
 spring-backend/.../dto/BriefingDto.java
 spring-backend/.../db/migration/V6__create_briefings.sql
+spring-backend/.../db/migration/V7__extend_users_for_frontend_auth.sql
+spring-backend/.../domain/ApprovalStatus.java
+spring-backend/.../dto/DashboardDto.java
+spring-backend/.../dto/PageResponse.java
+spring-backend/.../repository/DashboardRepository.java
+spring-backend/.../service/DashboardService.java
+spring-backend/.../controller/DashboardController.java
 scripts/verify_erp_context.py
+docs/frontend-backend-gap-analysis.md
+docs/auth-integration-handoff.md
 ```
 
 ---
@@ -328,17 +445,35 @@ scripts/verify_erp_context.py
 ## 16. 마일스톤 현황
 
 ```text
-S00 ~ S11   완료·검증
-S12 ~ S13   완료·검증 (이번 세션 구현 + E2E)
-S14 ~ S16   미구현
+S00 ~ S14   완료·검증
+S15         미구현 (Docker 통합·장애 검증)
+S16         보류 (실제 모델 전달 대기)
 ```
 
-이번 세션에서 S07 재검증부터 S13 구현·검증까지 진행했다. 남은 뼈대는 S14(전체 조회 API·React 대시보드), S15(Docker 통합·장애 검증), S16(실제 모델 Adapter 교체, 모델 전달 대기)이다.
+이번 세션에서 **S07 재검증부터 S14 구현·검증까지** 진행했다. 뼈대 17단계 중 15개가 완료됐고, 남은 것은 S15(Docker 통합)와 외부 의존인 S16뿐이다.
 
-## 17. 다음에 할 일
+여기에 더해 로드맵에 없던 작업 3가지를 추가로 했다.
+- ERP 데이터 갱신 기능(10개 엔티티 단건 Upsert API)
+- 프론트엔드 격차 분석 + 인증 연동(백엔드를 프론트엔드 계약에 맞춤)
+- ERP 정답셋 자동 검증 스크립트
 
-1. **S14 전체 조회 API·대시보드** — 프론트엔드 팀 작업과 맞물리므로 진행 전 범위 협의 필요
-2. ERP 데이터 갱신 UI — 프론트엔드 팀과 연동 (백엔드 API 10개는 완료)
-3. `as_of` 타임존 정규화 이슈 — `spring.jackson.time-zone` 설정 또는 커스텀 Deserializer (보류 중)
-4. `agent-csv` 정답셋 REQ-007의 `nextEtaDays` 빈칸 — 실제 설계와 불일치하므로 정답셋 수정 여부 팀 확인
-5. S15 Docker 통합 → S16 실제 모델 교체
+## 17. 발견·수정한 버그 총정리 (5건)
+
+| # | 증상 | 원인 | 수정 |
+| --- | --- | --- | --- |
+| 1 | 51MB 업로드 시 500 | `MaxUploadSizeExceededException` 핸들러 부재 | `422 FILE_TOO_LARGE` |
+| 2 | `erp_supplier_id` 생략 시 500 | PostgreSQL이 `IS NULL` 자리 파라미터 타입 추론 실패 | `Types.VARCHAR` 힌트 명시 |
+| 3 | `material_code` 중복 시 500 | `DataIntegrityViolationException` 핸들러 부재 | `409 DUPLICATE_KEY` + 제약명별 한글 안내 |
+| 4 | 대시보드가 무인증 공개 | `SecurityConfig` permitAll에 `/dashboard/**` 포함 | 인증 필수로 변경 |
+| 5 | 브리핑이 대시보드에 안 잡힘 | 브리핑이 계산한 Severity를 이력으로 저장 안 함 | `severity_assessments`에도 저장 |
+
+1~3은 "예외 타입에 맞는 핸들러 부재 → 불친절한 500"이라는 같은 뿌리였고, 4~5는 S14 검증 중 발견했다.
+
+## 18. 다음에 할 일
+
+1. **프론트엔드 인증 연동** — 백엔드 준비 완료. `docs/auth-integration-handoff.md`를 프론트엔드 담당자에게 전달하고 협의(백엔드 주소 설정 방식, 응답 래퍼 처리, 테스트 계정 시드 여부 등 7가지)
+2. **S15 Docker 통합·장애 검증** — 전체 서비스를 하나의 Compose로
+3. `as_of` 타임존 정규화 이슈 (보류 중)
+4. `agent-csv` 정답셋 REQ-007의 `nextEtaDays` 빈칸 — 실제 설계와 불일치, 정답셋 수정 여부 팀 확인
+5. `risk_events` 도입 여부 — 프론트엔드 화면 절반이 요구하지만 F3/F4(다른 담당) 영역. 팀 논의 필요
+6. S16 실제 모델 교체 (모델 전달 대기)

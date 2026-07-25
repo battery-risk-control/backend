@@ -11,6 +11,18 @@ spring:
     username: ${POSTGRES_USER:battery_app}
     password: ${POSTGRES_PASSWORD:battery_app_password}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # [커넥션 풀 설정] HikariCP: DB 커넥션을 미리 만들어두고 재사용하는 풀.
+      # keepalive/max-lifetime은 죽은(half-open) 커넥션을 손님에게 건네기 전에
+      # 앱이 스스로 감지·교체하게 해, Docker/방화벽의 유휴 TCP 끊김으로 생기는
+      # 장시간 실행 시의 커넥션 확보 실패를 예방한다.
+      # minimum-idle을 두지 않아 maximum-pool-size와 같은 '고정 크기 풀'로 동작한다
+      # (HikariCP 권장). 항상 10개를 유지하므로 트래픽 급증 시 커넥션을 즉석 생성해
+      # 발생하는 지연 스파이크가 없다.
+      keepalive-time: 60000        # 60초마다 유휴 커넥션에 핑을 보내 살아있는지 확인
+      max-lifetime: 1200000        # 커넥션 최대 수명 20분 → 인프라가 끊기 전에 먼저 재생성
+      connection-timeout: 30000    # 커넥션을 못 얻을 때 대기 최대 30초(기본값, 순간부하 내성)
+      maximum-pool-size: 10        # 고정 풀 크기(= 동시 DB 작업 상한). minimum-idle 미설정
   jpa:
     open-in-view: false
     hibernate:

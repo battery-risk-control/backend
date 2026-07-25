@@ -108,6 +108,148 @@ POST /api/v1/auth/users/{id}/approve  (Bearer 필요) → PENDING 계정 승인
 
 ---
 
+## 2-1. 실제 응답 JSON 전문 (로컬 서버에서 직접 캡처, 2026-07-24)
+
+아래는 가공하지 않은 **실제 응답 그대로**다. 파싱 코드를 짤 때 이걸 기준으로 하면 된다.
+
+### 회원가입 성공 — HTTP 201
+
+요청: `{ "name": "김영진", "email": "handoff@company.com", "password": "Handoff123!", "org_tier": "planning", "org_name": "OO배터리" }`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 12,
+    "username": "handoff@company.com",
+    "name": "김영진",
+    "role": "STRATEGY",
+    "email": "handoff@company.com",
+    "status": "PENDING",
+    "user_id": "12",
+    "org_tier": "planning"
+  },
+  "timestamp": "2026-07-24T17:06:14.438621+09:00"
+}
+```
+
+> 프론트엔드가 쓸 필드는 `data.user_id`, `data.status`, `data.org_tier`다.
+> `id`/`username`/`role`은 기존 백엔드 호환용이라 무시해도 된다.
+> `message` 필드는 백엔드에 없다 — 프론트엔드에서 고정 문구를 쓰거나, 필요하면 백엔드에 추가 요청할 것.
+
+### 로그인 성공 — HTTP 200
+
+요청: `{ "email": "handoff@company.com", "password": "Handoff123!" }`
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "APPROVED",
+    "user": {
+      "id": 12,
+      "username": "handoff@company.com",
+      "name": "김영진",
+      "role": "STRATEGY",
+      "email": "handoff@company.com",
+      "status": "APPROVED",
+      "user_id": "12",
+      "org_tier": "planning"
+    },
+    "access_token": "eyJhbGciOiJIUzUxMiJ9...(생략)",
+    "refresh_token": "eyJhbGciOiJIUzUxMiJ9...(생략)",
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "refresh_expires_in": 1209600,
+    "org_tier": "planning"
+  },
+  "timestamp": "2026-07-24T17:06:15.1446774+09:00"
+}
+```
+
+> **프론트엔드 `LoginSuccessResponse`가 기대하는 3개 필드가 `data` 최상위에 그대로 있다**:
+> `data.access_token`, `data.org_tier`, `data.status` → `body.data`만 벗기면 타입이 바로 맞는다.
+
+### 로그인 - 승인 대기 — HTTP 403
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "PENDING_APPROVAL",
+    "message": "관리자 승인 대기 중입니다.",
+    "details": null
+  },
+  "timestamp": "2026-07-24T17:06:14.6199331+09:00"
+}
+```
+
+> `res.ok === false` + `body.error.code === 'PENDING_APPROVAL'` 조합으로 판별한 뒤,
+> 프론트엔드 타입 `{ error: 'PENDING_APPROVAL', message }`로 변환하면 기존 `AuthPage` 분기를 그대로 쓸 수 있다.
+
+### 로그인 - 비밀번호 틀림 / 없는 계정 — HTTP 401
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_CREDENTIALS",
+    "message": "아이디 또는 비밀번호가 올바르지 않습니다.",
+    "details": null
+  },
+  "timestamp": "2026-07-24T17:06:14.7708843+09:00"
+}
+```
+
+> 비밀번호 오류와 없는 계정이 **동일한 응답**이다(계정 존재 여부 노출 방지). 화면에서도 구분하지 말 것.
+
+### 회원가입 - 중복 — HTTP 409
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "DUPLICATE_USERNAME",
+    "message": "이미 사용 중인 아이디입니다.",
+    "details": null
+  },
+  "timestamp": "2026-07-24T17:06:15.3981024+09:00"
+}
+```
+
+> 이메일 중복도 이 코드로 나온다(내부적으로 email을 username으로 쓰기 때문).
+> 화면 문구를 "이미 가입된 이메일입니다"로 바꾸고 싶으면 프론트엔드에서 처리하거나 백엔드에 별도 코드 추가를 요청할 것.
+
+### GET /me — HTTP 200 (`Authorization: Bearer {access_token}`)
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 12,
+    "username": "handoff@company.com",
+    "name": "김영진",
+    "role": "STRATEGY",
+    "email": "handoff@company.com",
+    "status": "APPROVED",
+    "user_id": "12",
+    "org_tier": "planning"
+  },
+  "timestamp": "2026-07-24T17:06:15.1831879+09:00"
+}
+```
+
+### 에러 코드 요약
+
+| HTTP | code | 상황 | 프론트엔드 처리 |
+| --- | --- | --- | --- |
+| 403 | `PENDING_APPROVAL` | 승인 대기 계정 로그인 | 승인 대기 락 화면으로 전환 |
+| 401 | `INVALID_CREDENTIALS` | 비밀번호 오류 / 없는 계정 | "아이디 또는 비밀번호 확인" 안내 |
+| 409 | `DUPLICATE_USERNAME` | 이미 가입된 이메일 | "이미 가입된 이메일" 안내 |
+| 400 | `INVALID_REQUEST` | 필수값 누락·형식 오류 | 폼 검증 메시지 |
+
+---
+
 ## 3. 권장 진행 순서
 
 1. **(1) 백엔드 주소 방식**과 **(2) 래퍼 처리 방식**만 먼저 정한다 → 나머지는 코드 작성하며 정해도 된다
