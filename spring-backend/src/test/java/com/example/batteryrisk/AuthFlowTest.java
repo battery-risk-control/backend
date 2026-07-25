@@ -139,9 +139,11 @@ class AuthFlowTest {
     }
 
     @Test
-    void dashboardIsPublicButOtherApiPathsRequireAuthentication() throws Exception {
+    void apiPathsRequireAuthentication() throws Exception {
+        // 14단계에서 대시보드 집계가 ERP 내부 값(재고일수·의존도)을 반환하게 되면서 인증 필수로 바뀌었다.
         mockMvc.perform(get("/api/v1/dashboard/summary"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTHENTICATION_REQUIRED"));
 
         mockMvc.perform(get("/api/v1/risks"))
                 .andExpect(status().isUnauthorized())

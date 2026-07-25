@@ -2,12 +2,14 @@ package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.dto.BriefingDto;
 import com.example.batteryrisk.dto.ErpDto;
+import com.example.batteryrisk.dto.PageResponse;
 import com.example.batteryrisk.dto.RagDto;
 import com.example.batteryrisk.dto.SeverityDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.repository.BriefingRepository;
 import com.example.batteryrisk.repository.ErpRepository;
+import com.example.batteryrisk.repository.SeverityRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,7 @@ public class BriefingService {
     private final RagService ragService;
     private final ErpRepository erpRepository;
     private final BriefingRepository repository;
+    private final SeverityRepository severityRepository;
     private final RestClient fastApiRestClient;
 
     public BriefingService(
@@ -44,11 +47,13 @@ public class BriefingService {
             RagService ragService,
             ErpRepository erpRepository,
             BriefingRepository repository,
+            SeverityRepository severityRepository,
             RestClient fastApiRestClient) {
         this.erpService = erpService;
         this.ragService = ragService;
         this.erpRepository = erpRepository;
         this.repository = repository;
+        this.severityRepository = severityRepository;
         this.fastApiRestClient = fastApiRestClient;
     }
 
@@ -57,6 +62,8 @@ public class BriefingService {
                 request.erpMaterialId(), request.erpSupplierId(), request.asOf()));
 
         SeverityDto.FastApiResult severity = callSeverity(context, request);
+        // 브리핑이 계산한 위험 등급도 분석 이력으로 남긴다 — 대시보드 집계와 근거 계보(F7)의 기준이 된다.
+        saveSeverityAssessment(context, request, severity);
         List<BriefingDto.ContractEvidence> evidence = searchContractEvidence(context, request);
         List<BriefingDto.AlternativeSupplier> alternatives = findAlternatives(context, request);
 
@@ -117,6 +124,25 @@ public class BriefingService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BRIEFING_NOT_FOUND));
     }
 
+    /** 목록 조회 — 화면 첫 진입 시 최근 브리핑을 보여주기 위한 API. */
+    public PageResponse<BriefingDto.BriefingListItem> list(
+            String severity, String erpMaterialId, int page, int size) {
+        String normalizedSeverity = blankToNull(severity);
+        String normalizedMaterial = blankToNull(erpMaterialId);
+        if (normalizedSeverity != null && !LEVELS.contains(normalizedSeverity)) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_REQUEST, "severity는 NORMAL/WARNING/CRITICAL/UNKNOWN 중 하나여야 합니다.");
+        }
+        List<BriefingDto.BriefingListItem> content =
+                repository.findPage(normalizedSeverity, normalizedMaterial, page, size);
+        long total = repository.countAll(normalizedSeverity, normalizedMaterial);
+        return PageResponse.of(content, page, size, total);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim().toUpperCase(java.util.Locale.ROOT);
+    }
+
     private SeverityDto.FastApiResult callSeverity(
             ErpDto.ContextResponse context, BriefingDto.GenerateRequest request) {
         SeverityDto.FastApiRequest severityRequest = new SeverityDto.FastApiRequest(
@@ -156,6 +182,36 @@ public class BriefingService {
             throw new BusinessException(ErrorCode.INVALID_SEVERITY_RESPONSE);
         }
         return result;
+    }
+
+    /** 브리핑이 계산한 Severity를 severity_assessments에도 저장해 대시보드 집계에 반영되게 한다. */
+    private void saveSeverityAssessment(
+            ErpDto.ContextResponse context,
+            BriefingDto.GenerateRequest request,
+            SeverityDto.FastApiResult severity) {
+        severityRepository.save(new SeverityDto.AssessmentResponse(
+                UUID.randomUUID(),
+                context.materialId(),
+                context.primarySupplierId(),
+                context.erpMaterialId(),
+                context.erpSupplierId(),
+                request.asOf(),
+                context.inventoryDays(),
+                context.safetyStockDays(),
+                context.expectedSupplyGapDays(),
+                context.supplierDependencyRatio(),
+                request.priceChangeRate(),
+                request.logisticsDelayDays(),
+                request.gdacsAlertLevel(),
+                context.feocStatus(),
+                context.dataQualityStatus(),
+                severity.severity(),
+                severity.score(),
+                List.copyOf(severity.reasonCodes()),
+                new java.util.LinkedHashMap<>(severity.calculationDetails()),
+                severity.ruleVersion(),
+                severity.mock(),
+                OffsetDateTime.now()));
     }
 
     /** 계약 근거는 자재·공급사 Metadata Filter 범위에서만 검색한다. */

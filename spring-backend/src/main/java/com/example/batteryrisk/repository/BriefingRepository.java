@@ -78,6 +78,50 @@ public class BriefingRepository {
                 """, params);
     }
 
+    /** 목록 조회 — severity·자재 필터와 페이지네이션을 지원한다. 최신순으로 정렬한다. */
+    public List<BriefingDto.BriefingListItem> findPage(
+            String severity, String erpMaterialId, int page, int size) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("severity", severity, java.sql.Types.VARCHAR)
+                .addValue("erpMaterialId", erpMaterialId, java.sql.Types.VARCHAR)
+                .addValue("limit", size)
+                .addValue("offset", (long) page * size);
+        return jdbc.query("""
+                SELECT briefing_id, erp_material_id, erp_supplier_id, severity, score, headline,
+                       jsonb_array_length(contract_evidence) AS contract_evidence_count,
+                       jsonb_array_length(alternative_suppliers) AS alternative_supplier_count,
+                       assessed_at, created_at
+                FROM briefings
+                WHERE (:severity IS NULL OR severity = :severity)
+                  AND (:erpMaterialId IS NULL OR erp_material_id = :erpMaterialId)
+                ORDER BY created_at DESC
+                LIMIT :limit OFFSET :offset
+                """, params, (rs, rowNumber) -> new BriefingDto.BriefingListItem(
+                rs.getObject("briefing_id", UUID.class),
+                rs.getString("erp_material_id"),
+                rs.getString("erp_supplier_id"),
+                rs.getString("severity"),
+                rs.getBigDecimal("score"),
+                rs.getString("headline"),
+                rs.getInt("contract_evidence_count"),
+                rs.getInt("alternative_supplier_count"),
+                rs.getObject("assessed_at", OffsetDateTime.class),
+                rs.getObject("created_at", OffsetDateTime.class)));
+    }
+
+    public long countAll(String severity, String erpMaterialId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("severity", severity, java.sql.Types.VARCHAR)
+                .addValue("erpMaterialId", erpMaterialId, java.sql.Types.VARCHAR);
+        Long count = jdbc.queryForObject("""
+                SELECT COUNT(*)
+                FROM briefings
+                WHERE (:severity IS NULL OR severity = :severity)
+                  AND (:erpMaterialId IS NULL OR erp_material_id = :erpMaterialId)
+                """, params, Long.class);
+        return count == null ? 0L : count;
+    }
+
     public Optional<BriefingDto.BriefingResponse> findById(UUID briefingId) {
         List<BriefingDto.BriefingResponse> values = jdbc.query("""
                 SELECT *

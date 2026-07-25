@@ -115,6 +115,20 @@ public final class BriefingDto {
             boolean mock
     ) {}
 
+    /** 목록 화면용 요약 항목입니다. 본문 전체 대신 headline과 핵심 지표만 담습니다. */
+    public record BriefingListItem(
+            UUID briefingId,
+            String erpMaterialId,
+            String erpSupplierId,
+            String severity,
+            BigDecimal score,
+            String headline,
+            int contractEvidenceCount,
+            int alternativeSupplierCount,
+            OffsetDateTime assessedAt,
+            OffsetDateTime createdAt
+    ) {}
+
     /** PostgreSQL에 저장하고 조회 API가 반환하는 브리핑 결과입니다. */
     public record BriefingResponse(
             UUID briefingId,
