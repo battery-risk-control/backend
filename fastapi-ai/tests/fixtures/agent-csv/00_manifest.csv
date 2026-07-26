@@ -1,0 +1,7 @@
+﻿load_order,file_name,row_count,purpose
+1,01_erp_agent_requests.csv,10,ERP Agent test requests
+2,02_erp_material_context.csv,10,Spring-to-FastAPI raw material context
+3,03_erp_purchase_order_context.csv,111,Spring-to-FastAPI purchase order item context including recent closed orders
+4,04_erp_exposure_expected.csv,10,Expected deterministic ERP exposure result
+5,05_contract_review_requests.csv,4,Expected ERP-to-Contract Agent requests
+6,06_scenario_qa.csv,10,Regression test oracle
