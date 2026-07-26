@@ -1,0 +1,11 @@
+﻿requestId,materialId,expectedLevel,calculatedLevel,result,scenarioDescription,manualReviewExpected
+ERP-REQ-001,MAT-LI-CARB,NORMAL,NORMAL,PASS,재고와 승인 대체 공급사가 충분함,false
+ERP-REQ-002,MAT-LI-OH,NORMAL,NORMAL,PASS,안전재고 이상이며 ETA 이전 소진 없음,false
+ERP-REQ-003,MAT-NI-SULF,WARNING,WARNING,PASS,ETA 이전 소진은 없으나 안전재고 미달,false
+ERP-REQ-004,MAT-CO-SULF,CRITICAL,CRITICAL,PASS,8.5일 공급 공백과 승인 대체 공급사 부재,false
+ERP-REQ-005,MAT-GR-NAT,WARNING,WARNING,PASS,안전재고 미달 및 조건부 대체 공급사,false
+ERP-REQ-006,MAT-GR-SYN,CRITICAL,CRITICAL,PASS,11일 공급 공백과 91% 단일 공급사 의존,false
+ERP-REQ-007,MAT-MN-SULF,UNKNOWN,UNKNOWN,PASS,일평균 사용량 누락 및 재고 스냅샷 노후,true
+ERP-REQ-008,MAT-CU-FOIL,WARNING,WARNING,PASS,부분 입고 및 안전재고 미달,false
+ERP-REQ-009,MAT-AL-FOIL,NORMAL,NORMAL,PASS,충분한 재고와 다변화된 공급망,false
+ERP-REQ-010,MAT-REE-ND,CRITICAL,CRITICAL,PASS,주 공급사 거래중지와 93% 의존도로 강제 격상,false
