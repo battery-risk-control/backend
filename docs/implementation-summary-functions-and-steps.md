@@ -53,7 +53,7 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | F5 브리핑 | ERP·Severity·RAG·대체공급사를 모은 템플릿 브리핑 생성·저장·조회 | 완료 |
 | F6 Master Data | 자재·공급사·계약·창고·발주·입고 스키마와 Seed, ERP 데이터 갱신 API 10종 | 완료 |
 | F9 대체 공급사 | 인증·FEOC·승인상태 기준 적격 후보 조회 | 브리핑 연계 범위 완료 |
-| F7 근거 계보 | 근거 저장·조회, 브리핑↔Severity 판정 링크, 전용 계보 조회 API | 완료 (뉴스 원문 계보는 F4 대기) |
+| F7 근거 계보 | 근거 저장·조회(청크 단위), 브리핑↔Severity 판정 링크, 전용 계보 조회 API | 완료 (뉴스 원문 계보는 F4 대기) |
 | M5 근거 | 검색 유사도, 페이지·청크·Embedding 버전, `rule_version`·`template_version` | 완료 |
 | F11 대시보드 | Dashboard 요약·목록 조회 API(Dashboard·Risk·Contract·Briefing) | 백엔드 완료, React 화면 미구현 |
 | F4 외부 데이터 수집 | 미구현 (실시간 알림 API는 고정 Mock 응답) | 미구현 |
@@ -81,7 +81,7 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | **F4 수집** | ❌ 미구현 | Scheduler·외부 수집 없음. 실시간 알림 API는 고정 Mock | **🔗 타인 코드 병합 예정** |
 | F5 브리핑 | ✅ 구현 | 템플릿 브리핑 생성·저장·조회 | — |
 | F6 Master Data | ✅ 구현(최소) | 스키마+ERP Seed+갱신 API 10종. Alias·자동매칭 미구현 | — |
-| F7 근거 계보 | ✅ 구현 | 저장·조회 + 브리핑↔Severity 판정 링크(`assessment_id`, V8) + 전용 계보 조회 API(`GET /briefings/{id}/lineage`). 뉴스 원문 계보는 F4 대기 | — |
+| F7 근거 계보 | ✅ 구현 | 저장·조회 + 브리핑↔Severity 판정 링크(`assessment_id`, V8) + 계약 근거 청크 단위(`chunk_index`) 추적 + 전용 계보 조회 API(`GET /briefings/{id}/lineage`). 뉴스 원문 계보·modelVersion은 F4/F3 대기 | — |
 | F8 규제 Hard Gate | ✅ 구현 | FEOC Hard Gate가 Severity 엔진에 반영 | — |
 | **F9 대체 공급사** | ✅ 구현 | 브리핑 연계 범위(적격 필터) | **🔗 타인 코드 병합 예정** |
 | F10 알림 | ❌ 미구현 | 실제 발송(이메일 등) 없음 | — |

@@ -264,7 +264,7 @@ public class BriefingService {
         return searchResult.results().stream()
                 .map(item -> new BriefingDto.ContractEvidence(
                         item.documentId(), item.contractId(), item.pageNumber(),
-                        item.content(), item.similarityScore()))
+                        item.chunkIndex(), item.content(), item.similarityScore()))
                 .toList();
     }
 

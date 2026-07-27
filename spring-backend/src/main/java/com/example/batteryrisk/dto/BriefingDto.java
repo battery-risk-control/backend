@@ -81,6 +81,8 @@ public final class BriefingDto {
             @JsonProperty("document_id") String documentId,
             @JsonProperty("contract_id") Long contractId,
             @JsonProperty("page_number") Integer pageNumber,
+            @Schema(description = "F7 근거 계보: 근거가 된 정확한 청크 인덱스. V8 이전 브리핑은 null")
+            @JsonProperty("chunk_index") Integer chunkIndex,
             String content,
             @JsonProperty("similarity_score") Double similarityScore
     ) {}

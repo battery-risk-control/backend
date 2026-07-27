@@ -30,6 +30,7 @@ class ContractEvidenceItem(ApiModel):
     document_id: str
     contract_id: int
     page_number: int
+    chunk_index: int = 0  # F7 근거 계보: 근거가 된 정확한 청크 인덱스
     content: str
     similarity_score: float
 

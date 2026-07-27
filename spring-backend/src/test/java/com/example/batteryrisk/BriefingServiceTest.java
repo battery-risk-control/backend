@@ -104,6 +104,33 @@ class BriefingServiceTest {
     }
 
     @Test
+    void mapsRagChunkIndexIntoContractEvidence() {
+        when(erpService.buildContext(any())).thenReturn(erpContext());
+        when(ragService.search(any())).thenReturn(new RagDto.SearchResult(
+                List.of(new RagDto.SearchItem(
+                        "CONTRACT-DOC-1", 2L, 3L, 2L, "CONTRACT",
+                        7, 4, "가격 조정 조항 원문", "hash",
+                        0.82, "MOCK_TOKEN_HASH", "mock-v1", true)),
+                true));
+        when(erpRepository.findEligibleAlternativeSuppliers(anyLong(), anyLong(), any(), anyInt()))
+                .thenReturn(List.of());
+        expectSeverityScore();
+        expectBriefingCompose();
+
+        service.generate(new BriefingDto.GenerateRequest(
+                "MAT-LI-CARB", "SUP-CHL-01", AS_OF, bd("11.5"), bd("7"), 2, null, 5));
+
+        ArgumentCaptor<BriefingDto.BriefingResponse> saved =
+                ArgumentCaptor.forClass(BriefingDto.BriefingResponse.class);
+        verify(briefingRepository).save(saved.capture());
+        assertThat(saved.getValue().contractEvidence()).hasSize(1);
+        assertThat(saved.getValue().contractEvidence().get(0).chunkIndex())
+                .as("계약 근거는 정확한 청크 인덱스까지 담아 역추적할 수 있어야 한다")
+                .isEqualTo(7);
+        server.verify();
+    }
+
+    @Test
     void assemblesLineageFromBriefingAndItsAssessment() {
         UUID briefingId = UUID.randomUUID();
         UUID assessmentId = UUID.randomUUID();
