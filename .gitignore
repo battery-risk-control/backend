@@ -16,3 +16,6 @@ frontend/dist/
 
 # 대화 기록 (Claude·Codex 내부 세션 로그, 저장소에 커밋하지 않음)
 docs/*conversation-history*.md
+
+# Claude Code 프로젝트 지시서 (로컬 전용, 저장소에 커밋하지 않음)
+.claude/CLAUDE.md
