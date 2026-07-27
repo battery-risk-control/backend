@@ -1,0 +1,55 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+fastapi-ai/.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyc
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDEs
+.vscode/
+.idea/
+
+# Data and Models
+*.csv
+*.json
+*.sqlite3
+contract_db/
+uploads/
+fastapi-ai/data/
+
+# realtime-pipeline 트리아지 필터 배포 아티팩트는 예외 — 학습 데이터가 없어 재현 불가,
+# 이 두 파일 자체가 사실상 유일한 배포 경로.
+!realtime-pipeline/models/triage_filter.json
+!realtime-pipeline/models/triage_filter_meta.json
+
+# realtime-pipeline 실행 시 생기는 로컬 상태 (이 저장소 목적상 포함 안 함)
+realtime-pipeline/logs/
+realtime-pipeline/processed_events.db
+realtime-pipeline/data_core/
+realtime-pipeline/data_ref/
+
+# Java/Spring
+spring-backend/.gradle/
+spring-backend/build/
+
+# Node/Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Backups
+_merge_backup/
+project-backups/
