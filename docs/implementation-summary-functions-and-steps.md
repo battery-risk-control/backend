@@ -53,6 +53,7 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | F5 브리핑 | ERP·Severity·RAG·대체공급사를 모은 템플릿 브리핑 생성·저장·조회 | 완료 |
 | F6 Master Data | 자재·공급사·계약·창고·발주·입고 스키마와 Seed, ERP 데이터 갱신 API 10종 | 완료 |
 | F9 대체 공급사 | 인증·FEOC·승인상태 기준 적격 후보 조회 | 브리핑 연계 범위 완료 |
+| F7 근거 계보 | 근거 저장·조회(청크 단위), 브리핑↔Severity 판정 링크, 전용 계보 조회 API | 완료 (뉴스 원문 계보는 F4 대기) |
 | M5 근거 | 검색 유사도, 페이지·청크·Embedding 버전, `rule_version`·`template_version` | 완료 |
 | F11 대시보드 | Dashboard 요약·목록 조회 API(Dashboard·Risk·Contract·Briefing) | 백엔드 완료, React 화면 미구현 |
 | F4 외부 데이터 수집 | 미구현 (실시간 알림 API는 고정 Mock 응답) | 미구현 |
@@ -80,7 +81,7 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | **F4 수집** | ❌ 미구현 | Scheduler·외부 수집 없음. 실시간 알림 API는 고정 Mock | **🔗 타인 코드 병합 예정** |
 | F5 브리핑 | ✅ 구현 | 템플릿 브리핑 생성·저장·조회 | — |
 | F6 Master Data | ✅ 구현(최소) | 스키마+ERP Seed+갱신 API 10종. Alias·자동매칭 미구현 | — |
-| F7 근거 계보 | 🟡 부분 | `contract_evidence`·`reason_codes` 저장은 됨. 전용 계보 조회 API 없음 | — |
+| F7 근거 계보 | ✅ 구현 | 저장·조회 + 브리핑↔Severity 판정 링크(`assessment_id`, V8) + 계약 근거 청크 단위(`chunk_index`) 추적 + 전용 계보 조회 API(`GET /briefings/{id}/lineage`). 뉴스 원문 계보·modelVersion은 F4/F3 대기 | — |
 | F8 규제 Hard Gate | ✅ 구현 | FEOC Hard Gate가 Severity 엔진에 반영 | — |
 | **F9 대체 공급사** | ✅ 구현 | 브리핑 연계 범위(적격 필터) | **🔗 타인 코드 병합 예정** |
 | F10 알림 | ❌ 미구현 | 실제 발송(이메일 등) 없음 | — |
@@ -124,7 +125,7 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | D3 품질 검증 | ✅ 구현 | 서비스 경계 타입·범위·Enum·FK 검증(DTO/Pydantic). **LLM 무관, 비용 0** |
 | D4 단위·통화 | ⬜ 범위 제외 | 변환 코드 없음. ERP_MOCK 단일 소스라 단위 일관, 스펙 고정만 |
 
-집계: ✅ 구현 13 · 🟡 부분 5 · ❌ 미구현 3 · ⬜ 범위 제외 8
+집계: ✅ 구현 14 · 🟡 부분 4 · ❌ 미구현 3 · ⬜ 범위 제외 8
 
 - **뼈대(C1·F2·F1·F8·F5)는 Mock 기준으로 완결** — RAG 업로드→검색→ERP 계산→Severity→브리핑이 실제로 흐른다.
 - **❌ 3개는 외부 재료 대기** — F4·F10은 신규 개발 대상, M3은 팀 XGBoost 모델 대기(F3와 한 묶음).
@@ -154,6 +155,7 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | POST | `/api/v1/briefings` | 브리핑 생성·저장 |
 | GET | `/api/v1/briefings` | 브리핑 목록 |
 | GET | `/api/v1/briefings/{briefingId}` | 브리핑 조회 |
+| GET | `/api/v1/briefings/{briefingId}/lineage` | 브리핑 근거 계보 조회 (F7: 결론→Severity 판정·ERP 스냅샷→계약 근거→버전) |
 | GET | `/api/v1/risk-events` | 리스크 이벤트 목록 (S14, 프론트 `RiskEvent` 계약. 데이터는 F3/F4 모델 배선 전까지 placeholder) |
 | GET | `/api/v1/dashboard/summary` | 대시보드 요약 (S14) |
 | GET | `/api/v1/dashboard/materials` | 자재별 현황 (S14) |
@@ -190,23 +192,23 @@ ERP 데이터 갱신 API는 `/api/v1/erp/admin` 아래 10개다. 모두 `POST`�
 
 ### 3.3 컨트롤러별 집계
 
-Spring 컨트롤러 9개에서 추출한 외부 API는 31개다. `/actuator/**`는 우리가 짠 `@RestController`가 아니라 Spring Boot Actuator가 자동 제공하므로 컨트롤러 집계와 분리한다.
+Spring 컨트롤러 9개에서 추출한 외부 API는 32개다. `/actuator/**`는 우리가 짠 `@RestController`가 아니라 Spring Boot Actuator가 자동 제공하므로 컨트롤러 집계와 분리한다.
 
 | 컨트롤러 | class 경로 | 개수 |
 | --- | --- | --- |
 | `AuthController` | `/api/v1/auth` | 6 |
 | `DocumentController` | `/api/v1/documents` | 3 |
 | `DashboardController` | `/api/v1` (dashboard·contracts) | 4 |
-| `BriefingController` | `/api/v1/briefings` | 3 |
+| `BriefingController` | `/api/v1/briefings` | 4 |
 | `RagController` | `/api/v1/rag` | 1 |
 | `ErpController` | `/api/v1/erp` | 1 |
 | `SeverityController` | `/api/v1/severity/assessments` | 2 |
 | `RealtimeAlertController` | `/api/v1/map` | 1 (고정 Mock) |
 | `ErpAdminController` | `/api/v1/erp/admin` | 10 |
-| **컨트롤러 합계** | **9개 컨트롤러** | **31** |
+| **컨트롤러 합계** | **9개 컨트롤러** | **32** |
 | (참고) Actuator | `/actuator/health`, `/actuator/info` | 2 (프레임워크 제공) |
 
-- Spring 합계: 외부 31 + Actuator 2 = **33**
+- Spring 합계: 외부 32 + Actuator 2 = **34**
 - FastAPI 내부 API: **10** (내부 5 + analyze·documents/process·rag 2종·health)
 
 ## 4. 실제 호출 흐름
@@ -446,6 +448,7 @@ Flyway 마이그레이션은 순서대로 적용된다. `R__`은 반복 적용 �
 | `V5__create_severity_assessments.sql` | `severity_assessments` |
 | `V6__create_briefings.sql` | `briefings` (JSONB 컬럼 5개) |
 | `V7__extend_users_for_frontend_auth.sql` | `users`에 승인 상태 컬럼 추가 |
+| `V8__link_briefing_lineage.sql` | `briefings.assessment_id` 추가 (F7 근거 계보: Severity 판정 FK, NULLABLE) |
 | `R__insert_c1_reference_seed.sql` | 업로드·검색 E2E용 최소 자재·공급사·계약 |
 
 두 가지 설계 원칙이 있다.
@@ -459,7 +462,7 @@ Flyway 마이그레이션은 순서대로 적용된다. `R__`은 반복 적용 �
 
 | 위치 | 파일 |
 | --- | --- |
-| Spring (8개) | `AuthFlowTest`, `DocumentControllerTest`, `DocumentServiceTest`, `ErpFeatureTest`, `RagControllerTest`, `RagServiceTest`, `RealtimeAlertControllerTest`, `SeverityFeatureTest` |
+| Spring (9개) | `AuthFlowTest`, `DocumentControllerTest`, `DocumentServiceTest`, `ErpFeatureTest`, `RagControllerTest`, `RagServiceTest`, `RealtimeAlertControllerTest`, `SeverityFeatureTest`, `BriefingServiceTest`(F7 계보 링크·조회) |
 | FastAPI (9개) | `test_analyze`, `test_completion_criteria`, `test_documents`, `test_embedding_service`, `test_internal`, `test_rag_and_internal`, `test_service_boundaries`, `test_severity_rule_engine`, `test_vector_store_service` |
 | React | `documentApi.test.js` (파일 검증 로직) |
 | 스크립트 | `scripts/verify_erp_context.py` (ERP 정답셋 대조) |
@@ -468,7 +471,7 @@ Flyway 마이그레이션은 순서대로 적용된다. `R__`은 반복 적용 �
 
 이어받는 사람이 반드시 알아야 할 부분이다.
 
-- **브리핑(12·13단계)** — `BriefingService`, `BriefingController`, FastAPI `compose()` 모두 자동 테스트가 없다. Swagger 수동 E2E로만 검증했다.
+- **브리핑(12·13단계)** — `BriefingService`는 `BriefingServiceTest`로 F7 계보 링크·조립을 검증한다(Mock 기반). 단 `BriefingController`와 FastAPI `compose()`는 여전히 자동 테스트가 없고, 실 PostgreSQL 저장→조회 round-trip(`assessment_id` 포함)은 Swagger 수동 E2E로만 확인했다.
 - **ERP 데이터 갱신 API 10종** — `ErpAdminService`에 자동 테스트가 없다.
 - **브라우저 수동 E2E** — React 화면은 코드와 단위 테스트만 통과했고, 실제 브라우저 확인은 하지 않았다.
 

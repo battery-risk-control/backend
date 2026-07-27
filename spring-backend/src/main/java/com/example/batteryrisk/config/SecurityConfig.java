@@ -111,6 +111,8 @@ public class SecurityConfig {
                                 "/actuator/health",
                                 "/actuator/info"
                         ).permitAll()
+                        // 비로그인 공개 화면(Seq 23 글로벌 리스크 관제 지도)용. ERP 내부 상세를 제외한 subset만 노출한다.
+                        .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

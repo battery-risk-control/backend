@@ -60,4 +60,12 @@ public class BriefingController {
     public ApiResponse<BriefingDto.BriefingResponse> get(@PathVariable UUID briefingId) {
         return ApiResponse.ok(briefingService.get(briefingId));
     }
+
+    @Operation(
+            summary = "브리핑 근거 계보 조회 (F7)",
+            description = "결론 → Severity 판정(ERP 입력 스냅샷) → 계약 근거 → 규칙·템플릿 버전을 한 응답으로 되짚습니다.")
+    @GetMapping("/{briefingId}/lineage")
+    public ApiResponse<BriefingDto.LineageResponse> lineage(@PathVariable UUID briefingId) {
+        return ApiResponse.ok(briefingService.getLineage(briefingId));
+    }
 }

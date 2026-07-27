@@ -63,7 +63,8 @@ public class BriefingService {
 
         SeverityDto.FastApiResult severity = callSeverity(context, request);
         // 브리핑이 계산한 위험 등급도 분석 이력으로 남긴다 — 대시보드 집계와 근거 계보(F7)의 기준이 된다.
-        saveSeverityAssessment(context, request, severity);
+        // 저장한 판정 ID를 브리핑에 연결해 "이 브리핑 → 이 Severity 판정 → ERP 입력 스냅샷"을 역추적할 수 있게 한다.
+        UUID assessmentId = saveSeverityAssessment(context, request, severity);
         List<BriefingDto.ContractEvidence> evidence = searchContractEvidence(context, request);
         List<BriefingDto.AlternativeSupplier> alternatives = findAlternatives(context, request);
 
@@ -91,6 +92,7 @@ public class BriefingService {
 
         BriefingDto.BriefingResponse briefing = new BriefingDto.BriefingResponse(
                 UUID.randomUUID(),
+                assessmentId,
                 context.materialId(),
                 context.primarySupplierId(),
                 context.erpMaterialId(),
@@ -122,6 +124,36 @@ public class BriefingService {
     public BriefingDto.BriefingResponse get(UUID briefingId) {
         return repository.findById(briefingId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BRIEFING_NOT_FOUND));
+    }
+
+    /**
+     * F7 근거 계보 조회(Phase 2).
+     *
+     * <p>브리핑 결론에서 시작해 근거를 되짚어 조립한다: Severity 판정(ERP 입력 스냅샷 포함)과 계약 근거를 함께 반환한다.
+     * 옛 브리핑(assessment_id 없음)은 링크가 없으므로 판정은 null로 두고 브리핑에 딸린 근거만 보여준다.
+     */
+    public BriefingDto.LineageResponse getLineage(UUID briefingId) {
+        BriefingDto.BriefingResponse briefing = repository.findById(briefingId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BRIEFING_NOT_FOUND));
+        SeverityDto.AssessmentResponse assessment = briefing.assessmentId() == null
+                ? null
+                : severityRepository.findById(briefing.assessmentId()).orElse(null);
+        return new BriefingDto.LineageResponse(
+                briefing.briefingId(),
+                briefing.erpMaterialId(),
+                briefing.erpSupplierId(),
+                briefing.severity(),
+                briefing.score(),
+                briefing.headline(),
+                briefing.assessedAt(),
+                briefing.createdAt(),
+                briefing.reasonCodes(),
+                briefing.warnings(),
+                briefing.templateVersion(),
+                briefing.ruleVersion(),
+                briefing.mock(),
+                assessment,
+                briefing.contractEvidence());
     }
 
     /** 목록 조회 — 화면 첫 진입 시 최근 브리핑을 보여주기 위한 API. */
@@ -184,13 +216,17 @@ public class BriefingService {
         return result;
     }
 
-    /** 브리핑이 계산한 Severity를 severity_assessments에도 저장해 대시보드 집계에 반영되게 한다. */
-    private void saveSeverityAssessment(
+    /**
+     * 브리핑이 계산한 Severity를 severity_assessments에도 저장해 대시보드 집계에 반영되게 한다.
+     * 저장한 판정의 assessment_id를 반환해 브리핑이 근거 계보(F7)로 연결할 수 있게 한다.
+     */
+    private UUID saveSeverityAssessment(
             ErpDto.ContextResponse context,
             BriefingDto.GenerateRequest request,
             SeverityDto.FastApiResult severity) {
+        UUID assessmentId = UUID.randomUUID();
         severityRepository.save(new SeverityDto.AssessmentResponse(
-                UUID.randomUUID(),
+                assessmentId,
                 context.materialId(),
                 context.primarySupplierId(),
                 context.erpMaterialId(),
@@ -212,6 +248,7 @@ public class BriefingService {
                 severity.ruleVersion(),
                 severity.mock(),
                 OffsetDateTime.now()));
+        return assessmentId;
     }
 
     /** 계약 근거는 자재·공급사 Metadata Filter 범위에서만 검색한다. */
@@ -227,7 +264,7 @@ public class BriefingService {
         return searchResult.results().stream()
                 .map(item -> new BriefingDto.ContractEvidence(
                         item.documentId(), item.contractId(), item.pageNumber(),
-                        item.content(), item.similarityScore()))
+                        item.chunkIndex(), item.content(), item.similarityScore()))
                 .toList();
     }
 

@@ -35,6 +35,7 @@ public class BriefingRepository {
     public void save(BriefingDto.BriefingResponse briefing) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("briefingId", briefing.briefingId())
+                .addValue("assessmentId", briefing.assessmentId())
                 .addValue("materialId", briefing.materialId())
                 .addValue("supplierId", briefing.supplierId())
                 .addValue("erpMaterialId", briefing.erpMaterialId())
@@ -60,14 +61,14 @@ public class BriefingRepository {
                 .addValue("createdAt", briefing.createdAt());
         jdbc.update("""
                 INSERT INTO briefings (
-                    briefing_id, material_id, supplier_id, erp_material_id, erp_supplier_id,
+                    briefing_id, assessment_id, material_id, supplier_id, erp_material_id, erp_supplier_id,
                     assessed_at, severity, score, headline, risk_summary, inventory_summary,
                     supplier_dependency_summary, supply_gap_summary, contract_evidence_summary,
                     alternative_supplier_summary, reason_codes, recommended_checks, warnings,
                     contract_evidence, alternative_suppliers, template_version, rule_version,
                     mock, created_at
                 ) VALUES (
-                    :briefingId, :materialId, :supplierId, :erpMaterialId, :erpSupplierId,
+                    :briefingId, :assessmentId, :materialId, :supplierId, :erpMaterialId, :erpSupplierId,
                     :assessedAt, :severity, :score, :headline, :riskSummary, :inventorySummary,
                     :supplierDependencySummary, :supplyGapSummary, :contractEvidenceSummary,
                     :alternativeSupplierSummary, CAST(:reasonCodes AS JSONB),
@@ -135,6 +136,7 @@ public class BriefingRepository {
     private BriefingDto.BriefingResponse mapBriefing(ResultSet rs) throws SQLException {
         return new BriefingDto.BriefingResponse(
                 rs.getObject("briefing_id", UUID.class),
+                rs.getObject("assessment_id", UUID.class),
                 rs.getLong("material_id"),
                 rs.getLong("supplier_id"),
                 rs.getString("erp_material_id"),
