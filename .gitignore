@@ -13,3 +13,6 @@ uploads/
 fastapi-ai/data/
 frontend/node_modules/
 frontend/dist/
+
+# Claude 대화 기록 (내부 세션 로그, 저장소에 커밋하지 않음)
+docs/claude-conversation-history-*.md
