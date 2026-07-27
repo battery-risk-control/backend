@@ -154,6 +154,7 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | POST | `/api/v1/briefings` | 브리핑 생성·저장 |
 | GET | `/api/v1/briefings` | 브리핑 목록 |
 | GET | `/api/v1/briefings/{briefingId}` | 브리핑 조회 |
+| GET | `/api/v1/risk-events` | 리스크 이벤트 목록 (S14, 프론트 `RiskEvent` 계약. 데이터는 F3/F4 모델 배선 전까지 placeholder) |
 | GET | `/api/v1/dashboard/summary` | 대시보드 요약 (S14) |
 | GET | `/api/v1/dashboard/materials` | 자재별 현황 (S14) |
 | GET | `/api/v1/dashboard/import-dependency` | 수입 의존도 집계 (S14) |
@@ -512,7 +513,8 @@ Flyway 마이그레이션은 순서대로 적용된다. `R__`은 반복 적용 �
 
 **계획 대비 실제 (S14 각주)** — 계획서의 API 목록과 실제 코드가 두 군데 다르다. 실수가 아니라 "실데이터가 있는 것 + 화면이 실제 필요한 것"만 지은 결과다.
 
-- 계획의 `GET /api/v1/risks`, `GET /api/v1/risks/{id}` → **구현 안 함**. 나열할 실제 리스크 이벤트 피드(F4 수집·F3 모델)가 없어, 자재 축의 `GET /api/v1/dashboard/materials`(ERP+Severity 실데이터)가 리스크 목록 역할을 **대체**한다.
+- 계획의 `GET /api/v1/risks`, `GET /api/v1/risks/{id}` → **`GET /api/v1/risk-events`로 신설**(2026-07-27 갱신). 프론트엔드 화면 절반 이상이 `RiskEvent` 계약(`market_context`·`erp_view`·`quality_check`·`rag_view`) 위에 지어져 있어, "백엔드가 프론트 계약에 맞춘다" 방침에 따라 그 모양 그대로 반환하는 조회 API(`RiskEventController`/`RiskEventService`)를 추가했다. **데이터는 F4 수집·F3(XGBoost) 모델 배선 전까지 결정론적 placeholder**이며, 모델·에이전트가 오면 `RiskEventService` 구현부만 교체한다(엔드포인트 계약 불변). 자재 축의 `GET /api/v1/dashboard/materials`(ERP+Severity 실데이터)는 리스크 목록을 대체하는 게 아니라 **자재별 집계 용도로 별도 유지**한다.
+  - _이전 각주(폐기): "`/risks` 구현 안 함, dashboard/materials로 대체" — dashboard/materials(자재별 severity)는 RiskEvent(뉴스+erp_view+rag_view)와 구조가 달라 프론트 RiskEvent 수요를 못 메우므로 위와 같이 갱신._
 - 계획의 `GET /api/v1/contracts/{id}`(단건) → **보류**. `GET /api/v1/contracts`(목록)만 구현했다. 계약 본문은 RAG 검색·브리핑 근거로 이미 도달 가능하고, 단건 상세를 소비할 화면이 아직 없어서다. 필요해지면 추가한다.
 
 > 프론트엔드 팀 작업과 맞물리므로 착수 전 범위 협의가 필요하다.
