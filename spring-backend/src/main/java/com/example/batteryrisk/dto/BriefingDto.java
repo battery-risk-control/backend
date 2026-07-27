@@ -132,6 +132,8 @@ public final class BriefingDto {
     /** PostgreSQL에 저장하고 조회 API가 반환하는 브리핑 결과입니다. */
     public record BriefingResponse(
             UUID briefingId,
+            @Schema(description = "F7 근거 계보: 이 브리핑이 근거로 삼은 Severity 판정 ID. 옛 브리핑은 null")
+            UUID assessmentId,
             Long materialId,
             Long supplierId,
             String erpMaterialId,
@@ -155,5 +157,32 @@ public final class BriefingDto {
             String ruleVersion,
             boolean mock,
             OffsetDateTime createdAt
+    ) {}
+
+    /**
+     * F7 근거 계보(Phase 2) 응답.
+     *
+     * <p>브리핑 결론에서 시작해 근거를 한 번에 되짚는다:
+     * 결론(severity·score) → Severity 판정(ERP 입력 스냅샷·reason_codes·rule_version) → 계약 근거 청크 → 버전.
+     * V8 이전에 만들어진 브리핑은 링크가 없어 {@code assessment}가 null이다.
+     */
+    public record LineageResponse(
+            UUID briefingId,
+            String erpMaterialId,
+            String erpSupplierId,
+            String severity,
+            BigDecimal score,
+            String headline,
+            OffsetDateTime assessedAt,
+            OffsetDateTime createdAt,
+            List<String> reasonCodes,
+            List<String> warnings,
+            String templateVersion,
+            String ruleVersion,
+            boolean mock,
+            @Schema(description = "근거가 된 Severity 판정과 그 ERP 입력 스냅샷. 옛 브리핑은 null")
+            SeverityDto.AssessmentResponse assessment,
+            @Schema(description = "근거가 된 계약 청크 목록")
+            List<ContractEvidence> contractEvidence
     ) {}
 }
