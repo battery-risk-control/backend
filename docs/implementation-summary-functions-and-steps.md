@@ -61,6 +61,75 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 
 `완료`는 현재 계획한 Mock·규칙 기반 범위의 완료를 뜻한다. 실제 OpenAI Embedding과 LLM 계약 해석까지 끝났다는 의미가 아니다. 검증 수준은 8절에 따로 정리했다.
 
+### 2.1 F/C/M/D 기능별 구현 현황
+
+기능 ID(F/C/M/D) 기준으로 코드 대조한 현황이다. 상태는 4가지로 구분한다.
+
+- ✅ **구현됨** — Mock·규칙 기반이라도 실제로 동작
+- 🟡 **부분 구현** — 일부만 동작하거나, 실제 모델/프론트 연동이 남음
+- ❌ **미구현** — 코드가 비어 있음(대부분 외부 재료 대기)
+- ⬜ **범위 제외** — 못 한 게 아니라, 의도적으로 안 하기로 결정
+
+#### F — 업무 기능
+
+| 기능 | 상태 | 범위 / 남은 것 | 담당/대기처 |
+| --- | --- | --- | --- |
+| F1 ERP 영향 | 🟡 부분 | Spring 결정적 수치 계산 ✅ / FastAPI 자연어 해석은 **템플릿**(LLM 미연동) | LLM 연동 시 |
+| F2 RAG | ✅ 구현 | 업로드→청킹→검색 E2E(Mock Embedding), 계약 대응분석 템플릿까지 | — |
+| **F3 AI 분석** | 🟡 부분 | Severity 규칙엔진 ✅ / Extraction·XGBoost는 **Mock**(실제 모델 대기) | **🔗 타인 코드 병합 예정** |
+| **F4 수집** | ❌ 미구현 | Scheduler·외부 수집 없음. 실시간 알림 API는 고정 Mock | **🔗 타인 코드 병합 예정** |
+| F5 브리핑 | ✅ 구현 | 템플릿 브리핑 생성·저장·조회 | — |
+| F6 Master Data | ✅ 구현(최소) | 스키마+ERP Seed+갱신 API 10종. Alias·자동매칭 미구현 | — |
+| F7 근거 계보 | 🟡 부분 | `contract_evidence`·`reason_codes` 저장은 됨. 전용 계보 조회 API 없음 | — |
+| F8 규제 Hard Gate | ✅ 구현 | FEOC Hard Gate가 Severity 엔진에 반영 | — |
+| **F9 대체 공급사** | ✅ 구현 | 브리핑 연계 범위(적격 필터) | **🔗 타인 코드 병합 예정** |
+| F10 알림 | ❌ 미구현 | 실제 발송(이메일 등) 없음 | — |
+| F11 대시보드 | 🟡 부분 | 백엔드 조회·집계 API ✅ / React 화면 미연동, 지도 알림은 Mock(F4 의존) | 프론트 팀 |
+| F12 업무 추적 | ⬜ 범위 제외 | Task 관리 영역. 핵심 파이프라인과 무관 | — |
+
+> **🔗 미통합 기능 (타인 코드 병합 예정)** — **F3(AI 분석)·F4(수집)·F9(대체 공급사)** 는 아직 통합되지 않았으며, 다른 팀원의 코드를 받아와 합칠 예정이다.
+> - **F3 AI 분석** — Extraction·XGBoost 실제 모델부(현재 Mock) 병합 대기
+> - **F4 수집** — 외부 데이터 수집/Scheduler 코드 병합 대기
+> - **F9 대체 공급사** — 별도 구현 코드 병합 예정
+
+#### C — 공통 기반
+
+| 기능 | 상태 | 범위 / 남은 것 |
+| --- | --- | --- |
+| C1 업로드 | ✅ 구현 | 검증·저장·상태·재처리 |
+| C2 인증 | ✅ 구현 | 회원가입·로그인·JWT·Refresh·RBAC |
+| C3 작업·재시도 | ✅ 구현(최소) | `COMPLETED/FAILED` 상태. 자동 재시도는 범위 제외 |
+| C4 감사 로그 | ⬜ 범위 제외 | 기본 앱 로그로 대체. 컴플라이언스 요건 없어 생략 |
+| C5 중복 방지 | ✅ 구현 | SHA-256 + Unique Constraint (D1과 동일 메커니즘) |
+| C6 관측성 | ✅ 구현(최소) | Health 4종 + 장애검증. Trace ID·단계별 시간·마지막성공시각은 없음 |
+| C7 LLM 검증 | 🟡 부분 | 스키마 검증 골격만. 실제 LLM(Claude 브리핑) 연동 시 본격 필요 |
+
+#### M — 모델링 (원칙적으로 모델링 팀 로컬 작업)
+
+| 기능 | 상태 | 범위 / 남은 것 |
+| --- | --- | --- |
+| M1 라벨링 | ⬜ 범위 제외 | 모델링 팀 |
+| M2 Dataset 버전 | ⬜ 범위 제외 | 모델링 팀 |
+| M3 Registry | ❌ 미구현 | Artifact 로딩 규격만 예정. **XGBoost 모델 전달 대기** |
+| M4 학습 검증 | ⬜ 범위 제외 | 모델링 팀 |
+| M5 설명 가능성 | ✅ 구현(최소) | confidence·reason_codes·calculation_details 반환. 실시간 SHAP은 팀 몫 |
+| M6 모니터링 | ⬜ 범위 제외 | Drift·성능추적 미구현 |
+
+#### D — 데이터 처리
+
+| 기능 | 상태 | 범위 / 남은 것 |
+| --- | --- | --- |
+| D1 중복 제거 | ✅ 구현 | C5와 동일 메커니즘(URL/Hash/Unique) |
+| D2 소스 신뢰도 | ⬜ 범위 제외 | 등급화 삭제, 출처만 저장(수집 F4 없어 실적용 X) |
+| D3 품질 검증 | ✅ 구현 | 서비스 경계 타입·범위·Enum·FK 검증(DTO/Pydantic). **LLM 무관, 비용 0** |
+| D4 단위·통화 | ⬜ 범위 제외 | 변환 코드 없음. ERP_MOCK 단일 소스라 단위 일관, 스펙 고정만 |
+
+집계: ✅ 구현 13 · 🟡 부분 5 · ❌ 미구현 3 · ⬜ 범위 제외 8
+
+- **뼈대(C1·F2·F1·F8·F5)는 Mock 기준으로 완결** — RAG 업로드→검색→ERP 계산→Severity→브리핑이 실제로 흐른다.
+- **❌ 3개는 외부 재료 대기** — F4·F10은 신규 개발 대상, M3은 팀 XGBoost 모델 대기(F3와 한 묶음).
+- **⬜ 8개는 의도적 제외** — 빼도 프로젝트 완결에 지장 없음. "미구현"과 구분한다.
+
 ## 3. API 전체 목록
 
 ### 3.1 Spring Boot — React가 호출하는 외부 API
@@ -83,8 +152,14 @@ ChromaDB             계약서 청크 임베딩 저장·검색
 | POST | `/api/v1/severity/assessments` | 위험 등급 산정·저장 |
 | GET | `/api/v1/severity/assessments/{assessmentId}` | 위험 등급 조회 |
 | POST | `/api/v1/briefings` | 브리핑 생성·저장 |
+| GET | `/api/v1/briefings` | 브리핑 목록 |
 | GET | `/api/v1/briefings/{briefingId}` | 브리핑 조회 |
+| GET | `/api/v1/dashboard/summary` | 대시보드 요약 (S14) |
+| GET | `/api/v1/dashboard/materials` | 자재별 현황 (S14) |
+| GET | `/api/v1/dashboard/import-dependency` | 수입 의존도 집계 (S14) |
+| GET | `/api/v1/contracts` | 계약 목록 (S14, 단건 조회는 없음) |
 | GET | `/api/v1/map/realtime-alerts` | 실시간 알림 (고정 Mock 응답) |
+| GET | `/actuator/health`, `/actuator/info` | 시스템 정상 여부 모니터링. **컨트롤러 없음** — Spring Boot Actuator 자동 제공. 설정: `application.yml`, 접근 허용: `SecurityConfig.java` (인증 불필요) |
 
 ERP 데이터 갱신 API는 `/api/v1/erp/admin` 아래 10개다. 모두 `POST`이며 ERP 문자열 ID 기준 단건 Upsert다.
 
@@ -108,8 +183,30 @@ ERP 데이터 갱신 API는 `/api/v1/erp/admin` 아래 10개다. 모두 `POST`�
 | POST | `/api/v1/internal/ml/classify` | XGBoost 영향 도메인 분류 (Mock) |
 | POST | `/api/v1/internal/briefings` | 구 Orchestration 호환용 브리핑 (Mock) |
 | POST | `/api/v1/analyze` | 뉴스 이벤트 통합 분석 (Mock, Spring 연동 전 경로) |
+| GET | `/health` | FastAPI·Chroma Health |
 
-마지막 세 개는 초기에 만든 Mock 경로이고, Spring이 실제로 호출하는 것은 `severity/score`와 `briefings/compose` 두 개다.
+마지막 네 개 중 `analyze`·`briefings`·`llm/extract`·`ml/classify`는 초기에 만든 Mock 경로이고, Spring이 실제로 호출하는 것은 `documents/process`·`rag/search`·`severity/score`·`briefings/compose`다.
+
+### 3.3 컨트롤러별 집계
+
+Spring 컨트롤러 9개에서 추출한 외부 API는 31개다. `/actuator/**`는 우리가 짠 `@RestController`가 아니라 Spring Boot Actuator가 자동 제공하므로 컨트롤러 집계와 분리한다.
+
+| 컨트롤러 | class 경로 | 개수 |
+| --- | --- | --- |
+| `AuthController` | `/api/v1/auth` | 6 |
+| `DocumentController` | `/api/v1/documents` | 3 |
+| `DashboardController` | `/api/v1` (dashboard·contracts) | 4 |
+| `BriefingController` | `/api/v1/briefings` | 3 |
+| `RagController` | `/api/v1/rag` | 1 |
+| `ErpController` | `/api/v1/erp` | 1 |
+| `SeverityController` | `/api/v1/severity/assessments` | 2 |
+| `RealtimeAlertController` | `/api/v1/map` | 1 (고정 Mock) |
+| `ErpAdminController` | `/api/v1/erp/admin` | 10 |
+| **컨트롤러 합계** | **9개 컨트롤러** | **31** |
+| (참고) Actuator | `/actuator/health`, `/actuator/info` | 2 (프레임워크 제공) |
+
+- Spring 합계: 외부 31 + Actuator 2 = **33**
+- FastAPI 내부 API: **10** (내부 5 + analyze·documents/process·rag 2종·health)
 
 ## 4. 실제 호출 흐름
 
@@ -407,11 +504,16 @@ Flyway 마이그레이션은 순서대로 적용된다. `R__`은 반복 적용 �
 
 백엔드는 완료됐고(Dashboard·Risk·Contract·Briefing 요약/목록 조회 API), 남은 것은 프론트엔드 쪽이다.
 
-- ~~Dashboard·Risk·Contract·Briefing **목록** 조회 API~~ — 완료 (`DashboardController`, 브리핑 목록 포함)
+- ~~Dashboard·Risk·Contract·Briefing **목록** 조회 API~~ — 완료 (`DashboardController`, 브리핑 목록 포함). 단, 계획과 실제 경로가 다르다(아래 각주).
 - 정식 React 프로젝트와 업로드 화면 병합, 역할별 대시보드
 - 로그인 화면이 저장하는 Token Key와 `access_token` 통일
 - 브라우저 수동 E2E — 정상 PDF/TXT/CSV 업로드, 중복·실패, 새로고침 복원
 - ERP 데이터 갱신 UI 연동 (백엔드 API 10종은 완료)
+
+**계획 대비 실제 (S14 각주)** — 계획서의 API 목록과 실제 코드가 두 군데 다르다. 실수가 아니라 "실데이터가 있는 것 + 화면이 실제 필요한 것"만 지은 결과다.
+
+- 계획의 `GET /api/v1/risks`, `GET /api/v1/risks/{id}` → **구현 안 함**. 나열할 실제 리스크 이벤트 피드(F4 수집·F3 모델)가 없어, 자재 축의 `GET /api/v1/dashboard/materials`(ERP+Severity 실데이터)가 리스크 목록 역할을 **대체**한다.
+- 계획의 `GET /api/v1/contracts/{id}`(단건) → **보류**. `GET /api/v1/contracts`(목록)만 구현했다. 계약 본문은 RAG 검색·브리핑 근거로 이미 도달 가능하고, 단건 상세를 소비할 화면이 아직 없어서다. 필요해지면 추가한다.
 
 > 프론트엔드 팀 작업과 맞물리므로 착수 전 범위 협의가 필요하다.
 

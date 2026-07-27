@@ -53,7 +53,8 @@ management:
 
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    # 4173 = Vite preview(프론트 e2e/Playwright 대상). 5173 = Vite dev. 3000 = CRA 기본.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:4173}
   fastapi:
     base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
   upload:
@@ -67,3 +68,7 @@ app:
     seed:
       enabled: ${ERP_SEED_ENABLED:false}
       directory: ${ERP_SEED_DIRECTORY:}
+  auth:
+    # 프론트 e2e용 고정 테스트 계정 시드. 운영에는 끄고, CI/로컬 e2e에서만 true로 켠다.
+    test-seed:
+      enabled: ${AUTH_TEST_SEED_ENABLED:false}
