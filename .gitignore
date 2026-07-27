@@ -36,6 +36,10 @@ fastapi-ai/data/
 !realtime-pipeline/models/triage_filter.json
 !realtime-pipeline/models/triage_filter_meta.json
 
+# realtime-pipeline이 build_features.py 실행 시 필수로 읽는 정적 참고 데이터(BDI 지수).
+# 이 파일이 없으면 load_bdi_data()가 예외처리 없이 바로 죽는다 — 109KB로 작아서 커밋함.
+!realtime-pipeline/데이터셋/BDI 2020.01.01-2026.07.14.csv
+
 # realtime-pipeline 실행 시 생기는 로컬 상태 (이 저장소 목적상 포함 안 함)
 realtime-pipeline/logs/
 realtime-pipeline/processed_events.db

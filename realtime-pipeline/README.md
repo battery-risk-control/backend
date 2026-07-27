@@ -14,10 +14,23 @@ GDELT 실시간 수집 → 트리아지(XGBoost) → 크롤링 → LLM 정보추
   (`data_core/cleaned_labeled_articles.csv`, `data_ref/gdelt_event_metadata.csv`,
   `data_core/event_features*.csv`) — **PostgreSQL이 아니라 파일 기반**이라 최종 아키텍처와
   다름.
-- **이 폴더만으로는 바로 실행이 안 됨**: `build_features.py`가 필요로 하는 데이터 파일
-  (`데이터셋/BDI *.csv`, `데이터셋/openmeteo_*/*.json`, `data_core/`, `data_ref/`)이 이
-  저장소에는 없음 — AI 파이프라인 프로젝트 루트(`빅프로젝트/`)에만 있고 용량 문제로 git에
-  올리지 않았음. 지금은 코드 스냅샷만 백업/공유하는 목적으로 커밋함.
+- **실행 전 준비물**:
+  1. `.env` 파일을 이 폴더(`realtime-pipeline/`) 바로 아래에 직접 만들고
+     `OPENAI_API_KEY=본인키`를 넣어야 함 (git에 안 올라감, 각자 자기 키로 생성).
+  2. `데이터셋/BDI 2020.01.01-2026.07.14.csv`는 **커밋되어 있음**(109KB) —
+     `build_features.py`가 예외처리 없이 바로 읽어서 이거 없으면 무조건 크래시남.
+  3. `data_core/`, `data_ref/`는 **의도적으로 안 올렸음** — `realtime_risk_pipeline.py`가
+     처음 실행될 때 `cleaned_labeled_articles.csv`/`gdelt_event_metadata.csv`를 스스로
+     만들어서 채움(파일 없으면 새로 생성하도록 짜여있음). 미리 올리면 오히려 내 로컬
+     누적 데이터로 팀원 로컬을 덮어쓰는 문제가 생길 수 있어서 각자 로컬에서 새로 쌓이게
+     둠.
+  4. `데이터셋/openmeteo_*/*.json`(강수량 원본, 172MB)은 안 올림 — 코드가 파일 없으면
+     조용히 빈 값으로 폴백하고, 지금 심각도 공식 자체가 강수량을 안 쓰고 있어서(2026-07-24
+     결정) 없어도 무방함.
+  5. GDACS(재난경보)는 이제 정적 파일이 아니라 `src/gdacs_live.py`가 매 실행마다 실시간
+     API로 가져와서 별도 파일 준비 불필요.
+  6. `processed_events.db`(SQLite, 중복 크롤링 방지용 상태)도 없으면 첫 실행 때 자동
+     생성됨.
 
 ## FastAPI 통합 시 고려할 것
 
