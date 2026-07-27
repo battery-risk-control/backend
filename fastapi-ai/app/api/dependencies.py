@@ -15,7 +15,9 @@ from app.services.embedding_service import (
     get_embedding_provider as build_embedding_provider,
 )
 from app.services.vector_store_service import ChromaVectorStore
-
+from app.multi_agent.graph.briefing_graph import (
+    build_briefing_graph,
+)
 
 @lru_cache
 def get_extraction_service() -> ExtractionService: return ExtractionService()
@@ -57,6 +59,16 @@ def get_vector_store() -> ChromaVectorStore:
 @lru_cache
 def get_rag_service() -> RagService: return RagService(vector_store=get_vector_store())
 
+@lru_cache
+def get_multi_agent_graph():
+    """
+    Minji의 실제 RagService가 연결된
+    멀티에이전트 LangGraph를 반환한다.
+    """
+
+    return build_briefing_graph(
+        get_rag_service(),
+    )
 
 @lru_cache
 def get_document_service() -> DocumentService:
@@ -79,6 +91,7 @@ def reset_dependencies() -> None:
         get_extraction_service, get_feature_service, get_classification_service,
         get_severity_service, get_erp_context_service, get_briefing_service,
         get_risk_repository, get_embedding_service, get_vector_store,
-        get_rag_service, get_document_service, get_orchestration_service,
+        get_rag_service, get_document_service, get_multi_agent_graph,
+        get_orchestration_service,
     ):
         dependency.cache_clear()

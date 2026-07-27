@@ -11,6 +11,9 @@ from app.core.config import get_settings
 from app.core.exceptions import AppException
 from app.api.dependencies import get_vector_store
 from app.services.vector_store_service import ChromaVectorStore
+from app.api.v1.multi_agent import (
+    router as multi_agent_router,
+)
 
 settings = get_settings()
 
@@ -23,6 +26,7 @@ app.include_router(analyze_router)
 app.include_router(rag_router)
 app.include_router(internal_router)
 app.include_router(documents_router)
+app.include_router(multi_agent_router)
 
 
 def error_response(status_code: int, code: str, message: str, details=None) -> JSONResponse:
