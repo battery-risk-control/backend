@@ -9,6 +9,10 @@ from app.multi_agent.agents.erp_agent import (
     analyze_erp_node,
     recheck_erp_node,
 )
+from app.multi_agent.erp.soojung_adapter import (
+    analyze_soojung_erp_node,
+    recheck_soojung_erp_node,
+)
 from app.multi_agent.graph.state import BriefingState
 from app.multi_agent.nodes.briefing_node import (
     generate_briefing_node,
@@ -32,7 +36,19 @@ def run_erp_agent(
 ) -> dict:
     """ERP Agent를 실행하고 이후 단계의 기존 결과를 초기화한다."""
 
-    result = analyze_erp_node(state)
+    erp_context = state.get(
+        "erp_context",
+        {},
+    )
+
+    if "requestId" in erp_context:
+        result = analyze_soojung_erp_node(
+            state,
+        )
+    else:
+        result = analyze_erp_node(
+            state,
+        )
 
     return {
         **result,
@@ -85,9 +101,21 @@ def create_contract_agent_node(
 def run_erp_recheck(
     state: BriefingState,
 ) -> dict:
-    """Contract Agent의 질문을 반영해 ERP를 재검토한다."""
+    """Contract Agent 결과를 반영해 ERP를 재검토한다."""
 
-    result = recheck_erp_node(state)
+    erp_context = state.get(
+        "erp_context",
+        {},
+    )
+
+    if "requestId" in erp_context:
+        result = recheck_soojung_erp_node(
+            state,
+        )
+    else:
+        result = recheck_erp_node(
+            state,
+        )
 
     return {
         **result,

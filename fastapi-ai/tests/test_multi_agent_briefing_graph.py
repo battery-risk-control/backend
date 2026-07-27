@@ -130,3 +130,60 @@ def test_graph_uses_injected_rag_service():
         ]
         == "document-001"
     )
+
+def test_graph_uses_soojung_erp_agent():
+    from tests.test_erp_calculator import (
+        createCobaltRequest,
+    )
+
+    graph = build_briefing_graph(
+        FakeRagService(),
+    )
+    erp_request = createCobaltRequest()
+
+    result = graph.invoke(
+        {
+            "news_id": "news-soojung-001",
+            "title": "코발트 선적 지연",
+            "summary_kr": "코발트 공급 차질이 예상됩니다.",
+            "impact_domain_final": "logistics",
+            "affected_materials": ["Cobalt"],
+            "external_signal_level": "critical",
+            "external_signal_score": 82,
+            "use_llm": False,
+            "retry_count": 0,
+            "rag_contract_id": 1001,
+            "rag_supplier_id": 2001,
+            "rag_material_id": 3001,
+            "erp_context": erp_request.model_dump(
+                mode="json",
+            ),
+        },
+    )
+
+    assessment = result["erp_assessment"]
+
+    assert assessment["erp_exposure_score"] == 100
+    assert assessment["exposure_level"] == "critical"
+    assert assessment["inventory_days"] == 6.5
+    assert (
+        assessment["expected_supply_gap_days"]
+        == 8.5
+    )
+    assert assessment["stockout_before_eta"] is True
+
+    assert result["affected_contract_ids"] == [
+        "CTR-010",
+    ]
+    assert len(
+        result["questions_for_contract_agent"]
+    ) == 5
+
+    assert result["erp_exposure_response"][
+        "requestId"
+    ] == "ERP-REQ-004"
+
+    assert result["procurement_risk_level"] == (
+        "critical"
+    )
+    assert result["review_passed"] is True

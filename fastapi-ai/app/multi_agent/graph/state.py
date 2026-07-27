@@ -41,6 +41,10 @@ class BriefingState(TypedDict, total=False):
     # ERP Agent가 계산한 회사 내부 노출도 분석 결과
     erp_assessment: dict
 
+    # 수정님 ERP Exposure Agent의 원본 구조화 응답
+    # Reviewer 검증과 Spring 응답 추적에 사용
+    erp_exposure_response: dict
+
     # ERP Agent가 Contract Agent에게 전달할 질문
     questions_for_contract_agent: list[str]
 
