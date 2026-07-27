@@ -90,7 +90,7 @@ python -m pytest
 
 인터페이스 기준은 [docs/interface-spec-v0.2.md](docs/interface-spec-v0.2.md), 변경 이력은 [CHANGELOG.md](CHANGELOG.md)를 확인합니다.
 
-Spring CORS는 기본적으로 React 개발 주소 `http://localhost:3000`과 `http://localhost:5173`을 허용합니다. 배포 환경에서는 `CORS_ALLOWED_ORIGINS` 환경 변수로 변경합니다.
+Spring CORS는 기본적으로 React 개발 주소 `http://localhost:3000`, `http://localhost:5173`(Vite dev), `http://localhost:4173`(Vite preview — 프론트 e2e/Playwright)을 허용합니다. 배포 환경에서는 `CORS_ALLOWED_ORIGINS` 환경 변수로 변경합니다.
 # PostgreSQL 기본 환경
 
 PostgreSQL은 Spring Boot만 읽고 쓰며, FastAPI에는 PostgreSQL 계정·Driver·ORM을 추가하지 않습니다.
