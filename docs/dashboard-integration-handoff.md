@@ -7,7 +7,7 @@
 
 ## 0. 접속 정보
 
-- **주소**: `http://localhost:8080` (또는 nginx 경유 `http://localhost:5173/api`)
+- **주소**: `http://localhost:8080` (프론트에서 `VITE_API_BASE_URL=http://localhost:8080`으로 직접 호출)
 - **환경변수**: `VITE_API_BASE_URL` (auth와 동일하게 이미 사용 중)
 - **CORS**: `5173`(dev)·`4173`(preview)·`3000` 허용됨 — 추가 설정 불필요
 - **테스트 계정** (비번 전부 `test1234!`): `purchasing@test.local` / `planning@test.local` / `executive@test.local`, 승인대기 재현용 `pending@company.com`(비번 `anything`)
