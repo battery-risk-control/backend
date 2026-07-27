@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from app.core.config import get_settings
 from app.repositories.erp_repository import InMemoryErpRepository
 from app.repositories.risk_repository import InMemoryRiskRepository
 from app.services.briefing_service import BriefingService
@@ -48,7 +49,17 @@ def get_risk_repository() -> InMemoryRiskRepository: return InMemoryRiskReposito
 
 
 @lru_cache
-def get_embedding_service() -> EmbeddingProvider: return build_embedding_provider()
+def get_embedding_service() -> EmbeddingProvider:
+    settings = get_settings()
+    if settings.embedding_provider == "openai":
+        from app.services.embedding_service import OpenAIEmbedding
+        provider = OpenAIEmbedding(
+            api_key=settings.openai_api_key,
+            model=settings.openai_embedding_model,
+            dimension=settings.embedding_dimension,
+        )
+        return build_embedding_provider(settings, openai_provider=provider)
+    return build_embedding_provider(settings)
 
 
 @lru_cache

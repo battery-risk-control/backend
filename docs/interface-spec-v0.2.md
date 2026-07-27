@@ -35,13 +35,12 @@
 - `GET /api/v1/documents/{document_id}`
 - `GET /api/v1/dashboard/summary`
 - `GET /api/v1/map/realtime-alerts`
-- `GET /api/v1/risks`
-- `GET /api/v1/risks/{risk_id}`
+- `GET /api/v1/risk-events` — 리스크 이벤트 목록 (프론트 `RiskEvent` 계약)
 - `GET /api/v1/contracts`
-- `GET /api/v1/contracts/{contract_id}`
-- `GET /api/v1/risks/{risk_id}/briefing`
 
-리스크 상세 응답은 `source`, `material`, `supplier`, `analysis`, `inventory` 객체를 포함한다. 목록 API는 `content`, `page`, `size`, `total_elements`, `total_pages` 페이지 구조를 사용한다.
+> **폐기 (2026-07-27):** `GET /api/v1/risks`, `GET /api/v1/risks/{risk_id}`, `GET /api/v1/risks/{risk_id}/briefing`는 구현하지 않고 폐기한다. 리스크 목록은 `GET /api/v1/risk-events`(프론트 `RiskEvent` 계약, 데이터는 F3/F4 모델 배선 전까지 placeholder)가 대체하고, 브리핑 상세는 `GET /api/v1/briefings/{briefingId}`가 담당한다. `GET /api/v1/contracts/{contract_id}`(단건)도 소비 화면이 없어 보류(미구현)다.
+
+목록 API는 `content`, `page`, `size`, `total_elements`, `total_pages` 페이지 구조를 사용한다. (구 `/risks` 상세의 `source`/`material`/`supplier`/`analysis`/`inventory` 응답 설계는 폐기 — 현재 리스크 계약은 프론트 `RiskEvent`: `market_context`/`erp_view`/`quality_check`/`rag_view`/`output_artifacts`.)
 
 ### 인증·인가 규칙
 

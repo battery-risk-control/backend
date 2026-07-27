@@ -7,6 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -103,6 +104,15 @@ public class GlobalExceptionHandler {
                 : "요청 값을 확인해 주세요.";
         return ResponseEntity.badRequest()
                 .body(ApiErrorResponse.of("INVALID_REQUEST", message));
+    }
+
+    // 요청 본문을 읽지 못하는 경우(깨진 JSON, UTF-8이 아닌 인코딩 등)는 클라이언트 오류(400)로 처리한다.
+    // 이 핸들러가 없으면 제네릭 Exception 핸들러로 떨어져 500이 나가, 인코딩 실수를 서버 오류로 오인하게 된다.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<ApiErrorResponse> handleNotReadable(HttpMessageNotReadableException exception) {
+        return ResponseEntity.badRequest().body(ApiErrorResponse.of(
+                "MALFORMED_REQUEST_BODY",
+                "요청 본문을 읽을 수 없습니다. JSON 형식과 UTF-8 인코딩을 확인해 주세요."));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

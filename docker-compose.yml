@@ -28,6 +28,77 @@ services:
       - battery_chroma_data:/data
     restart: unless-stopped
 
+  fastapi:
+    build: ./fastapi-ai
+    container_name: battery-risk-fastapi
+    environment:
+      # 컨테이너 안에서 Chroma의 포트는 진짜 포트 8000이다(호스트 매핑 8001이 아님).
+      CHROMA_MODE: http
+      CHROMA_HOST: chroma
+      CHROMA_PORT: 8000
+      CHROMA_SSL: "false"
+      CHROMA_COLLECTION_PREFIX: ${CHROMA_COLLECTION_PREFIX:-contract_documents}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
+      # 실제 임베딩을 쓰려면 EMBEDDING_PROVIDER=openai + OPENAI_API_KEY를 .env에 설정.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
+      MOCK_MODE: "true"
+    depends_on:
+      - chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  spring:
+    build: ./spring-backend
+    container_name: battery-risk-spring
+    environment:
+      # 서비스 이름(postgres/fastapi)이 곧 컨테이너 네트워크의 호스트명이 된다.
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-battery_risk}
+      POSTGRES_USER: ${POSTGRES_USER:-battery_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-battery_app_password}
+      FASTAPI_BASE_URL: http://fastapi:8000
+      JWT_SECRET: ${JWT_SECRET:-change-this-development-only-secret-key-please-override-in-env-32bytes+}
+      JWT_ACCESS_TOKEN_VALIDITY_SECONDS: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:-3600}
+      JWT_REFRESH_TOKEN_VALIDITY_SECONDS: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:-1209600}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:4173}
+      UPLOAD_ROOT: /app/uploads
+      ERP_SEED_ENABLED: ${ERP_SEED_ENABLED:-false}
+      AUTH_TEST_SEED_ENABLED: ${AUTH_TEST_SEED_ENABLED:-false}
+      TZ: Asia/Seoul
+    ports:
+      - "${SPRING_PORT:-8080}:8080"
+    volumes:
+      - battery_spring_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fastapi:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: battery-risk-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - spring
+    restart: unless-stopped
+
 volumes:
   battery_postgres_data:
   battery_chroma_data:
+  battery_spring_uploads:

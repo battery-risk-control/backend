@@ -1203,6 +1203,8 @@ POST /api/v1/analyses
 GET /api/v1/analyses/{analysis_id}
 ```
 
+> **폐기 (2026-07-27):** 위 계획의 `GET /api/v1/risks`, `/risks/{risk_id}`, `/risks/{risk_id}/briefing`는 폐기 → 리스크 목록은 `GET /api/v1/risk-events`(프론트 `RiskEvent` 계약, 데이터는 F3/F4 모델 전까지 placeholder)가 대체, 브리핑 상세는 `GET /api/v1/briefings/{briefingId}`가 담당한다. `/analyses`, `/contracts/{id}`도 미구현.
+
 ## FastAPI 핵심 API
 
 ```
@@ -1258,6 +1260,8 @@ GET /api/v1/contracts
 GET /api/v1/contracts/{contract_id}
 GET /api/v1/risks/{risk_id}/briefing
 ```
+
+> **폐기 (2026-07-27):** `GET /api/v1/risks`, `/risks/{risk_id}`, `/risks/{risk_id}/briefing`는 폐기 → `GET /api/v1/risk-events`(프론트 `RiskEvent` 계약)로 대체, 브리핑 상세는 `GET /api/v1/briefings/{briefingId}`가 담당한다. 아래 단건 `GET /api/v1/risks/{id}` 테스트 예시도 폐기(리스크는 목록만 제공, 단건 없음).
 
 ## 더미 응답 원칙
 

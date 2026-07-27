@@ -102,7 +102,8 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/auth/refresh").permitAll()
-                        .requestMatchers("/api/v1/dashboard/**").permitAll()
+                        // 대시보드 집계는 재고일수·공급사 의존도 등 ERP 내부 값을 포함하므로 인증을 요구한다.
+                        // 비로그인 공개 화면(뉴스·가격 추이 등)이 생기면 별도 경로에 permitAll을 둔다.
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",

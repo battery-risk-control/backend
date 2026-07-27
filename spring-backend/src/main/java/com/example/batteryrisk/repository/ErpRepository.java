@@ -137,6 +137,44 @@ public class ErpRepository {
         return statuses.isEmpty() ? "NONE" : statuses.get(0);
     }
 
+    /** F9: 자격 조건을 통과한 대체 공급사 후보만 반환합니다. 자격 미달 후보는 여기서 제거합니다. */
+    public List<AlternativeSupplierRow> findEligibleAlternativeSuppliers(
+            long materialId, long primarySupplierId, LocalDate asOfDate, int limit) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("materialId", materialId)
+                .addValue("primarySupplierId", primarySupplierId)
+                .addValue("asOfDate", asOfDate)
+                .addValue("limit", limit);
+        return jdbc.query("""
+                SELECT
+                    s.erp_supplier_id,
+                    s.supplier_name,
+                    sm.approved_status,
+                    s.feoc_status,
+                    s.iatf_16949_certified,
+                    s.ppap_approved,
+                    sm.lead_time_days
+                FROM supplier_materials sm
+                JOIN suppliers s ON s.supplier_id = sm.supplier_id
+                WHERE sm.material_id = :materialId
+                  AND sm.supplier_id <> :primarySupplierId
+                  AND sm.is_alternative = TRUE
+                  AND s.supplier_status = 'ACTIVE'
+                  AND sm.valid_from <= :asOfDate
+                  AND (sm.valid_to IS NULL OR sm.valid_to >= :asOfDate)
+                  AND sm.approved_status IN ('APPROVED', 'CONDITIONAL')
+                ORDER BY CASE sm.approved_status WHEN 'APPROVED' THEN 0 ELSE 1 END, sm.priority_rank
+                LIMIT :limit
+                """, params, (rs, rowNum) -> new AlternativeSupplierRow(
+                rs.getString("erp_supplier_id"),
+                rs.getString("supplier_name"),
+                rs.getString("approved_status"),
+                rs.getString("feoc_status"),
+                rs.getBoolean("iatf_16949_certified"),
+                rs.getBoolean("ppap_approved"),
+                nullableInt(rs, "lead_time_days")));
+    }
+
     public Optional<InboundRow> findNextInbound(long materialId, LocalDate asOfDate) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("materialId", materialId)
@@ -216,6 +254,11 @@ public class ErpRepository {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    private static Integer nullableInt(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
+        int value = rs.getInt(column);
+        return rs.wasNull() ? null : value;
+    }
+
     private static <T> Optional<T> first(List<T> values) {
         return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
     }
@@ -250,4 +293,14 @@ public class ErpRepository {
     ) {}
 
     public record InboundRow(LocalDate effectiveArrivalDate, String orderStatus) {}
+
+    public record AlternativeSupplierRow(
+            String erpSupplierId,
+            String supplierName,
+            String approvedStatus,
+            String feocStatus,
+            boolean iatf16949Certified,
+            boolean ppapApproved,
+            Integer leadTimeDays
+    ) {}
 }
