@@ -45,6 +45,10 @@ services:
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
       MOCK_MODE: "true"
+    # 계약 적재 스크립트(scripts/load_contracts.py)가 호스트에서 접근하도록 포트를 노출한다.
+    # 필요 없으면 이 블록을 지워도 서비스 간 통신(spring→fastapi)에는 영향이 없다.
+    ports:
+      - "${FASTAPI_PORT:-8000}:8000"
     depends_on:
       - chroma
     healthcheck:
