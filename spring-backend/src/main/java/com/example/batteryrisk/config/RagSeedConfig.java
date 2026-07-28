@@ -114,8 +114,8 @@ public class RagSeedConfig {
                     MultipartFile multipartFile = new SeedMultipartFile(fileName, mimeTypeFor(fileName), content);
                     DocumentDto.UploadResponse response = documentService.upload(
                             multipartFile, ids[0], ids[1], ids[2], documentType);
-                    log.info("RAG seed: {} → contract_id={} chunks={} dup={} mock={}",
-                            erpContractId, ids[0], response.chunkCount(), response.duplicate(), response.mock());
+                    log.info("RAG seed: {} → contract_id={} chunks={} dup={} embed={}",
+                            erpContractId, ids[0], response.chunkCount(), response.duplicate(), response.embeddingType());
                     ok++;
                 } catch (Exception exception) {
                     log.error("RAG seed 실패 (파일={}): {}", fileName, exception.getMessage());
