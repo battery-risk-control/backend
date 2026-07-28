@@ -81,6 +81,17 @@ class SupplierQualificationStatus(
     PENDING = "PENDING"
     REJECTED = "REJECTED"
 
+class SupplierCapacityStatus(
+    str,
+    Enum,
+):
+    """대체 공급사의 필요수량 대비 가용 capacity 상태."""
+
+    SUFFICIENT = "SUFFICIENT"
+    PARTIAL = "PARTIAL"
+    UNAVAILABLE = "UNAVAILABLE"
+    UNKNOWN = "UNKNOWN"
+
 class ContractQuestionCode(str, Enum):
     """ERP Agent가 Contract Agent에 전달하는 질문 유형."""
 
@@ -428,6 +439,16 @@ class ErpExposureRequest(ApiModel):
         description="분석 대상 자재와 관련된 미입고 발주",
     )
 
+    requiredQuantity: float | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "대체 공급사에게 필요한 조달 수량. "
+            "공급사별 capacity 충족률 계산에 사용한다."
+        ),
+        examples=[8000],
+    )
+
     alternativeSuppliers: list[ErpAlternativeSupplierContext] = Field(
         default_factory=list,
         description="분석 대상 자재의 대체 공급사 목록",
@@ -659,6 +680,51 @@ class CalculationEvidence(ApiModel):
         description="계산에 사용된 ERP 레코드 ID",
     )
 
+class ErpSupplierAssessment(ApiModel):
+    """ERP Agent의 공급사별 위험 평가 결과."""
+
+    supplierId: str = Field(
+        min_length=1,
+    )
+
+    supplierRiskScore: float = Field(
+        ge=0,
+        le=100,
+    )
+
+    qualificationRiskScore: float = Field(
+        ge=0,
+        le=100,
+    )
+
+    supplierStatusRiskScore: float = Field(
+        ge=0,
+        le=100,
+    )
+
+    capacityRiskScore: float = Field(
+        ge=0,
+        le=100,
+    )
+
+    capacityStatus: SupplierCapacityStatus
+
+    capacityCoverageRatio: float | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    availableCapacityQuantity: float | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    reasonCodes: list[str] = Field(
+        default_factory=list,
+    )
+
+    manualReviewRequired: bool = False
+
 
 # =========================================================
 # FastAPI → Spring 응답 모델
@@ -689,6 +755,13 @@ class ErpExposureResponse(ApiModel):
         default=None,
         ge=0,
         le=100,
+    )
+
+    supplierAssessments: list[
+        ErpSupplierAssessment
+    ] = Field(
+        default_factory=list,
+        description="공급사별 ERP 위험 평가 결과",
     )
 
     exposureLevel: ExposureLevel

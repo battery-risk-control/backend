@@ -30,6 +30,10 @@ from app.services.erp_rule_loader import (
     loadErpRules,
 )
 
+from app.services.erp_supplier_assessment_service import (
+    buildSupplierAssessments,
+)
+
 
 QUESTION_TEXTS = {
     ContractQuestionCode.DELIVERY_DELAY_NOTICE: (
@@ -509,6 +513,18 @@ def calculateErpExposure(
 
     rules = loadErpRules()
 
+    supplierAssessments = (
+        buildSupplierAssessments(
+            suppliers=(
+                request.alternativeSuppliers
+            ),
+            requiredQuantity=(
+                request.requiredQuantity
+            ),
+            rules=rules,
+        )
+    )
+
     facts = calculateErpFacts(request)
 
     dataQualityStatus, warnings = (
@@ -640,6 +656,9 @@ def calculateErpExposure(
         facts=facts,
         riskComponents=riskComponents,
         erpExposureScore=erpExposureScore,
+        supplierAssessments=(
+            supplierAssessments
+        ),
         exposureLevel=exposureLevel,
         forcedCritical=forcedCritical,
         contractReviewRequired=(

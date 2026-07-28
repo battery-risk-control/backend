@@ -58,6 +58,7 @@ def validateErpRules(
         "exposureLevelThresholds",
         "forcedCriticalRules",
         "forcedWarningRules",
+        "supplierAssessmentRisk",
     ]
 
     missingSections = [
@@ -100,4 +101,41 @@ def validateErpRules(
         raise ValueError(
             "ERP 가중치 합계는 1이어야 합니다. "
             f"현재 합계: {weightSum}"
+        )
+
+    supplierAssessmentRules = rules[
+        "supplierAssessmentRisk"
+    ]
+
+    supplierAssessmentWeights = (
+        supplierAssessmentRules["weights"]
+    )
+
+    requiredSupplierWeights = {
+        "qualification",
+        "supplierStatus",
+        "capacity",
+    }
+
+    missingSupplierWeights = (
+        requiredSupplierWeights
+        - set(supplierAssessmentWeights)
+    )
+
+    if missingSupplierWeights:
+        raise ValueError(
+            "공급사 평가 가중치가 누락되었습니다: "
+            + ", ".join(
+                sorted(missingSupplierWeights)
+            )
+        )
+
+    supplierWeightSum = sum(
+        supplierAssessmentWeights.values()
+    )
+
+    if abs(supplierWeightSum - 1.0) > 0.000001:
+        raise ValueError(
+            "공급사 평가 가중치 합계는 1이어야 합니다. "
+            f"현재 합계: {supplierWeightSum}"
         )
