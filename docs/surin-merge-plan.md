@@ -157,10 +157,10 @@ CREATE INDEX idx_notification_log_analysis ON notification_log (analysis_id);
 | ~~surin V6, V7, V10~~ | — | 폐기/흡수 |
 
 #### `V13__extend_document_type_check.sql` (신규 화해 마이그레이션)
-merge의 `ck_document_type`은 {CONTRACT, PURCHASE_ORDER, SPECIFICATION, CERTIFICATE, OTHER}로 제한 → surin이 넣는 {LTA, PURCHASE_GUIDELINE, SUPPLIER_EVALUATION, QUALITY_CERTIFICATE, REGULATION, TECHNICAL_SPEC} 삽입 시 CHECK 위반. 합집합으로 확장:
+merge의 `ck_document_type`은 {CONTRACT, PURCHASE_ORDER, SPECIFICATION, CERTIFICATE, OTHER}로 제한 → surin이 넣는 {LTA, PURCHASE_GUIDELINE, SUPPLIER_EVALUATION, QUALITY_CERTIFICATE, REGULATION, TECHNICAL_SPEC} 삽입 시 CHECK 위반. 합집합으로 확장. ⚠️ **실제 테이블명은 `documents`가 아니라 `contract_documents`**(V1 확인, Flyway 검증에서 오류로 확인됨):
 ```sql
-ALTER TABLE documents DROP CONSTRAINT ck_document_type;
-ALTER TABLE documents ADD CONSTRAINT ck_document_type CHECK (document_type IN (
+ALTER TABLE contract_documents DROP CONSTRAINT ck_document_type;
+ALTER TABLE contract_documents ADD CONSTRAINT ck_document_type CHECK (document_type IN (
     'CONTRACT','PURCHASE_ORDER','SPECIFICATION','CERTIFICATE','OTHER',
     'LTA','PURCHASE_GUIDELINE','SUPPLIER_EVALUATION','QUALITY_CERTIFICATE','REGULATION','TECHNICAL_SPEC'
 ));
@@ -173,12 +173,14 @@ ALTER TABLE documents ADD CONSTRAINT ck_document_type CHECK (document_type IN (
 
 surin V1 ↔ merge V1 실제 차이:
 
+> 실제 테이블명은 **`contract_documents`**(V1). 아래 "documents"는 이 테이블을 가리킴.
+
 | 항목 | surin | merge |
 |---|---|---|
-| `documents.document_id` | `UUID` | `VARCHAR(40)` |
+| `contract_documents.document_id` | `UUID` | `VARCHAR(40)` |
 | document_type enum | LTA, PURCHASE_GUIDELINE, SUPPLIER_EVALUATION, QUALITY_CERTIFICATE, REGULATION, TECHNICAL_SPEC | CONTRACT, PURCHASE_ORDER, SPECIFICATION, CERTIFICATE, OTHER |
 
-> ✅ **V1 차이는 `documents` 테이블 한 곳에 국한**됨(materials/suppliers/contracts 베이스 테이블은 surin=merge 동일 확인). `suppliers.feoc_status`도 양쪽 V1에 동일 존재 → F9 필터 정상.
+> ✅ **V1 차이는 `contract_documents` 테이블 한 곳에 국한**됨(materials/suppliers/contracts 베이스 테이블은 surin=merge 동일 확인). `suppliers.feoc_status`도 양쪽 V1에 동일 존재 → F9 필터 정상.
 
 - backend_merge DB에 merge V1이 **이미 적용됨** → V1을 바꾸면 DB 리셋 필요. **merge V1 유지**가 강제됨.
 - **`document_id`**: **merge의 `Document.java`(이미 `String`/VARCHAR(40)) 유지.** surin의 문서 처리 로직(현재 `UUID` 전제)을 String id로 이식 — surin도 이미 `UUID.randomUUID().toString()`·`get(String)`을 써서 이식 용이. ⚠️ merge `Document.java`를 surin UUID 버전으로 덮으면 `ddl-auto: validate` 부팅 실패 → **통째 복붙 금지**.

@@ -31,6 +31,9 @@ services:
   fastapi:
     build: ./fastapi-ai
     container_name: battery-risk-fastapi
+    # Swagger로 RAG 에이전트의 조항 유형(clause_type) 판별 테스트 시 필요 (개발용 — 프론트 연동엔 불필요)
+    ports:
+      - "8000:8000"
     environment:
       # 컨테이너 안에서 Chroma의 포트는 진짜 포트 8000이다(호스트 매핑 8001이 아님).
       CHROMA_MODE: http
