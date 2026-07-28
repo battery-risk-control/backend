@@ -144,6 +144,13 @@ def adapt_erp_exposure_response(
             in response.calculationEvidence
         ],
         "findings": build_erp_findings(response),
+        "supplier_assessments": [
+            assessment.model_dump(
+                mode="json",
+            )
+            for assessment
+            in response.supplierAssessments
+        ],
     }
 
     return {
