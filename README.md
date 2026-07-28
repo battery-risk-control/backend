@@ -2,29 +2,42 @@
 
 Interface Specification v0.2를 기준으로 만든 초기 구현입니다.
 
-## 빠른 시작 — 전체 스택 Docker 실행 (권장)
+## 빠른 시작 — Docker 한 번에 실행 (ERP + RAG 자동 적재)
 
-개별 컴포넌트(아래 1~2절)를 따로 띄우는 대신, Docker로 전체 스택(postgres·chroma·fastapi·spring·frontend)을 한 번에 올리는 방법입니다.
+**`docker compose up` 한 번으로 전체 스택 기동 + 데이터 적재까지 자동으로 됩니다.**
+플래그만 켜두면 시작 시 ① ERP 데이터가 PostgreSQL에, ② 계약서 RAG 임베딩이 ChromaDB에 자동 적재됩니다. (수동 적재 스크립트 실행 불필요)
 
-### 1) 사전 준비 — `.env` 설정
+### 무엇이 자동으로 적재되나
 
-프로젝트 루트의 `.env.example`을 `.env`로 복사한 뒤 아래 값을 채웁니다. (`.env`는 gitignore되어 커밋되지 않으므로 각자 로컬에서 만들어야 합니다.)
+| 데이터 | 적재기 | 저장소 | 활성 조건 |
+| --- | --- | --- | --- |
+| **ERP** (자재·공급사·계약·재고·발주) | `ErpSeedConfig` | PostgreSQL | `ERP_SEED_ENABLED=true` |
+| **RAG 계약서 임베딩** (erp_aligned 28건) | `RagSeedConfig` | ChromaDB | `RAG_SEED_ENABLED=true` + `EMBEDDING_PROVIDER=openai` |
+
+> ⚠️ RAG 적재는 계약 매핑(ERP)이 필요하므로 **ERP 시드가 함께 켜져 있어야** 합니다. RAG 시드는 `erp_aligned/CTR-XXX_*.txt`를 파일명으로 PostgreSQL PK에 매핑해 OpenAI로 임베딩합니다.
+
+### 1) `.env` 설정
+
+`.env.example`을 `.env`로 복사한 뒤 아래를 채웁니다. (`.env`는 gitignore — 각자 로컬에서 만들며, 실제 동작은 이 `.env`가 좌우합니다. `.env.example`은 템플릿이라 앱이 읽지 않습니다.)
 
 ```bash
-# 실제 임베딩(의미 검색)을 쓰려면 — 없으면 조용히 mock으로 동작함
-EMBEDDING_PROVIDER=openai
-OPENAI_API_KEY=sk-...            # 임베딩 + RAG 에이전트 LLM 공용
-OPENAI_MODEL=gpt-4o-mini
+# --- OpenAI (임베딩 + 채팅 LLM 공용 키) ---
+EMBEDDING_PROVIDER=openai                        # mock 아니라 openai (없으면 조용히 mock으로 동작)
+OPENAI_API_KEY=sk-...                            # 임베딩·채팅 공용
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large    # 임베딩 모델
+EMBEDDING_DIMENSION=3072                         # 3-large 기본 차원 (모델과 일치 필수)
+OPENAI_MODEL=gpt-4o-mini                         # 채팅(브리핑 생성) LLM
 
-# ERP 데이터(자재·공급사·계약·재고)를 PostgreSQL에 시드 — 없으면 빈 DB로 뜸
-ERP_SEED_ENABLED=true
+# --- 자동 적재 플래그 ---
+ERP_SEED_ENABLED=true                            # ERP → PostgreSQL 자동 적재
+RAG_SEED_ENABLED=true                            # 계약서 RAG → ChromaDB 자동 임베딩
 ```
 
-> ⚠️ `EMBEDDING_PROVIDER`를 안 켜면 키가 있어도 **mock 임베딩**으로 돕니다. `ERP_SEED_ENABLED=true`가 없으면 **ERP 테이블이 빈 상태**로 뜹니다.
+> ⚠️ `EMBEDDING_PROVIDER=openai`가 없으면 키가 있어도 **mock 임베딩**(가짜)으로 돕니다. 시드 플래그가 없으면 해당 데이터가 **빈 상태**로 뜹니다.
 
 ### 2) 포트/이름 충돌 확인
 
-이 스택은 다른 백엔드 스택(mvp-starter 등)과 **컨테이너 이름·호스트 포트(5432·8001·8080·5173)가 동일**합니다. 다른 스택이 떠 있으면 먼저 내립니다.
+다른 백엔드 스택(mvp-starter 등)과 **컨테이너 이름·호스트 포트(5432·8001·8080·5173)가 동일**합니다. 다른 스택이 떠 있으면 먼저 내립니다.
 
 ```powershell
 docker compose -f C:\aivleschool\bigproject\battery-risk-mvp-starter\docker-compose.yml down
@@ -36,30 +49,34 @@ docker compose -f C:\aivleschool\bigproject\battery-risk-mvp-starter\docker-comp
 
 ```powershell
 cd C:\aivleschool\bigproject\backend_merge
-docker compose up -d        # 첫 실행은 이미지 빌드로 수 분 소요
-docker compose ps           # 상태 확인 (healthy 대기)
+docker compose up -d --build     # 첫 실행/코드 변경 시 --build 필수 (Seed 코드 반영)
+docker compose ps                # healthy 대기
 ```
 
-ERP 시드는 `ERP_SEED_ENABLED=true`이면 Spring 시작 시 자동 실행됩니다.
+기동 시 자동으로:
+- **ErpSeedConfig** → ERP CSV를 PostgreSQL에 적재 (자재 11·공급사 19·계약 29 등)
+- **RagSeedConfig** → FastAPI가 준비되면 계약서 28건을 OpenAI 임베딩해 ChromaDB에 적재 (재실행 시 dedup으로 중복 없음)
 
-### 4) 실행 후 — 문서 재적재 (필수)
+### 4) 적재 확인
 
-`EMBEDDING_PROVIDER`를 openai로 바꾸면 Chroma 컬렉션이 `contract_documents_openai_v1`(빈 저장함)로 갈리므로, 문서를 다시 적재해야 검색이 됩니다.
-
-```bash
-python scripts/reindex_embeddings.py            # 기존 문서 재임베딩
-# 또는 처음 넣는 경우
-python fastapi-ai/scripts/load_contracts.py
+```powershell
+# ERP·RAG 시드 로그
+docker compose logs spring | Select-String "ERP CSV seed|RAG seed"
+# RAG 임베딩(chunk_count > 0, mock=false) 확인
+docker exec battery-risk-fastapi python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())"
 ```
+`RAG seed 완료: 성공 28 ...` / `chunk_count`가 0보다 크고 `embedding_type=OPENAI`면 RAG 임베딩 성공입니다.
 
 ### 5) 종료
 
 ```powershell
 docker compose down        # 컨테이너만 내림 (데이터 유지)
-docker compose down -v     # 볼륨까지 삭제 (DB 초기화가 필요할 때만)
+docker compose down -v     # 볼륨까지 삭제 (DB·Chroma 초기화가 필요할 때만)
 ```
 
 접속 주소: Spring `http://localhost:8080` · FastAPI(내부) `fastapi:8000` · Chroma `http://localhost:8001` · Frontend `http://localhost:5173`
+
+> **참고 — 수동 재임베딩**은 이미 적재된 문서를 다른 모델/provider로 **다시** 임베딩할 때만 필요합니다: `python scripts/reindex_embeddings.py`. 처음 적재는 위 RagSeedConfig가 자동 처리하므로 별도 실행이 필요 없습니다.
 
 ## 1. Spring Boot 실행
 
