@@ -2,6 +2,65 @@
 
 Interface Specification v0.2를 기준으로 만든 초기 구현입니다.
 
+## 빠른 시작 — 전체 스택 Docker 실행 (권장)
+
+개별 컴포넌트(아래 1~2절)를 따로 띄우는 대신, Docker로 전체 스택(postgres·chroma·fastapi·spring·frontend)을 한 번에 올리는 방법입니다.
+
+### 1) 사전 준비 — `.env` 설정
+
+프로젝트 루트의 `.env.example`을 `.env`로 복사한 뒤 아래 값을 채웁니다. (`.env`는 gitignore되어 커밋되지 않으므로 각자 로컬에서 만들어야 합니다.)
+
+```bash
+# 실제 임베딩(의미 검색)을 쓰려면 — 없으면 조용히 mock으로 동작함
+EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=sk-...            # 임베딩 + RAG 에이전트 LLM 공용
+OPENAI_MODEL=gpt-4o-mini
+
+# ERP 데이터(자재·공급사·계약·재고)를 PostgreSQL에 시드 — 없으면 빈 DB로 뜸
+ERP_SEED_ENABLED=true
+```
+
+> ⚠️ `EMBEDDING_PROVIDER`를 안 켜면 키가 있어도 **mock 임베딩**으로 돕니다. `ERP_SEED_ENABLED=true`가 없으면 **ERP 테이블이 빈 상태**로 뜹니다.
+
+### 2) 포트/이름 충돌 확인
+
+이 스택은 다른 백엔드 스택(mvp-starter 등)과 **컨테이너 이름·호스트 포트(5432·8001·8080·5173)가 동일**합니다. 다른 스택이 떠 있으면 먼저 내립니다.
+
+```powershell
+docker compose -f C:\aivleschool\bigproject\battery-risk-mvp-starter\docker-compose.yml down
+```
+
+### 3) 실행
+
+`.env`가 확실히 로딩되도록 **반드시 이 폴더 안에서** 실행합니다. (다른 폴더에서 `-f`로 지정하면 `.env`가 안 읽혀 mock으로 떨어질 수 있습니다.)
+
+```powershell
+cd C:\aivleschool\bigproject\backend_merge
+docker compose up -d        # 첫 실행은 이미지 빌드로 수 분 소요
+docker compose ps           # 상태 확인 (healthy 대기)
+```
+
+ERP 시드는 `ERP_SEED_ENABLED=true`이면 Spring 시작 시 자동 실행됩니다.
+
+### 4) 실행 후 — 문서 재적재 (필수)
+
+`EMBEDDING_PROVIDER`를 openai로 바꾸면 Chroma 컬렉션이 `contract_documents_openai_v1`(빈 저장함)로 갈리므로, 문서를 다시 적재해야 검색이 됩니다.
+
+```bash
+python scripts/reindex_embeddings.py            # 기존 문서 재임베딩
+# 또는 처음 넣는 경우
+python fastapi-ai/scripts/load_contracts.py
+```
+
+### 5) 종료
+
+```powershell
+docker compose down        # 컨테이너만 내림 (데이터 유지)
+docker compose down -v     # 볼륨까지 삭제 (DB 초기화가 필요할 때만)
+```
+
+접속 주소: Spring `http://localhost:8080` · FastAPI(내부) `fastapi:8000` · Chroma `http://localhost:8001` · Frontend `http://localhost:5173`
+
 ## 1. Spring Boot 실행
 
 ```bash

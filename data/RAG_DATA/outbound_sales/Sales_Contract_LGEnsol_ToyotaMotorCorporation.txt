@@ -1,0 +1,761 @@
+[STRICTLY CONFIDENTIAL]
+MASTER BATTERY CELL SUPPLY AGREEMENT
+
+This Master Battery Cell Supply Agreement (the "Agreement") is made and entered into as of November 18, 2023 (the "Effective Date"), by and between:
+SELLER: LG Energy Solution, Ltd.
+BUYER: Toyota Motor Corporation
+
+ARTICLE 1. SUBJECT OF AGREEMENT
+1.1 The Seller agrees to manufacture and supply to the Buyer LFP Battery Packs (the "Products") for use in the Buyer's electric vehicle (EV) manufacturing.
+
+ARTICLE 2. VOLUME AND PRICING
+2.1 Total Commitment: The Seller shall supply a total capacity of 10 GWh over the term of this Agreement.
+2.2 The base price per kWh shall be USD 146, subject to quarterly adjustments based on the LME metal index.
+
+ARTICLE 3. DELIVERY AND DELAY PENALTIES (LIQUIDATED DAMAGES)
+3.1 Time is of the essence. The Seller must deliver the Products strictly in accordance with the Buyer's weekly delivery schedules.
+3.2 Late Delivery Penalty: In the event of a delivery delay, the Seller shall pay to the Buyer a penalty of 0.1% of the delayed shipment value per day.
+3.3 Line-Stop Charge: If the Seller's failure to deliver the Products on time causes a production halt at the Buyer's vehicle assembly plant (Line-Stop), the Seller shall be liable for a Line-Stop Charge of USD 10,000,000 for each full day of production stoppage, in addition to the late delivery penalty.
+
+ARTICLE 4. FORCE MAJEURE AND EXCLUSIONS
+4.1 Neither party shall be liable for delay due to true events of Force Majeure (acts of God, war, pandemic).
+4.2 Shortages of raw materials or tier-2 supplier delays shall NOT be considered an event of Force Majeure.
+
+ARTICLE 5. QUALITY WARRANTY
+5.1 The Seller warrants that the Products will be free from defects in material and workmanship for a period of 8 years or 100,000 miles, whichever occurs first.
+
+[SIGNATURES OMITTED FOR DEMO]
+
+
+
+ARTICLE 6. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 6 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 7. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 7 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 8. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 8 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 9. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 9 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 10. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 10 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 11. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 11 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 12. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 12 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 13. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 13 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 14. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 14 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 15. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 15 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 16. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 16 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 17. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 17 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 18. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 18 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 19. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 19 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 20. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 20 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 21. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 21 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 22. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 22 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 23. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 23 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 24. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 24 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 25. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 25 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 26. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 26 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 27. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 27 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 28. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 28 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 29. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 29 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 30. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 30 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 31. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 31 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 32. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 32 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 33. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 33 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 34. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 34 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 35. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 35 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 36. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 36 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 37. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 37 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 38. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 38 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 39. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 39 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 40. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 40 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 41. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 41 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 42. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 42 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 43. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 43 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 44. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 44 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 45. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 45 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 46. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 46 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 47. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 47 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 48. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 48 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 49. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 49 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 50. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 50 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 51. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 51 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 52. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 52 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 53. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 53 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 54. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 54 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 55. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 55 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 56. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 56 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 57. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 57 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 58. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 58 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 59. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 59 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 60. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 60 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 61. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 61 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 62. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 62 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 63. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 63 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 64. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 64 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 65. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 65 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 66. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 66 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 67. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 67 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 68. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 68 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 69. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 69 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 70. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 70 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 71. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 71 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 72. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 72 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 73. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 73 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 74. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 74 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 75. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 75 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 76. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 76 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 77. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 77 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 78. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 78 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 79. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 79 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 80. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 80 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 81. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 81 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 82. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 82 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 83. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 83 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 84. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 84 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 85. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 85 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 86. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 86 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 87. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 87 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 88. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 88 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 89. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 89 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 90. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 90 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 91. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 91 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 92. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 92 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 93. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 93 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 94. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 94 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 95. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 95 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 96. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 96 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 97. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 97 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 98. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 98 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 99. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 99 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 100. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 100 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 101. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 101 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 102. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 102 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 103. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 103 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 104. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 104 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 105. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 105 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 106. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 106 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 107. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 107 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 108. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 108 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 109. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 109 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 110. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 110 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 111. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 111 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 112. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 112 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 113. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 113 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 114. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 114 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 115. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 115 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 116. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 116 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 117. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 117 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 118. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 118 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 119. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 119 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 120. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 120 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 121. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 121 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 122. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 122 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 123. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 123 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 124. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 124 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 125. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 125 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 126. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 126 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 127. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 127 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 128. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 128 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 129. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 129 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 130. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 130 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 131. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 131 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 132. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 132 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 133. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 133 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 134. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 134 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 135. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 135 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 136. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 136 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 137. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 137 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 138. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 138 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 139. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 139 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 140. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 140 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 141. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 141 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 142. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 142 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 143. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 143 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 144. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 144 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 145. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 145 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 146. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 146 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 147. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 147 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 148. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 148 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 149. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 149 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 150. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 150 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 151. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 151 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 152. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 152 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 153. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 153 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 154. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 154 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 155. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 155 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 156. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 156 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 157. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 157 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 158. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 158 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 159. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 159 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 160. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 160 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 161. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 161 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 162. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 162 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 163. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 163 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 164. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 164 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 165. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 165 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 166. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 166 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 167. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 167 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 168. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 168 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 169. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 169 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 170. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 170 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 171. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 171 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 172. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 172 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 173. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 173 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 174. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 174 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 175. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 175 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 176. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 176 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 177. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 177 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 178. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 178 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 179. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 179 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 180. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 180 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 181. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 181 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 182. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 182 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 183. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 183 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 184. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 184 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 185. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 185 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 186. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 186 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 187. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 187 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 188. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 188 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 189. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 189 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 190. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 190 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 191. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 191 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 192. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 192 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 193. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 193 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 194. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 194 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 195. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 195 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 196. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 196 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 197. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 197 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 198. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 198 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 199. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 199 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 200. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 200 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 201. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 201 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 202. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 202 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 203. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 203 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 204. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 204 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 205. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 205 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 206. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 206 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 207. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 207 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 208. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 208 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 209. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 209 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 210. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 210 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 211. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 211 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 212. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 212 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 213. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 213 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 214. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 214 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 215. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 215 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 216. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 216 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 217. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 217 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 218. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 218 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 219. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 219 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 220. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 220 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 221. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 221 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 222. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 222 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 223. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 223 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 224. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 224 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 225. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 225 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 226. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 226 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 227. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 227 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 228. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 228 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 229. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 229 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 230. ENTIRE AGREEMENT
+Both parties shall strictly adhere to the standards regarding Entire Agreement as outlined in this Section. This obligation regarding Entire Agreement shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 230 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Entire Agreement constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 231. WAIVERS
+Both parties shall strictly adhere to the standards regarding Waivers as outlined in this Section. This obligation regarding Waivers shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 231 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Waivers constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 232. AMENDMENTS
+Both parties shall strictly adhere to the standards regarding Amendments as outlined in this Section. This obligation regarding Amendments shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 232 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Amendments constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 233. LANGUAGE
+Both parties shall strictly adhere to the standards regarding Language as outlined in this Section. This obligation regarding Language shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 233 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Language constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 234. AUDIT RIGHTS
+Both parties shall strictly adhere to the standards regarding Audit Rights as outlined in this Section. This obligation regarding Audit Rights shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 234 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Audit Rights constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 235. SUBCONTRACTING
+Both parties shall strictly adhere to the standards regarding Subcontracting as outlined in this Section. This obligation regarding Subcontracting shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 235 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Subcontracting constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 236. COMPLIANCE
+Both parties shall strictly adhere to the standards regarding Compliance as outlined in this Section. This obligation regarding Compliance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 236 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Compliance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 237. ENVIRONMENT & SAFETY
+Both parties shall strictly adhere to the standards regarding Environment & Safety as outlined in this Section. This obligation regarding Environment & Safety shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 237 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Environment & Safety constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 238. ETHICS
+Both parties shall strictly adhere to the standards regarding Ethics as outlined in this Section. This obligation regarding Ethics shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 238 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Ethics constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 239. INSURANCE
+Both parties shall strictly adhere to the standards regarding Insurance as outlined in this Section. This obligation regarding Insurance shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 239 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Insurance constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 240. CONFIDENTIALITY
+Both parties shall strictly adhere to the standards regarding Confidentiality as outlined in this Section. This obligation regarding Confidentiality shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 240 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Confidentiality constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 241. INTELLECTUAL PROPERTY
+Both parties shall strictly adhere to the standards regarding Intellectual Property as outlined in this Section. This obligation regarding Intellectual Property shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 241 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Intellectual Property constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 242. ASSIGNMENT
+Both parties shall strictly adhere to the standards regarding Assignment as outlined in this Section. This obligation regarding Assignment shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 242 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Assignment constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 243. GOVERNING LAW
+Both parties shall strictly adhere to the standards regarding Governing Law as outlined in this Section. This obligation regarding Governing Law shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 243 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Governing Law constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 244. DISPUTE RESOLUTION
+Both parties shall strictly adhere to the standards regarding Dispute Resolution as outlined in this Section. This obligation regarding Dispute Resolution shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 244 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Dispute Resolution constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 245. TERMINATION
+Both parties shall strictly adhere to the standards regarding Termination as outlined in this Section. This obligation regarding Termination shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 245 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Termination constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 246. INDEMNIFICATION
+Both parties shall strictly adhere to the standards regarding Indemnification as outlined in this Section. This obligation regarding Indemnification shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 246 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Indemnification constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 247. NOTICES
+Both parties shall strictly adhere to the standards regarding Notices as outlined in this Section. This obligation regarding Notices shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 247 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Notices constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 248. INDEPENDENT CONTRACTOR
+Both parties shall strictly adhere to the standards regarding Independent Contractor as outlined in this Section. This obligation regarding Independent Contractor shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 248 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Independent Contractor constitute the complete understanding of the parties and supersede all prior communications.
+
+ARTICLE 249. SEVERABILITY
+Both parties shall strictly adhere to the standards regarding Severability as outlined in this Section. This obligation regarding Severability shall survive the termination or expiration of this Master Supply Agreement for a period of ten (10) years. Any material breach of this Article 249 shall entitle the non-breaching party to seek immediate injunctive relief and actual damages. Furthermore, the provisions set forth herein regarding Severability constitute the complete understanding of the parties and supersede all prior communications.
