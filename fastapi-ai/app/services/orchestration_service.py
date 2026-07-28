@@ -84,7 +84,8 @@ class OrchestrationService:
         result = AnalyzeResponseData(
             analysis_id=str(uuid4()), status=ProcessingStatus.COMPLETED,
             extraction=extraction, features=features, classification=classification,
-            severity=severity, matched_entities=entities, briefing_id=briefing_id,
+            severity=severity, matched_entities=entities,
+            affected_materials=extraction.affected_materials, briefing_id=briefing_id,
             erp_context_included=request.options.include_erp_context,
             contract_rag_included=request.options.include_contract_rag,
             feature_enrichment_applied=request.options.enrich_features,

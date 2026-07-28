@@ -80,6 +80,8 @@ class AnalyzeResponseData(ApiModel):
     classification: ClassificationResult
     severity: SeverityResult
     matched_entities: MatchedEntities
+    # [surin F9] Spring AnalysisService가 top-level affected_materials로 material_category를 뽑아 F9를 트리거한다.
+    affected_materials: list[str] = []
     briefing_id: Optional[int] = None
     erp_context_included: bool = False
     contract_rag_included: bool = False

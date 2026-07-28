@@ -46,6 +46,8 @@ services:
       # 실제 임베딩을 쓰려면 EMBEDDING_PROVIDER=openai + OPENAI_API_KEY를 .env에 설정.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
+      # [surin F9] FastAPI supplier_recommendation_service가 Spring /api/v1/suppliers/qualified로 콜백. docker 네트워크에선 서비스명 spring 사용(localhost 아님).
+      SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
       MOCK_MODE: "true"
     depends_on:
