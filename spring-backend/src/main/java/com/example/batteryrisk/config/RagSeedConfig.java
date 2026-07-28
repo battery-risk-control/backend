@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -49,6 +50,7 @@ public class RagSeedConfig {
     private static final long FASTAPI_WAIT_INTERVAL_MS = 3_000L;
 
     @Bean
+    @Order(20)   // ErpSeedConfig(@Order 10) 다음에 실행 — 계약 매핑이 준비된 뒤 적재
     ApplicationRunner ragSeedRunner(
             DocumentService documentService,
             org.springframework.jdbc.core.JdbcTemplate jdbc,

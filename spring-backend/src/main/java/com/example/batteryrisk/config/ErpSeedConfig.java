@@ -7,6 +7,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -32,6 +33,7 @@ public class ErpSeedConfig {
     private static final Logger log = LoggerFactory.getLogger(ErpSeedConfig.class);
 
     @Bean
+    @Order(10)   // RAG 시드보다 먼저 실행 — RagSeedConfig가 계약 매핑을 필요로 함
     ApplicationRunner erpCsvSeedRunner(
             JdbcTemplate jdbc,
             PlatformTransactionManager transactionManager,
