@@ -37,6 +37,22 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 51MB
+  mail:
+    # [surin F10] 이메일 발송(JavaMailSender). host가 정의돼야 JavaMailSender 빈이 생성되어
+    # EmailNotificationChannel이 주입받는다(SMTP_HOST 미설정 시 빈 host라 발송만 비활성, 부팅은 정상).
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 springdoc:
   swagger-ui:
@@ -50,6 +66,10 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    # [surin F10] SMTP 미설정 시 mail 헬스체크가 /actuator/health를 DOWN으로 만들지 않도록 비활성화.
+    mail:
+      enabled: false
 
 app:
   cors:
@@ -78,3 +98,13 @@ app:
     # 프론트 e2e용 고정 테스트 계정 시드. 운영에는 끄고, CI/로컬 e2e에서만 true로 켠다.
     test-seed:
       enabled: ${AUTH_TEST_SEED_ENABLED:false}
+  historical-data:
+    # [surin F4] BDI/GDACS 과거 아카이브 적재 경로. 로컬 경로 하드코딩 대신 env로 외부화(미설정 시 적재 스킵).
+    extra-path: ${HISTORICAL_DATA_EXTRA_PATH:}
+  notification:
+    # [surin F10] 알림 발신자 이메일 주소. 미설정 시 이메일 발송 비활성.
+    mail-from: ${NOTIFICATION_MAIL_FROM:}
+  collection:
+    # [surin F4] 자동 수집 스케줄러(30분 주기). 기본 false — 자동 F3 분석→OpenAI 추출 비용 사고 방지.
+    # 자동 수집이 필요할 때만 COLLECTION_SCHEDULER_ENABLED=true 로 켠다. 수동 트리거는 항상 가능.
+    scheduler-enabled: ${COLLECTION_SCHEDULER_ENABLED:false}

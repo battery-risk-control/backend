@@ -6,7 +6,8 @@ from typing import Optional
 from pydantic import Field
 
 from app.schemas.common import ApiModel, ProcessingStatus
-from app.schemas.extraction import ExtractionResult
+# ExtractionRequest 재노출: surin models/extraction_inference.py가 app.schemas.analyze에서 import한다.
+from app.schemas.extraction import ExtractionResult, ExtractionRequest
 from app.schemas.classification import ClassificationResult
 from app.schemas.severity import SeverityResult
 
@@ -37,6 +38,10 @@ class FeatureOverrides(ApiModel):
     actor1_type: Optional[str] = None
     actor2_type: Optional[str] = None
     stock_volatility_20d: Optional[float] = Field(default=None, ge=0)
+    # [surin F3] severity_engine(v0.2-realtime) 입력용 override 필드
+    bdi_index: Optional[float] = None
+    tone_score: Optional[float] = None
+    is_supply_chain_relevant: Optional[bool] = None
 
 
 class AnalyzeRequest(ApiModel):
@@ -46,14 +51,19 @@ class AnalyzeRequest(ApiModel):
 
 
 class FeatureVector(ApiModel):
-    goldstein_scale: float
-    news_count: int
-    country_is_mining_hub: bool
-    rainfall_24h_mm: float
-    gdacs_alert_level: int
-    actor1_type: str
-    actor2_type: str
-    stock_volatility_20d: float
+    # merge 필드(기존 필수) — neutral/부분 override 생성이 안전하도록 기본값 부여
+    goldstein_scale: float = 0.0
+    news_count: int = 0
+    country_is_mining_hub: bool = False
+    rainfall_24h_mm: float = 0.0
+    gdacs_alert_level: int = 0
+    actor1_type: str = ""
+    actor2_type: str = ""
+    stock_volatility_20d: float = 0.0
+    # [surin F3] severity_engine(v0.2-realtime)이 사용하는 필드
+    bdi_index: float = 0.0
+    tone_score: float = 0.0
+    is_supply_chain_relevant: bool = True
 
 
 class MatchedEntities(ApiModel):

@@ -27,6 +27,110 @@
 
 ---
 
+# 🎯 최종 통합 실행 계획 (FINAL) — Spring Zone D + FastAPI
+
+> 이 섹션이 **실행 기준(authoritative)**. 아래 §1~§8은 근거·상세. 워크플로우 2회(Spring 공유 23개 / FastAPI 공유 24개) 분석·적대검증 결과 반영.
+
+## 완료됨 ✅
+- 마이그레이션 V9~V13 적용·Flyway 검증 (⚠️ **V13 수정 커밋 필요** — `documents`→`contract_documents` 정정본이 아직 미커밋)
+- `build.gradle`에 `spring-boot-starter-mail`
+- Zone A 신규 파일 복사: Java 31 + FastAPI 12 (`ErpSeedLoaderService` 제외)
+
+## ✅ 실행 결과 (검증 완료 · 2026-07-28)
+①~⑧ 전부 적용 + 검증 완료. 아래 검증은 전부 **OpenAI 호출 0**로 수행.
+
+| 단계 | 결과 |
+|---|---|
+| ① Spring graft 4건 (UserRepository·GlobalExceptionHandler·SecurityConfig·ErpController /exposure) | ✅ 컴파일 성공 |
+| ② requirements union (surin ML 스택 추가, openai=1.109.1 유지) | ✅ pip 해소 성공 |
+| ③ 스키마 union (FeatureVector/FeatureOverrides + ExtractionRequest 재노출, extraction country_code optional·is_supply_chain_relevant·extraction_model_version) | ✅ |
+| ④ erp_exposure take_surin 3파일 (erp_exposure_service·schemas/erp·erp_rules.yaml) | ✅ |
+| ⑤ analyze 코어 6파일 (orchestration=merge 골격+surin 2노드(LLM impact_domain·severity_engine), severity_service=evaluate(v1) 보존+score(v0.2), extraction take_surin, feature_service·feature_builder·risk_repository union) | ✅ import OK |
+| ⑥ wiring (main.py 라우터 8종=supplier·realtime 추가, dependencies extraction 토글+get_supplier_recommendation_service, config spring_base_url) | ✅ |
+| ⑦ rag_doc keep_merge | ✅ 무작업 |
+| ⑧ application.yml (spring.mail·management.health.mail.enabled=false·app.historical-data·app.notification) | ✅ |
+| ⑨ 검증 | ✅ spring·fastapi healthy / Flyway V1~V13 / FastAPI 전 모듈 import OK / **severity 직접검증 = CRITICAL·83.5·severity-rule-v0.2-realtime·[GDACS_HARD_GATE]** / OpenAI 0건 |
+
+**★ 추가 안전장치**: `CollectionService` 자동수집 `@Scheduled`를 `app.collection.scheduler-enabled`(기본 **false**)로 가드 → 자동 F3→OpenAI 비용 사고 차단(수동 트리거는 유지). 검증: 부팅 60초 경과 후 자동수집 로그 0건.
+
+**무손실 확정**: surin F3/F4/F9/F10 + merge F5~F8(classifier·multi_agent·briefing·rag·erp_context) 모두 보존 — classifier는 `/ml/classify`, severity v1은 `evaluate()`로 공존.
+
+**미완/선택**:
+- Spring `/api/v1/analyses` 풀 라이브 E2E: 추출이 OpenAI를 호출하므로 미실행(원하면 추출=mock 또는 소액 실호출로 검증).
+- `GdeltRealtimeTriageAdapter` octet-stream 파싱 오류(F4 실시간) — 별건 버그, 병합과 무관.
+- git 커밋(진행 예정).
+
+## 실행 순서 (의존성 순 — 이대로 진행)
+
+**① Spring Zone D — graft 3개 (저위험)**
+- `repository/UserRepository.java` ← `List<User> findByRoleInAndEnabledTrueAndEmailIsNotNull(List<Role>)` + `import Role, java.util.List` (F10 NotificationService가 호출)
+- `exception/GlobalExceptionHandler.java` ← `AnalysisNotFoundException` 중첩클래스 + `handleAnalysisNotFound`(404) (F3 AnalysisService가 throw)
+- `config/SecurityConfig.java` ← `.requestMatchers("/api/v1/suppliers/qualified").permitAll()` (catch-all 앞) (F9 공개 조회)
+- (선택·결정필요) `controller/ErpController.java` ← surin `/exposure` graft 여부. 자동 F9는 이미 동작(AnalysisService→ErpExposureRequestService 직접), `/exposure`는 수동 트리거. `/seed`는 ErpSeedConfig가 대체.
+- **나머지 Spring 공유 20개 = 무작업**(merge가 상위집합)
+
+**② FastAPI `requirements.txt` — 부팅 크리티컬, 반드시 먼저 ⚠️**
+- union 추가: `pandas · xgboost · requests · newspaper3k · lxml_html_clean · numpy · scikit-learn`
+- `openai==1.109.1` 유지(surin 2.45.0 다운그레이드 무손실 — beta.parse는 1.40+ 존재), `chromadb==1.5.9`·`langgraph==1.2.9` 유지
+- (안 하면 ⑥의 realtime 라우터 배선 시 `ModuleNotFoundError`로 앱 전체 부팅 실패)
+
+**③ FastAPI 스키마 union — ⑤ analyze 선행조건**
+- `schemas/analyze.py`: `FeatureVector`+`FeatureOverrides`에 surin(tone_score·is_supply_chain_relevant·bdi_index)+merge(rainfall_24h_mm·actor1_type·actor2_type) **전 필드 기본값** 부여. `ExtractionRequest` 재노출.
+- `schemas/extraction.py`: `country_code` optional화 + `is_supply_chain_relevant`·`extraction_model_version` 추가.
+- `schemas/common.py` = keep_merge(무작업, Severity.UNKNOWN 유지)
+
+**④ FastAPI erp_exposure — take_surin (3파일 동반 이동 필수, F9)**
+- `services/erp_exposure_service.py` + `schemas/erp.py` + `config/erp_rules.yaml` → surin본 채택(surin 상위집합). (하나만 이동 시 ImportError/KeyError)
+
+**⑤ FastAPI analyze 코어 — 수동 병합 (실제 핵심 작업)**
+- `services/extraction_service.py` → surin 주입형 채택(extraction_inference 위임)
+- `services/severity_service.py` → merge 2-인자 `score` 제거, surin 1-인자 `score(features)`→`severity_engine` 추가, **`evaluate()` 유지**(internal.py·ERP용), `SeverityResult.mock=False` 명시
+- `services/feature_service.py`·`models/feature_builder.py`·`repositories/risk_repository.py` → union
+- `services/orchestration_service.py` → **merge 다단계 골격+rich 응답 유지 + 노드 2개만 surin으로 교체**(impact_domain=LLM draft, severity=severity_engine) + tone/relevance 주입 + `remember()` 호출
+
+**⑥ FastAPI wiring**
+- `api/dependencies.py` → merge provider 유지 + `get_supplier_recommendation_service` 추가 + `get_orchestration_service`를 surin 5-인자로 **재작성** + `get_extraction_service` OpenAI 토글
+- `main.py` → merge(multi_agent·/health(vector_store)·validation) 유지 + `supplier_router`·`realtime_pipeline_router` 추가
+- `core/config.py` → `spring_base_url` 필드 추가(F9가 Spring URL 조립에 사용) / `core/exceptions.py`·`repositories/__init__.py` = 무작업
+
+**⑦ FastAPI rag_doc = keep_merge (7파일 무작업)**
+- documents/internal/rag + rag_service/document_service + schemas/document·rag → merge 유지
+- ⚠️ `internal.py /severity/score`는 merge v1(evaluate) 유지 → **/analyze=surin v0.2, internal=merge v1 두 severity 용도별 공존**
+
+**⑧ 설정**
+- `spring-backend/.../application.yml`: surin `spring.mail.*`·`notification.mail-from`·`historical-data.extra-path`·CORS 병합(로컬경로는 env 외부화) / `.env` 키 추가
+
+**⑨ 검증**
+- 컴파일(`./gradlew build`) + 부팅(docker `--build`) + Flyway V1~V13
+- **E2E 무손실 증명**: 칠레 리튬 폭우 입력 → `CRITICAL`/severity 100/reason_codes 3개/공급사 추천 1·2·3위가 surin 문서 예시와 일치
+- 회귀: merge F5~F8(Dashboard/Briefing/Severity/Rag/ErpAdmin) + F10 메일(Mailtrap)
+
+## FastAPI 클러스터 판정 (근거)
+| 클러스터 | 판정 | 전략 |
+|---|---|---|
+| analyze | ⚠️ NEEDS_FIX | merge 골격 + surin 노드 2개 (수동) — ③⑤⑥ |
+| erp_exposure | ✅ OK | take_surin 3파일 — ④ |
+| wiring | ⚠️ NEEDS_FIX | union, 단 ② 선행 필수 — ⑥ |
+| rag_doc | ✅ OK | keep_merge 7파일 — ⑦ |
+| deps | ✅ OK | union, openai 1.109.1 — ② |
+
+## 설계 결정 (기록)
+1. **impact_domain**: `/analyze`는 **surin LLM 추출** 채택(merge classifier는 규칙목+휴면 스텁). merge classifier는 `/ml/classify`(internal)로 보존 → 실제 XGBoost 확보 시 토글.
+2. **severity**: `/analyze`는 **surin `severity_engine`(v0.2-realtime, 4,081건 검증)**. merge `evaluate()`(v1, ERP기반)는 internal·ERP 경로용으로 보존 → **두 엔진 공존, 무손실**.
+
+## ⚠️ 적대검증이 잡은 "그냥 두면 터지는" 것 (③⑤⑥에 포함)
+- requirements 누락 → 부팅 실패(②) / `country_code` 필수 → ValidationError(③) / `FeatureOverrides` union 누락 → AttributeError(③) / `SeverityService.score()` 시그니처 충돌 → TypeError(⑤) / `get_orchestration_service` arity 불일치 → TypeError(⑥) / `ExtractionRequest` 미노출 → ImportError(③)
+
+## 별도 검증 항목 (코드 밖)
+- ~~**ERP 시드 데이터**: merge `ErpSeedConfig` CSV가 F9 기대 공급사/자재의 상위집합인지 확인~~ → ✅ **확인 완료**: surin(`seed-data/erp`) vs merge(`data/ERP_data/spring-csv`) 11개 CSV(00~10) **바이트 단위 동일**. F9 데이터 무손실 확정.
+- **pip resolve dry-run**: `chromadb`↔`numpy` 핀 충돌 여부
+- **auth 동작 변화 인지**: merge 가입 승인 게이트(신규→PENDING) — 의도된 변경(surin C2와 다름)
+
+## 무손실 보장 요약
+surin **F3(검증 severity·LLM 분류·추출)·F4·F9·F10 전부 보존**, merge **F5~F8·classifier·multi_agent 전부 보존** — 양쪽 엔진이 용도별 공존. 단 자동이 아니라 ①~⑥의 union·수동병합을 정확히 수행해야 성립.
+
+---
+
 ## 0. 전제 / 주의사항
 
 - **surin 정본 폴더는 최상위 `spring-backend/` 와 `fastapi-ai/`** 다. (git 추적됨)

@@ -6,6 +6,8 @@ from app.api.v1.analyze import router as analyze_router
 from app.api.v1.rag import router as rag_router
 from app.api.v1.internal import router as internal_router
 from app.api.v1.documents import router as documents_router
+from app.api.v1.supplier import router as supplier_router
+from app.api.v1.realtime_pipeline import router as realtime_pipeline_router
 from app.api.routes.erp import (
     erpRouter,
 )
@@ -32,6 +34,9 @@ app.include_router(internal_router)
 app.include_router(documents_router)
 app.include_router(multi_agent_router)
 app.include_router(erpRouter)
+# [surin] F9 적격 공급사 추천 · F4 실시간 파이프라인 라우터
+app.include_router(supplier_router)
+app.include_router(realtime_pipeline_router)
 
 
 

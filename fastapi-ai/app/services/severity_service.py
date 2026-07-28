@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.core.config import get_settings
-from app.repositories.erp_repository import ErpContext
+from app.models.severity_engine import score_severity
 from app.schemas.analyze import FeatureVector
 from app.schemas.common import Severity
 from app.schemas.severity import (
@@ -110,25 +110,13 @@ class SeverityService:
             mock=True,
         )
 
-    def score(
-        self, features: FeatureVector, erp_context: ErpContext | None
-    ) -> SeverityResult:
-        """Compatibility adapter used by /analyze until Spring owns its orchestration."""
-        return self.evaluate(
-            SeverityInput(
-                inventory_days=(erp_context.stock_days if erp_context else None),
-                safety_stock_days=(erp_context.safety_stock_days if erp_context else None),
-                expected_supply_gap_days=None,
-                supplier_dependency_ratio=None,
-                price_change_rate=features.stock_volatility_20d * 100,
-                logistics_delay_days=None,
-                gdacs_alert_level=features.gdacs_alert_level,
-                feoc_status=FeocStatus.UNKNOWN,
-                data_quality_status=(
-                    DataQualityStatus.VALID if erp_context else DataQualityStatus.UNKNOWN
-                ),
-            )
-        )
+    def score(self, features: FeatureVector) -> SeverityResult:
+        """[surin F3] /analyze 이벤트 심각도: severity_engine(severity-rule-v0.2-realtime, 4,081건 실측 검증).
+
+        merge의 evaluate()(severity-rule-v1, ERP 노출도 기반)는 internal.py /severity/score와
+        F9/ERP 경로용으로 그대로 보존한다(둘 다 공존).
+        """
+        return score_severity(features)
 
     def _unknown(
         self,

@@ -9,6 +9,7 @@ import com.example.batteryrisk.repository.CollectionCursorRepository;
 import com.example.batteryrisk.repository.RawEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,9 +48,21 @@ public class CollectionService {
         this.historicalFeatureJoinService = historicalFeatureJoinService;
     }
 
-    /** Fast Track: 뉴스·재난은 30분 주기로 최신성이 중요합니다. */
+    /**
+     * 자동 수집 스케줄러 on/off. 기본 false — 자동 수집→F3 분석→LLM 추출(OpenAI) 사고를 막기 위함.
+     * 켜려면 COLLECTION_SCHEDULER_ENABLED=true (app.collection.scheduler-enabled=true).
+     * 수동 트리거(runAll/runSource, CollectionController)는 이 플래그와 무관하게 항상 동작한다.
+     */
+    @Value("${app.collection.scheduler-enabled:false}")
+    private boolean schedulerEnabled;
+
+    /** Fast Track: 뉴스·재난은 30분 주기로 최신성이 중요합니다. (schedulerEnabled=true일 때만 실행) */
     @Scheduled(fixedRate = 1_800_000, initialDelay = 60_000)
     public void runFastTrack() {
+        if (!schedulerEnabled) {
+            log.debug("자동 수집 스케줄러 비활성(app.collection.scheduler-enabled=false) — 건너뜀");
+            return;
+        }
         runSource("GDELT");
         runSource("GDACS");
     }
