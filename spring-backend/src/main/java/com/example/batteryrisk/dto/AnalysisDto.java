@@ -14,7 +14,6 @@ public final class AnalysisDto {
     public record FeatureOverrides(
             @JsonProperty("goldstein_scale") Double goldsteinScale,
             @JsonProperty("news_count") Integer newsCount,
-            @JsonProperty("country_is_mining_hub") Boolean countryIsMiningHub,
             @JsonProperty("gdacs_alert_level") Integer gdacsAlertLevel,
             @JsonProperty("stock_volatility_20d") Double stockVolatility20d,
             @JsonProperty("bdi_index") Double bdiIndex
@@ -120,7 +119,6 @@ public final class AnalysisDto {
     public record FastApiFeatureOverrides(
             @JsonProperty("goldstein_scale") Double goldsteinScale,
             @JsonProperty("news_count") Integer newsCount,
-            @JsonProperty("country_is_mining_hub") Boolean countryIsMiningHub,
             @JsonProperty("gdacs_alert_level") Integer gdacsAlertLevel,
             @JsonProperty("stock_volatility_20d") Double stockVolatility20d,
             @JsonProperty("bdi_index") Double bdiIndex

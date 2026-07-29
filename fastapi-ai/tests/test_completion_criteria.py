@@ -35,7 +35,7 @@ def test_extraction_mock_changes_with_input() -> None:
 
 
 def _features(**changes) -> FeatureVector:
-    values = dict(goldstein_scale=0.0, news_count=1, country_is_mining_hub=False,
+    values = dict(goldstein_scale=0.0, news_count=1,
                   rainfall_24h_mm=0.0, gdacs_alert_level=0, actor1_type="UNKNOWN",
                   actor2_type="UNKNOWN", stock_volatility_20d=0.0)
     values.update(changes)

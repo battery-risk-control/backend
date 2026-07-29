@@ -54,6 +54,13 @@ def score_severity(features: FeatureVector) -> SeverityResult:
     if gdacs_gate:
         score = max(base_score, CRITICAL_MIN)
         reasons.append("GDACS_HARD_GATE")
+        # 이 게이트는 기사 내용이 아니라 국가 단위 GDACS 경보 수준만 보고 걸린다(판정 로직은 안 바꿈 —
+        # 왜 강제 상향됐는지만 사람이 읽을 수 있게 설명 추가). 쉼표는 넣지 않는다 — Spring이
+        # analyses.reason_codes를 다시 읽을 때 ","로 split하므로 쉼표가 있으면 그 파싱이 깨진다.
+        reasons.append(
+            f"국가 단위 GDACS 재난경보(레벨 {features.gdacs_alert_level})로 인해 기사 내용과 무관하게 "
+            f"강제 상향됨(원 계산 점수 {round(base_score, 1)}점)"
+        )
     else:
         score = base_score
         reasons.append("BASE_SCORE_ONLY")

@@ -6,7 +6,6 @@ client = TestClient(app)
 FEATURES = {
     "goldstein_scale": -7.2,
     "news_count": 15,
-    "country_is_mining_hub": True,
     "rainfall_24h_mm": 230.0,
     "gdacs_alert_level": 2,
     "actor1_type": "GOV",

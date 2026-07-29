@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from app.core.config import get_settings
 from app.repositories.risk_repository import RiskRepository
 from app.schemas.analyze import AnalyzeRequest, AnalyzeResponseData, MatchedEntities
 from app.schemas.briefing import BriefingGenerationRequest
@@ -91,7 +90,10 @@ class OrchestrationService:
             erp_context_included=request.options.include_erp_context,
             contract_rag_included=request.options.include_contract_rag,
             feature_enrichment_applied=request.options.enrich_features,
-            mock=get_settings().mock_mode,
+            # [surin] get_settings().mock_mode는 항상 True로 고정된 죽은 설정값이라, 이 필드로
+            # 최상위 mock을 채우면 실제 GPT-4o-mini를 써도 Spring analyses.mock이 항상 true로
+            # 저장됨 — 실제 추출 결과(extraction.mock)를 그대로 반영하도록 수정.
+            mock=extraction.mock,
             mock_reason="LLM, XGBoost, ERP and ChromaDB adapters are not connected",
             processed_at=datetime.now(timezone.utc),
         )

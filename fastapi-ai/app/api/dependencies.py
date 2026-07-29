@@ -32,9 +32,13 @@ def get_extraction_service() -> ExtractionService:
     if os.environ.get("OPENAI_API_KEY"):
         try:
             from app.models.extraction_inference import OpenAIExtractionInference
-            return ExtractionService(OpenAIExtractionInference())
+            service = ExtractionService(OpenAIExtractionInference())
+            logger.warning("[EXTRACTION MODE] 실제 GPT-4o-mini 추출기로 초기화됨 (mock 아님)")
+            return service
         except Exception as exception:
-            logger.warning("OpenAI 추출기 초기화 실패, mock 추출기로 폴백합니다: %s", exception)
+            logger.warning("[EXTRACTION MODE] OpenAI 추출기 초기화 실패, mock 추출기로 폴백합니다: %s", exception)
+            return ExtractionService()
+    logger.warning("[EXTRACTION MODE] OPENAI_API_KEY 미설정 — mock 추출기로 동작합니다")
     return ExtractionService()
 
 
