@@ -65,7 +65,17 @@ public class GdeltEventArchiveService {
             Map.entry("ZW", "ZI"), Map.entry("NA", "WA"), Map.entry("PE", "PE"), Map.entry("CO", "CO"),
             Map.entry("VE", "VE"), Map.entry("BO", "BL"), Map.entry("CU", "CU"), Map.entry("HT", "HA"),
             Map.entry("JO", "JO"), Map.entry("YE", "YM"), Map.entry("KW", "KU"), Map.entry("QA", "QA"),
-            Map.entry("OM", "MU"), Map.entry("AF", "AF")
+            Map.entry("OM", "MU"), Map.entry("AF", "AF"),
+            // 2차 확장 — 실제 GDELT 2시간 표본(7,968건) 분석 결과 상위 빈도 미매핑국
+            // (FIPS 원본 재검증 — 헷갈리기 쉬운 것: UAE FIPS=TC(ISO AE 아님),
+            // 세네갈 FIPS=SG(ISO SN), 스위스 FIPS=SZ(ISO CH — FIPS "CH"는 중국과 다름),
+            // 벨리즈 FIPS=BH(ISO BH인 바레인과는 다른 국가, 여기선 ISO 키가 BZ))
+            Map.entry("IE", "EI"), Map.entry("GY", "GY"), Map.entry("NZ", "NZ"), Map.entry("MW", "MI"),
+            Map.entry("JM", "JM"), Map.entry("KH", "CB"), Map.entry("GH", "GH"), Map.entry("PG", "PP"),
+            Map.entry("GR", "GR"), Map.entry("MY", "MY"), Map.entry("SN", "SG"), Map.entry("AE", "TC"),
+            Map.entry("BZ", "BH"), Map.entry("RO", "RO"), Map.entry("TW", "TW"), Map.entry("GQ", "EK"),
+            Map.entry("CY", "CY"), Map.entry("MT", "MT"), Map.entry("FJ", "FJ"), Map.entry("MK", "MK"),
+            Map.entry("CZ", "EZ"), Map.entry("CH", "SZ")
     );
     private static final Map<String, String> FIPS_TO_ISO2 = ISO2_TO_FIPS.entrySet().stream()
             .collect(java.util.stream.Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
