@@ -55,9 +55,11 @@ class OrchestrationService:
             features = features.model_copy(update=feature_updates)
 
         # impact_domain: LLM 추출 결과 직결(surin 설계). XGBoost classifier는 /ml/classify로 보존.
+        # confidence는 None — 이 경로에는 분류 확률이 존재하지 않는다. 상수 1.0을 넣던 시절에는
+        # 비-mock 분석이 전부 "확정" 배지로 나갔다(전역 MOCK_MODE 때문에 드러나지 않았을 뿐).
         classification = ClassificationResult(
             impact_domain=ImpactDomain(extraction.impact_domain_draft),
-            confidence=1.0,
+            confidence=None,
             model_version=extraction.extraction_model_version,
             mock=extraction.mock,
         )

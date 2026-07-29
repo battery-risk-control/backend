@@ -99,7 +99,7 @@ public class Analysis {
     }
 
     public void markCompleted(
-            String impactDomain, double confidence, String severity, double severityScore,
+            String impactDomain, Double confidence, String severity, double severityScore,
             String reasonCodes, String ruleVersion, boolean mock) {
         status = "COMPLETED";
         this.impactDomain = impactDomain;

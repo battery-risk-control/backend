@@ -135,7 +135,9 @@ public final class AnalysisDto {
 
     public record FastApiClassification(
             @JsonProperty("impact_domain") String impactDomain,
-            double confidence,
+            // nullable — impact_domain을 LLM 추출에서 직결로 받는 경로에는 분류 확률이 없어 null이 온다.
+            // 원시 double로 두면 Jackson이 null을 0.0으로 뭉개 "신뢰도 0%"와 "신뢰도 미상"이 구분되지 않는다.
+            Double confidence,
             @JsonProperty("model_version") String modelVersion,
             boolean mock
     ) {}
