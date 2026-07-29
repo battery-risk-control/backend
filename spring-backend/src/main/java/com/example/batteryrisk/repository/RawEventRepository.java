@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
     boolean existsBySourceAndExternalId(String source, String externalId);
 
+    boolean existsBySourceAndContentHash(String source, String contentHash);
+
     /**
      * 공개 뉴스 속보 패널용 최신 뉴스. title이 null인 행은 GDELT 커서 전진용 sentinel이라 제외한다
      * (GdeltRealtimeTriageAdapter 참고) — 화면에 빈 헤드라인이 뜨는 것을 막는다.
