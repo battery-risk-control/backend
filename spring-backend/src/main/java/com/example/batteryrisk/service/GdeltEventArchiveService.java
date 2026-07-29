@@ -37,9 +37,35 @@ public class GdeltEventArchiveService {
     private static final int SOURCE_URL_INDEX = 60;
     private static final int MIN_COLUMNS = 61;
 
-    /** GDELT는 국가를 ISO 3166이 아니라 FIPS 10-4 코드로 표기합니다. */
-    private static final Map<String, String> ISO2_TO_FIPS = Map.of(
-            "CL", "CI", "ID", "ID", "AU", "AS", "CD", "CG", "AR", "AR", "CN", "CH", "PH", "RP"
+    /**
+     * GDELT는 국가를 ISO 3166이 아니라 FIPS 10-4 코드로 표기합니다.
+     * 기존 7개(핵심 광물 생산국)만 있으면 GDELT가 전세계 뉴스를 크롤링할 때 그 밖의
+     * 국가는 전부 country_code=null로 빠져 severity feature 조인(GDACS 등)이 안 됨 —
+     * 실측 검증된 FIPS 10-4 원본(NIST PUB 10-4)을 기준으로 주요국을 추가 확장.
+     * ⚠️ FIPS와 ISO가 다른 국가 다수 확인됨(예: 일본 FIPS=JA/ISO=JP, 나이지리아
+     * FIPS=NI(ISO는 니카라과!)/실제 ISO=NG, 잠비아 FIPS=ZA(ISO는 남아공!)/실제 ISO=ZM,
+     * 오만 FIPS=MU(ISO는 모리셔스!)/실제 ISO=OM, 이라크 FIPS=IZ/ISO=IQ,
+     * 이스라엘 FIPS=IS(ISO는 아이슬란드!)/실제 ISO=IL) — 혼동 주의.
+     */
+    private static final Map<String, String> ISO2_TO_FIPS = Map.ofEntries(
+            // 기존 7개(핵심 광물 생산국)
+            Map.entry("CL", "CI"), Map.entry("ID", "ID"), Map.entry("AU", "AS"),
+            Map.entry("CD", "CG"), Map.entry("AR", "AR"), Map.entry("CN", "CH"), Map.entry("PH", "RP"),
+            // 확장분 — GDELT 실시간 크롤링에서 자주 나오는 주요국
+            Map.entry("BH", "BA"), Map.entry("JP", "JA"), Map.entry("KR", "KS"), Map.entry("KP", "KN"),
+            Map.entry("GB", "UK"), Map.entry("DE", "GM"), Map.entry("US", "US"), Map.entry("FR", "FR"),
+            Map.entry("RU", "RS"), Map.entry("IN", "IN"), Map.entry("MX", "MX"), Map.entry("CA", "CA"),
+            Map.entry("VN", "VM"), Map.entry("TH", "TH"), Map.entry("SA", "SA"), Map.entry("IR", "IR"),
+            Map.entry("IQ", "IZ"), Map.entry("IL", "IS"), Map.entry("EG", "EG"), Map.entry("ZA", "SF"),
+            Map.entry("NG", "NI"), Map.entry("UA", "UP"), Map.entry("TR", "TU"), Map.entry("ES", "SP"),
+            Map.entry("IT", "IT"), Map.entry("PL", "PL"), Map.entry("SE", "SW"), Map.entry("NL", "NL"),
+            Map.entry("LB", "LE"), Map.entry("SY", "SY"), Map.entry("PK", "PK"), Map.entry("BD", "BG"),
+            Map.entry("MA", "MO"), Map.entry("DZ", "AG"), Map.entry("NE", "NG"), Map.entry("ML", "ML"),
+            Map.entry("SD", "SU"), Map.entry("ET", "ET"), Map.entry("KE", "KE"), Map.entry("ZM", "ZA"),
+            Map.entry("ZW", "ZI"), Map.entry("NA", "WA"), Map.entry("PE", "PE"), Map.entry("CO", "CO"),
+            Map.entry("VE", "VE"), Map.entry("BO", "BL"), Map.entry("CU", "CU"), Map.entry("HT", "HA"),
+            Map.entry("JO", "JO"), Map.entry("YE", "YM"), Map.entry("KW", "KU"), Map.entry("QA", "QA"),
+            Map.entry("OM", "MU"), Map.entry("AF", "AF")
     );
     private static final Map<String, String> FIPS_TO_ISO2 = ISO2_TO_FIPS.entrySet().stream()
             .collect(java.util.stream.Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
