@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
     boolean existsBySourceAndExternalId(String source, String externalId);
 
+    boolean existsBySourceAndContentHash(String source, String contentHash);
+
     Optional<RawEvent> findFirstByDataTypeAndCountryCodeOrderByCollectedAtDesc(String dataType, String countryCode);
 
     Optional<RawEvent> findFirstByDataTypeOrderByCollectedAtDesc(String dataType);

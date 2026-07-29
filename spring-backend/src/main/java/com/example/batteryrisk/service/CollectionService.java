@@ -101,6 +101,12 @@ public class CollectionService {
                 continue;
             }
             String contentHash = sha256((item.title() == null ? "" : item.title()) + "|" + item.content());
+            // GDELT는 같은 기사(같은 URL)를 행위자 쌍마다 다른 GlobalEventID로 여러 번 보고해서
+            // externalId 중복 체크만으론 안 걸러진다 — 제목+본문이 같으면 content_hash도 같으므로
+            // 이걸로 한 번 더 걸러 같은 기사를 재크롤링·재분석(=중복 LLM 호출)하지 않게 한다.
+            if (isEventLike && rawEventRepository.existsBySourceAndContentHash(sourceName, contentHash)) {
+                continue;
+            }
             RawEvent rawEvent = RawEvent.of(
                     sourceName, adapter.dataType(), item.externalId(), contentHash,
                     item.title(), item.content(), item.sourceUrl(), item.countryCode(), item.payloadJson());
