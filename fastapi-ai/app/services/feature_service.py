@@ -7,7 +7,7 @@ class FeatureService:
         if enrich_features:
             return build_feature_vector(overrides)
         neutral = FeatureVector(
-            goldstein_scale=0.0, news_count=0, country_is_mining_hub=False,
+            goldstein_scale=0.0, news_count=0,
             rainfall_24h_mm=0.0, gdacs_alert_level=0,
             actor1_type="UNKNOWN", actor2_type="UNKNOWN", stock_volatility_20d=0.0,
             # [surin F3] severity_engine 입력 필드
