@@ -105,11 +105,20 @@ app:
     # [surin F10] 알림 발신자 이메일 주소. 미설정 시 이메일 발송 비활성.
     mail-from: ${NOTIFICATION_MAIL_FROM:}
   collection:
-    # [surin F4] 자동 수집 스케줄러(30분 주기). 기본 false — 자동 F3 분석→OpenAI 추출 비용 사고 방지.
-    # 자동 수집이 필요할 때만 COLLECTION_SCHEDULER_ENABLED=true 로 켠다. 수동 트리거는 항상 가능.
+    # [surin F4] 자동 수집 스케줄러(GDELT 자체 갱신 주기에 맞춰 15분). 기본 false — 무인 반복 실행으로
+    # 인한 OpenAI 추출 비용 사고 방지. 자동 수집이 필요할 때만 COLLECTION_SCHEDULER_ENABLED=true 로 켠다.
+    # 수동 트리거(POST /collection/run)는 이 플래그와 무관하게 항상 가능.
     scheduler-enabled: ${COLLECTION_SCHEDULER_ENABLED:false}
     # 수집된 뉴스에 대한 F3 분석 자동 트리거. false면 raw_events 저장까지만 하고 LLM 추출을 건너뛴다
     # (공개 뉴스 속보 패널은 수집 원본만으로 채워지므로 비용 없이 운영 가능).
+    #
+    # 기본 false. 스케줄러를 꺼두어도 수동 POST /collection/run 한 번이 수집된 뉴스 건수만큼 LLM 호출을
+    # 발생시키기 때문이다(실제로 그렇게 30건이 호출된 적 있음). 실수의 대가가 비대칭이다 — 켜는 걸
+    # 깜빡하면 분석이 안 생길 뿐 재실행하면 되지만, 끄는 걸 깜빡하면 실제 비용이 나가고 되돌릴 수 없다.
+    # 비활성 상태는 CollectionService가 설정 키까지 찍어 INFO 로그로 알리고, 단건 검증용
+    # POST /collection/test-news는 이 플래그의 영향을 받지 않으므로 분석 테스트 경로는 막히지 않는다.
+    #
     # 주의: 환경변수는 이 줄이 있어야 바인딩된다 — COLLECTION_ANALYSIS_ENABLED만 넣고 여기를 빠뜨리면
-    # @Value가 기본값 true로 떨어져 가드가 조용히 무력화된다(실제로 그렇게 30건이 호출된 적 있음).
-    analysis-enabled: ${COLLECTION_ANALYSIS_ENABLED:true}
+    # CollectionService의 @Value 기본값으로 떨어져 이 설정이 조용히 무시된다. 그래서 @Value 기본값도
+    # 여기와 같은 false로 맞춰 두었다(기본값이 세 군데로 갈라지지 않게).
+    analysis-enabled: ${COLLECTION_ANALYSIS_ENABLED:false}

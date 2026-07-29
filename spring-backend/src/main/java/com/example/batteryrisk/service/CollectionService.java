@@ -55,16 +55,23 @@ public class CollectionService {
     private boolean schedulerEnabled;
 
     /**
-     * 수집된 뉴스에 대한 F3 분석 자동 트리거 on/off. 기본 true(기존 동작 유지).
+     * 수집된 뉴스에 대한 F3 분석 자동 트리거 on/off. <b>기본 false</b> — 비용이 나가는 쪽을 opt-in으로 둔다.
      *
-     * <p>false로 두면 raw_events 저장까지만 하고 LLM 추출·분석을 건너뛴다 — 공개 뉴스 속보 패널처럼
+     * <p>false면 raw_events 저장까지만 하고 LLM 추출·분석을 건너뛴다 — 공개 뉴스 속보 패널처럼
      * 뉴스 원본(제목·출처·시각)만 필요한 경우 OpenAI 호출 비용 없이 수집할 수 있다.
      * GDELT 수집·트리아지 자체는 로컬 XGBoost와 공개 파일만 쓰므로 이 경로에는 비용이 없다.
      *
+     * <p>기본값이 false인 이유: 스케줄러를 꺼두어도 수동 {@code POST /collection/run} 한 번이 수집된
+     * 뉴스 건수만큼 LLM 호출을 발생시킨다(실제로 그렇게 30건이 호출된 적 있음). 켜는 걸 깜빡하면
+     * 분석이 안 생길 뿐 재실행하면 되지만, 끄는 걸 깜빡하면 실제 비용이 나가고 되돌릴 수 없다.
+     *
+     * <p>이 기본값은 application.yml·docker-compose.yml과 같은 값이어야 한다. 세 군데가 갈라지면
+     * 설정 파일에서 껐다고 믿는 상태로 여기 기본값이 살아나 가드가 조용히 무력화된다.
+     *
      * <p>수동 검증용 {@link #triggerTestNews}는 이 플래그의 영향을 받지 않는다 — 호출 자체가
-     * "이 뉴스를 분석해보라"는 명시적 의사표시이기 때문이다.
+     * "이 뉴스를 분석해보라"는 명시적 의사표시이기 때문이다. 따라서 기본 off여도 분석 테스트는 가능하다.
      */
-    @Value("${app.collection.analysis-enabled:true}")
+    @Value("${app.collection.analysis-enabled:false}")
     private boolean analysisEnabled;
 
     /** Fast Track: GDELT 자체 갱신 주기(15분)에 맞춰 뉴스·재난을 폴링합니다. (schedulerEnabled=true일 때만 실행) */

@@ -81,9 +81,11 @@ services:
       AUTH_TEST_SEED_ENABLED: ${AUTH_TEST_SEED_ENABLED:-false}
       # 뉴스 수집(GDELT)은 로컬 XGBoost·공개 파일만 써서 비용이 없지만, 수집된 뉴스마다 도는
       # F3 분석은 OpenAI 추출을 호출한다. 공개 뉴스 속보 패널은 수집 원본만으로 채워지므로
-      # 비용 없이 수집만 하려면 COLLECTION_ANALYSIS_ENABLED=false로 둔다.
+      # 둘 다 기본 off로 두고, 비용이 나가는 쪽을 명시적으로 켜게 한다.
+      # 분석까지 돌리려면 COLLECTION_ANALYSIS_ENABLED=true. 단건 검증용 POST /collection/test-news는
+      # 이 플래그와 무관하게 항상 동작하므로, 기본 off로 두어도 분석 테스트 경로는 막히지 않는다.
       COLLECTION_SCHEDULER_ENABLED: ${COLLECTION_SCHEDULER_ENABLED:-false}
-      COLLECTION_ANALYSIS_ENABLED: ${COLLECTION_ANALYSIS_ENABLED:-true}
+      COLLECTION_ANALYSIS_ENABLED: ${COLLECTION_ANALYSIS_ENABLED:-false}
       TZ: Asia/Seoul
     ports:
       - "${SPRING_PORT:-8080}:8080"
