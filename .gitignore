@@ -16,3 +16,7 @@ frontend/dist/
 
 # 대화 기록 (Claude·Codex 내부 세션 로그, 저장소에 커밋하지 않음)
 docs/*conversation-history*.md
+
+# 수동 API 검증 중 만들어지는 JWT 임시 파일. 절대 커밋 금지.
+*.token.tmp
+.token.tmp
