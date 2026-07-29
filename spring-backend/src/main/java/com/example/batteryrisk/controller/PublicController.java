@@ -15,7 +15,8 @@ import java.util.List;
  *
  * <p>ERP 내부 상세(erp_view·quality_check·rag_view)를 제외한 <b>공개 안전 subset</b>만 반환한다.
  * {@code /api/v1/public/**}는 {@code SecurityConfig}에서 permitAll이라 토큰 없이 접근 가능하다.
- * 데이터 내용은 F3/F4 모델·뉴스 파이프라인 배선 전까지 결정론적 placeholder다(리스크 이벤트 원본과 동일).
+ * 데이터는 {@code analyses}의 완료 분석(실데이터)이며, 완료 분석이 0건일 때만 결정론적 placeholder로
+ * 폴백한다 — 판정 규칙과 폴백 조건은 {@link RiskEventService#riskBoard()} 참고.
  */
 @RestController
 @RequestMapping("/api/v1/public")
