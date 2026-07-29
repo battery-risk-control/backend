@@ -19,7 +19,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -27,7 +26,6 @@ import java.util.function.Function;
 @Service
 public class CollectionService {
     private static final Logger log = LoggerFactory.getLogger(CollectionService.class);
-    private static final Set<String> MINING_HUB_COUNTRIES = Set.of("CL", "ID", "AU", "CD", "AR", "CN", "PH");
 
     private final List<DataSourceAdapter> adapters;
     private final RawEventRepository rawEventRepository;
@@ -184,13 +182,12 @@ public class CollectionService {
         HistoricalFeatureJoinService.JoinResult joinResult =
                 historicalFeatureJoinService.join(countryCode, eventTimestamp, material, rawEvent.getSourceUrl());
         long newsCount = historicalFeatureJoinService.countNewsOnSameDay(countryCode, eventTimestamp);
-        Boolean miningHub = countryCode != null ? MINING_HUB_COUNTRIES.contains(countryCode) : null;
         Double bdiIndex = rawEventRepository.findFirstByDataTypeOrderByCollectedAtDesc("FREIGHT_INDEX")
                 .map(event -> parseKeyValue(event.getContent(), "bdi_price", Double::parseDouble))
                 .orElse(null);
 
         return new AnalysisDto.FeatureOverrides(
-                joinResult.goldsteinScale(), (int) newsCount, miningHub,
+                joinResult.goldsteinScale(), (int) newsCount,
                 joinResult.gdacsAlertLevel(), joinResult.stockVolatility20d(), bdiIndex);
     }
 

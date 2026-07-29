@@ -3,7 +3,6 @@ from app.schemas.analyze import FeatureOverrides, FeatureVector
 DEFAULT_FEATURES = {
     "goldstein_scale": -7.2,
     "news_count": 15,
-    "country_is_mining_hub": True,
     "rainfall_24h_mm": 230.0,
     # gdacs_alert_level=2는 severity_engine의 GDACS_HARD_GATE 임계값과 정확히 같아서,
     # 실제 GDACS 조회가 null(예: country_code 미매핑)일 때마다 "재난 없음"이 아니라

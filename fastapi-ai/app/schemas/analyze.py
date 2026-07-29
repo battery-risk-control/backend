@@ -32,7 +32,6 @@ class AnalyzeOptions(ApiModel):
 class FeatureOverrides(ApiModel):
     goldstein_scale: Optional[float] = None
     news_count: Optional[int] = Field(default=None, ge=0)
-    country_is_mining_hub: Optional[bool] = None
     rainfall_24h_mm: Optional[float] = Field(default=None, ge=0)
     gdacs_alert_level: Optional[int] = Field(default=None, ge=0, le=2)
     actor1_type: Optional[str] = None
@@ -57,7 +56,6 @@ class FeatureVector(ApiModel):
     # merge 필드(기존 필수) — neutral/부분 override 생성이 안전하도록 기본값 부여
     goldstein_scale: float = 0.0
     news_count: int = 0
-    country_is_mining_hub: bool = False
     rainfall_24h_mm: float = 0.0
     gdacs_alert_level: int = 0
     actor1_type: str = ""

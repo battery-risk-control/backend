@@ -22,7 +22,7 @@ def test_erp_context_is_served_through_repository_boundary() -> None:
 
 def test_classification_and_severity_are_deterministic() -> None:
     features = FeatureVector(
-        goldstein_scale=-7.2, news_count=15, country_is_mining_hub=True,
+        goldstein_scale=-7.2, news_count=15,
         rainfall_24h_mm=230.0, gdacs_alert_level=2,
         actor1_type="GOV", actor2_type="COM", stock_volatility_20d=0.041,
     )

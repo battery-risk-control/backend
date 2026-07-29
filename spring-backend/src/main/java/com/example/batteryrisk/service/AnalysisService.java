@@ -178,7 +178,7 @@ public class AnalysisService {
                 null, Instant.now().toString(), analysis.getCountryCode());
         AnalysisDto.FastApiFeatureOverrides fastApiOverrides = overrides == null ? null
                 : new AnalysisDto.FastApiFeatureOverrides(
-                        overrides.goldsteinScale(), overrides.newsCount(), overrides.countryIsMiningHub(),
+                        overrides.goldsteinScale(), overrides.newsCount(),
                         overrides.gdacsAlertLevel(), overrides.stockVolatility20d(), overrides.bdiIndex());
         AnalysisDto.FastApiAnalyzeRequest fastApiRequest =
                 new AnalysisDto.FastApiAnalyzeRequest(event, fastApiOverrides, extractionOverride);
