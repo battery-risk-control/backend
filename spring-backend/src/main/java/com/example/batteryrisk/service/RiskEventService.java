@@ -92,9 +92,17 @@ public class RiskEventService {
     private record CountryRef(String name, double lat, double lng) {}
 
     /**
-     * 배터리 공급망에 실제로 등장하는 국가 위주. 여기에 없는 국가코드는 country_name·coordinates가 null로
-     * 나가고, 프론트 GlobalRiskBoard의 isLocated() 필터가 마커에서 자동 제외한다(등급·자재 정보 자체는
-     * 응답에 남는다). 새 국가가 뉴스에 등장하면 여기 한 줄만 추가하면 된다.
+     * 지도 마커 좌표. 여기에 없는 국가코드는 country_name·coordinates가 null로 나가고, 프론트
+     * GlobalRiskBoard의 isLocated() 필터가 마커에서 자동 제외한다(등급·자재 정보 자체는 응답에 남는다).
+     *
+     * <p><b>{@code GdeltEventArchiveService.ISO2_TO_FIPS}의 모든 국가를 포함해야 한다.</b> 좌표가 없어도
+     * {@link #riskBoard()}의 마커 상한({@code RISK_BOARD_MAX_MARKERS}) 슬롯은 똑같이 차지하기 때문에,
+     * 수집 대상국이 좌표 테이블보다 많으면 좌표 없는 항목이 상한을 먼저 채워 인도네시아·칠레 같은 실제
+     * 공급망 국가가 지도에서 밀려난다. 상한 쪽을 건드려 해결하면 안 된다 — {@link #aiRecommendations()}가
+     * 같은 결과를 재사용하므로 좌표가 필요 없는 권고 리스트까지 함께 잘려나간다.
+     *
+     * <p>수집 대상국(83) ∪ 수동 분석·과거 임포트 경로로만 들어오는 국가(10) = 93개국.
+     * ISO2_TO_FIPS에 국가를 추가하면 여기에도 반드시 한 줄 추가할 것.
      */
     private static final Map<String, CountryRef> COUNTRIES = Map.ofEntries(
             Map.entry("ID", new CountryRef("인도네시아", -6.2088, 106.8456)),
@@ -129,7 +137,74 @@ public class RiskEventService {
             Map.entry("MY", new CountryRef("말레이시아", 3.1390, 101.6869)),
             Map.entry("MM", new CountryRef("미얀마", 16.8661, 96.1951)),
             Map.entry("JP", new CountryRef("일본", 35.6762, 139.6503)),
-            Map.entry("KR", new CountryRef("대한민국", 37.5665, 126.9780)));
+            Map.entry("KR", new CountryRef("대한민국", 37.5665, 126.9780)),
+
+            // 아래는 ISO2_TO_FIPS(수집 대상 83개국)에 있으나 좌표가 없던 60개국. 값은 각국 수도 기준점.
+            // 아시아·오세아니아
+            Map.entry("KP", new CountryRef("북한", 39.0392, 125.7625)),
+            Map.entry("VN", new CountryRef("베트남", 21.0285, 105.8542)),
+            Map.entry("TH", new CountryRef("태국", 13.7563, 100.5018)),
+            Map.entry("KH", new CountryRef("캄보디아", 11.5564, 104.9282)),
+            Map.entry("TW", new CountryRef("대만", 25.0330, 121.5654)),
+            Map.entry("PK", new CountryRef("파키스탄", 33.6844, 73.0479)),
+            Map.entry("BD", new CountryRef("방글라데시", 23.8103, 90.4125)),
+            Map.entry("AF", new CountryRef("아프가니스탄", 34.5553, 69.2075)),
+            Map.entry("NZ", new CountryRef("뉴질랜드", -41.2865, 174.7762)),
+            Map.entry("PG", new CountryRef("파푸아뉴기니", -9.4438, 147.1803)),
+            Map.entry("FJ", new CountryRef("피지", -18.1416, 178.4419)),
+            // 중동
+            Map.entry("BH", new CountryRef("바레인", 26.2285, 50.5860)),
+            Map.entry("SA", new CountryRef("사우디아라비아", 24.7136, 46.6753)),
+            Map.entry("AE", new CountryRef("아랍에미리트", 24.4539, 54.3773)),
+            Map.entry("QA", new CountryRef("카타르", 25.2854, 51.5310)),
+            Map.entry("KW", new CountryRef("쿠웨이트", 29.3759, 47.9774)),
+            Map.entry("OM", new CountryRef("오만", 23.5880, 58.3829)),
+            Map.entry("YE", new CountryRef("예멘", 15.3694, 44.1910)),
+            Map.entry("JO", new CountryRef("요르단", 31.9454, 35.9284)),
+            Map.entry("LB", new CountryRef("레바논", 33.8938, 35.5018)),
+            Map.entry("SY", new CountryRef("시리아", 33.5138, 36.2765)),
+            Map.entry("IQ", new CountryRef("이라크", 33.3152, 44.3661)),
+            Map.entry("IR", new CountryRef("이란", 35.6892, 51.3890)),
+            Map.entry("IL", new CountryRef("이스라엘", 31.7683, 35.2137)),
+            Map.entry("CY", new CountryRef("키프로스", 35.1856, 33.3823)),
+            // 유럽
+            Map.entry("GB", new CountryRef("영국", 51.5074, -0.1278)),
+            Map.entry("FR", new CountryRef("프랑스", 48.8566, 2.3522)),
+            Map.entry("ES", new CountryRef("스페인", 40.4168, -3.7038)),
+            Map.entry("IT", new CountryRef("이탈리아", 41.9028, 12.4964)),
+            Map.entry("NL", new CountryRef("네덜란드", 52.3676, 4.9041)),
+            Map.entry("SE", new CountryRef("스웨덴", 59.3293, 18.0686)),
+            Map.entry("PL", new CountryRef("폴란드", 52.2297, 21.0122)),
+            Map.entry("CZ", new CountryRef("체코", 50.0755, 14.4378)),
+            Map.entry("CH", new CountryRef("스위스", 46.9480, 7.4474)),
+            Map.entry("RO", new CountryRef("루마니아", 44.4268, 26.1025)),
+            Map.entry("GR", new CountryRef("그리스", 37.9838, 23.7275)),
+            Map.entry("IE", new CountryRef("아일랜드", 53.3498, -6.2603)),
+            Map.entry("MK", new CountryRef("북마케도니아", 41.9973, 21.4280)),
+            Map.entry("MT", new CountryRef("몰타", 35.8989, 14.5146)),
+            Map.entry("UA", new CountryRef("우크라이나", 50.4501, 30.5234)),
+            // 아프리카
+            Map.entry("EG", new CountryRef("이집트", 30.0444, 31.2357)),
+            Map.entry("MA", new CountryRef("모로코", 34.0209, -6.8416)),
+            Map.entry("DZ", new CountryRef("알제리", 36.7538, 3.0588)),
+            Map.entry("SD", new CountryRef("수단", 15.5007, 32.5599)),
+            Map.entry("ET", new CountryRef("에티오피아", 9.0320, 38.7469)),
+            Map.entry("KE", new CountryRef("케냐", -1.2921, 36.8219)),
+            Map.entry("NG", new CountryRef("나이지리아", 9.0765, 7.3986)),
+            Map.entry("NE", new CountryRef("니제르", 13.5117, 2.1251)),
+            Map.entry("ML", new CountryRef("말리", 12.6392, -8.0029)),
+            Map.entry("SN", new CountryRef("세네갈", 14.7167, -17.4677)),
+            Map.entry("GH", new CountryRef("가나", 5.6037, -0.1870)),
+            Map.entry("MW", new CountryRef("말라위", -13.9626, 33.7741)),
+            Map.entry("GQ", new CountryRef("적도기니", 3.7523, 8.7742)),
+            // 아메리카
+            Map.entry("CO", new CountryRef("콜롬비아", 4.7110, -74.0721)),
+            Map.entry("VE", new CountryRef("베네수엘라", 10.4806, -66.9036)),
+            Map.entry("GY", new CountryRef("가이아나", 6.8013, -58.1551)),
+            Map.entry("CU", new CountryRef("쿠바", 23.1136, -82.3666)),
+            Map.entry("HT", new CountryRef("아이티", 18.5944, -72.3074)),
+            Map.entry("JM", new CountryRef("자메이카", 17.9714, -76.7931)),
+            Map.entry("BZ", new CountryRef("벨리즈", 17.2510, -88.7590)));
 
     private static final OutputArtifacts JSON_ONLY = new OutputArtifacts("json", null, true);
 
@@ -463,11 +538,15 @@ public class RiskEventService {
      *   <li>그 외 — "확정"</li>
      * </ul>
      *
-     * <p><b>주의 — 현재는 사실상 항상 "참고"다.</b> {@code analyses.mock}은 개별 분석이 mock이었는지가 아니라
-     * FastAPI의 전역 설정 {@code MOCK_MODE}를 그대로 받아 저장한 값인데, docker-compose가 이를 "true"로
-     * 고정하고 있어 실제 GPT 추출이 돌아도 true로 남는다. 등급을 과대 표기하는 쪽보다 보수적으로 "참고"에
-     * 머무는 편이 안전해 규칙은 그대로 두되, 세 라벨을 실제로 구분하려면 둘 중 하나가 선행되어야 한다:
-     * (1) MOCK_MODE를 실제 운영값으로 내리거나, (2) 분석 단위 mock 여부(extraction.mock)를 따로 저장.
+     * <p><b>현재 실제로 나오는 값은 "참고"와 "경고" 두 가지다.</b> {@code analyses.mock}은 이제 전역
+     * {@code MOCK_MODE}가 아니라 분석 단위 추출 여부({@code extraction.mock})를 저장하므로, 실제 GPT
+     * 추출이 돌면 mock=false가 되어 "참고"를 벗어난다. 다만 그 경로의 {@code impact_domain}은 XGBoost가
+     * 아니라 LLM 추출 결과 직결이라 <b>분류 확률 자체가 없어 confidence가 null</b>이고, 따라서 "경고"에
+     * 머문다.
+     *
+     * <p>"확정"이 나오려면 실제 신뢰도 지표가 선행되어야 한다 — 추출이 confidence를 산출하도록 확장하거나,
+     * impact_domain을 XGBoost 예측 확률 경로로 되돌리는 것. 근거 없는 상수를 채워 임계값을 넘기지 말 것:
+     * 공개 화면이라 등급 과대 표기의 대가가 크다.
      */
     private static String confidenceLabel(Analysis analysis) {
         if (analysis.isMock()) {
