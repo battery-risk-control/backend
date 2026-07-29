@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/multi-agent")
@@ -32,8 +33,8 @@ public class MultiAgentController {
     )
     @PostMapping("/briefings")
     public ApiResponse<MultiAgentDto.Response> generate(
-            @RequestBody
-            MultiAgentDto.GenerateRequest request
+        @Valid @RequestBody
+        MultiAgentDto.GenerateRequest request
     ) {
         return ApiResponse.ok(
                 service.generate(request)

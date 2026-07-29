@@ -89,6 +89,12 @@ def test_builds_minimum_response_payload():
         ]
         == 1001
     )
+    assert (
+    "공급 공백 기간"
+    in payload["metric_semantics"][
+        "expected_supply_gap_days"
+    ]
+    )
 
 
 def test_generates_structured_llm_response(

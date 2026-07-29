@@ -4,22 +4,69 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public final class MultiAgentDto {
     private MultiAgentDto() {}
 
     public record GenerateRequest(
+        @JsonProperty("news_id")
+        @JsonAlias("newsId")
+        @NotBlank
         String newsId,
+
+        @NotBlank
         String title,
+
+        @JsonProperty("article_text")
+        @JsonAlias("articleText")
         String articleText,
+
+        @JsonProperty("summary_kr")
+        @JsonAlias("summaryKr")
         String summaryKr,
+
+        @JsonProperty("impact_domain_draft")
+        @JsonAlias("impactDomainDraft")
         String impactDomainDraft,
+
+        @JsonProperty("impact_domain_final")
+        @JsonAlias("impactDomainFinal")
+        @NotBlank
         String impactDomainFinal,
+
+        @JsonProperty("external_signal_level")
+        @JsonAlias("externalSignalLevel")
+        @NotBlank
         String externalSignalLevel,
+
+        @JsonProperty("external_signal_score")
+        @JsonAlias("externalSignalScore")
+        @Min(0)
+        @Max(100)
         int externalSignalScore,
+
+        @JsonProperty("erp_material_id")
+        @JsonAlias("erpMaterialId")
+        @NotBlank
         String erpMaterialId,
+
+        @JsonProperty("erp_supplier_id")
+        @JsonAlias("erpSupplierId")
+        @NotBlank
         String erpSupplierId,
+
+        @JsonProperty("as_of")
+        @JsonAlias("asOf")
+        @NotNull
         java.time.OffsetDateTime asOf,
+
+        @JsonProperty("use_llm")
+        @JsonAlias("useLlm")
         boolean useLlm
     ) {}
     /**
