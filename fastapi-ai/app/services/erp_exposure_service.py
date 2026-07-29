@@ -513,10 +513,16 @@ def calculateErpExposure(
 
     rules = loadErpRules()
 
-    supplierAssessments = buildSupplierAssessments(
-        suppliers=request.alternativeSuppliers,
-        requiredQuantity=request.requiredQuantity,
-        rules=rules,
+    supplierAssessments = (
+        buildSupplierAssessments(
+            suppliers=(
+                request.alternativeSuppliers
+            ),
+            requiredQuantity=(
+                request.requiredQuantity
+            ),
+            rules=rules,
+        )
     )
 
     facts = calculateErpFacts(request)
@@ -650,7 +656,9 @@ def calculateErpExposure(
         facts=facts,
         riskComponents=riskComponents,
         erpExposureScore=erpExposureScore,
-        supplierAssessments=supplierAssessments,
+        supplierAssessments=(
+            supplierAssessments
+        ),
         exposureLevel=exposureLevel,
         forcedCritical=forcedCritical,
         contractReviewRequired=(

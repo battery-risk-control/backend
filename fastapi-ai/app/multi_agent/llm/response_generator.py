@@ -35,6 +35,10 @@ SYSTEM_PROMPT = """
     차기 갱신 또는 재협상 시 검토하도록 권고하세요.
 11. 모든 내용은 한국어로 간결하고 구체적으로 작성하세요.
 12. 확정되지 않은 미래 사건을 단정적으로 표현하지 마세요.
+13. expected_supply_gap_days는 재고 부족이 시작되는 시점이 아니라,
+    현재 재고 소진부터 다음 입고까지 이어지는 예상 공급 공백 기간입니다.
+    예를 들어 값이 1.5이면 '1.5일 후 부족'이 아니라
+    '약 1.5일의 공급 공백이 예상된다'고 표현하세요.
 
 브리핑에는 다음 내용을 포함하세요.
 
@@ -58,6 +62,13 @@ def build_response_payload(
     """
 
     return {
+        "metric_semantics": {
+        "expected_supply_gap_days": (
+        "현재 재고 소진 시점부터 다음 입고 시점까지의 "
+        "예상 공급 공백 기간(일)입니다. "
+        "재고 부족이 시작되기까지 남은 시간이 아닙니다."
+            ),
+        },
         "news": {
             "news_id": state.get("news_id"),
             "title": state.get("title"),
@@ -139,4 +150,59 @@ def generate_response_with_llm(
             "LLM 구조화 출력 결과가 없습니다."
         )
 
-    return parsed.model_dump()
+    result = parsed.model_dump()
+
+    briefing = result.get(
+        "briefing",
+        "",
+    ).strip()
+
+    risk_level = state.get(
+        "procurement_risk_level",
+    )
+
+    metadata_lines = [
+        "[validation metadata]",
+    ]
+
+    if risk_level:
+        metadata_lines.append(
+            f"final_risk_level: {risk_level}"
+        )
+
+    seen_citations = set()
+
+    for finding in state.get(
+        "contract_findings",
+        [],
+    ):
+        contract_id = finding.get("contract_id")
+        page = finding.get(
+            "page",
+            finding.get("page_number"),
+        )
+
+        if contract_id in (None, ""):
+            continue
+
+        if page is None:
+            continue
+
+        citation = (
+            f"[contract_id: {contract_id}, "
+            f"page: {page}]"
+        )
+
+        if citation in seen_citations:
+            continue
+
+        seen_citations.add(citation)
+        metadata_lines.append(citation)
+
+    result["briefing"] = (
+        briefing
+        + "\n\n"
+        + "\n".join(metadata_lines)
+    )
+
+    return result

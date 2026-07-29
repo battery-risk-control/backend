@@ -26,6 +26,18 @@ class ClauseRule:
 # 우선순위 순서. 하나라도 키워드가 본문에 포함되면 해당 유형으로 판정.
 CLAUSE_RULES: tuple[ClauseRule, ...] = (
     ClauseRule(
+            "force_majeure",
+            "불가항력 조항",
+        (
+            "불가항력",
+            "천재지변",
+            "항만 폐쇄",
+            "force majeure",
+            "act of god",
+        ),
+    ),
+
+    ClauseRule(
         "delivery_delay",
         "납기·지체상금 조항",
         (
@@ -39,17 +51,6 @@ CLAUSE_RULES: tuple[ClauseRule, ...] = (
             "make-good",
             "make good",
             "liquidated damages",
-        ),
-    ),
-    ClauseRule(
-        "force_majeure",
-        "불가항력 조항",
-        (
-            "불가항력",
-            "천재지변",
-            "항만 폐쇄",
-            "force majeure",
-            "act of god",
         ),
     ),
     ClauseRule(

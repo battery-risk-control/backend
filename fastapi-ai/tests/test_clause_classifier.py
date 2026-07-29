@@ -83,3 +83,11 @@ def test_unknown_when_no_keyword_matches():
 def test_empty_or_none_text_is_unknown():
     assert classify_clause("")[0] == UNKNOWN_CLAUSE_TYPE
     assert classify_clause(None)[0] == UNKNOWN_CLAUSE_TYPE
+
+def test_force_majeure_wins_when_delay_is_also_present():
+    text = (
+        "FORCE MAJEURE: Supplier must notify Buyer within "
+        "48 hours when a strike causes a delivery delay."
+    )
+
+    assert classify_clause(text)[0] == "force_majeure"

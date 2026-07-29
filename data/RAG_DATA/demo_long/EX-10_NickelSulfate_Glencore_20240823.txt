@@ -1,59 +1,59 @@
 EX-10.2.17 3 tm463272_ex10.htm EXHIBIT 10.2.17
- 
+
 Exhibit 10.2.17
- 
+
 CERTAIN IDENTIFIED INFORMATION HAS BEEN EXCLUDED FROM THE EXHIBIT BECAUSE IT IS BOTH (I) NOT MATERIAL AND (II) WOULD BE COMPETITIVELY HARMFUL IF PUBLICLY DISCLOSED. [* * *] INDICATES THAT INFORMATION HAS BEEN REDACTED.
- 
+
 Execution Version
- 
+
 NICKEL SULFATE SUPPLY AGREEMENT
- 
+
 This nickel sulfate supply agreement (together with the schedules attached hereto, this “Agreement”) is entered into effective as of August 23, 2024 (the “Effective Date”) and is between LG Energy Solution, having its registered office in the United States (“Buyer”), and Glencore, having its registered office in its country of incorporation (“Seller,” and together with Buyer, the “Parties”).
- 
+
 BACKGROUND
- 
+
 A.            Buyer is developing and manufacturing lithium-ion battery cells for the automotive market.
- 
+
 B.            Seller is developing and securing technology in the extraction, refinement, and supply of nickel sulfate.
- 
+
 C.            Buyer desires to procure nickel sulfate from Seller to be used in Buyer's battery cell production lines.
- 
+
 Agreement
- 
+
 NOW, THEREFORE, in consideration of the premises and the mutual promises contained herein, the Parties agree as follows:
- 
+
 Article I
 DEFINITIONS
- 
+
 1.01            Definitions.
- 
+
    (a)            “Affiliate” of a specified person means a person who, directly or indirectly through one or more intermediaries, Controls, is Controlled by, or is under common Control with, such specified person.
- 
+
    (b)            “Business Day” means a day other than Saturday, Sunday, or any day on which banks are closed.
- 
+
    (c)            “Force Majeure Event” has the meaning set forth in Section 4.01.
- 
+
    (d)            “Material” means Seller's nickel sulfate meeting the specifications outlined in Schedule A.
- 
+
 Article II
 SUPPLY AND PRICING
- 
+
 2.01            Quantity. Seller shall supply 37,873 Metric Tons (MT) of Material per calendar year.
- 
+
 2.02            Price. The baseline price for the Material is $15,458 per MT, subject to quarterly adjustments based on the LME (London Metal Exchange) index.
- 
+
 Article III
 DELIVERY AND PENALTY
- 
+
 3.01            Delivery Schedule. Seller must deliver the Material according to the Forecast provided by Buyer 90 days in advance.
- 
+
 3.02            Delay Penalty. If Seller fails to deliver the Material by the required delivery date, Seller shall pay a penalty of 1.5% of the delayed shipment's value per week of delay. The maximum cumulative penalty under this section shall not exceed 20.0% of the total order value.
- 
+
 Article IV
 FORCE MAJEURE
- 
+
 4.01            Excusable Delay. Neither Party shall be liable for delays caused by geopolitical events, war, terrorism, or export controls imposed by the government.
- 
+
 4.02            Mitigation. The affected Party must use commercially reasonable efforts to mitigate the effects of the Force Majeure Event and resume performance as soon as possible.
 
 Article V

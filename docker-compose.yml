@@ -32,8 +32,6 @@ services:
     build: ./fastapi-ai
     container_name: battery-risk-fastapi
     # Swagger로 RAG 에이전트의 조항 유형(clause_type) 판별 테스트 시 필요 (개발용 — 프론트 연동엔 불필요)
-    ports:
-      - "8000:8000"
     environment:
       # 컨테이너 안에서 Chroma의 포트는 진짜 포트 8000이다(호스트 매핑 8001이 아님).
       CHROMA_MODE: http
@@ -50,6 +48,8 @@ services:
       SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
       MOCK_MODE: "true"
+    ports:
+      - "${FASTAPI_PORT:-8000}:8000"
     depends_on:
       - chroma
     healthcheck:
@@ -76,6 +76,8 @@ services:
       UPLOAD_ROOT: /app/uploads
       ERP_SEED_ENABLED: ${ERP_SEED_ENABLED:-false}
       ERP_SEED_DIRECTORY: /app/erp-seed
+
+
       RAG_SEED_ENABLED: ${RAG_SEED_ENABLED:-false}
       RAG_SEED_DIRECTORY: /app/rag-seed
       AUTH_TEST_SEED_ENABLED: ${AUTH_TEST_SEED_ENABLED:-false}
@@ -93,6 +95,7 @@ services:
       - battery_spring_uploads:/app/uploads
       - ./data/ERP_data/spring-csv:/app/erp-seed:ro
       - ./data/RAG_DATA/erp_aligned:/app/rag-seed:ro
+
     depends_on:
       postgres:
         condition: service_healthy

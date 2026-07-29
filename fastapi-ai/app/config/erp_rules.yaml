@@ -207,3 +207,34 @@ contractQuestionRules:
   NONE:
     - "ALTERNATIVE_SUPPLIER_RESTRICTION"
     - "EMERGENCY_PURCHASE"
+
+
+supplierAssessmentRisk:
+  weights:
+    qualification: 0.40
+    supplierStatus: 0.30
+    capacity: 0.30
+
+  qualification:
+    APPROVED: 0
+    CONDITIONAL: 60
+    PENDING: 80
+    REJECTED: 100
+
+  supplierStatus:
+    ACTIVE: 0
+    UNDER_REVIEW: 60
+    SUSPENDED: 100
+    TERMINATED: 100
+
+  capacity:
+    sufficient: 0
+    partial: 50
+    severelyInsufficient: 80
+    unavailable: 100
+    unknown: 70
+    requiredQuantityUnknown: 40
+
+  coverageThresholds:
+    sufficient: 1.0
+    partial: 0.5
