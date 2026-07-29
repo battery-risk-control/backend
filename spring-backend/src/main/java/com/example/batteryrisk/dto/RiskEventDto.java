@@ -105,6 +105,8 @@ public final class RiskEventDto {
             String riskEventId,
             @Schema(example = "2026-07-29", description = "수집일(Asia/Seoul)") String date,
             String material,
+            @Schema(example = "심각", description = "심각/주의/정상. 분석이 붙지 않은 뉴스는 null")
+            String grade,
             @Schema(example = "GDELT") String source,
             String headline,
             String confidenceLabel

@@ -1,7 +1,9 @@
 package com.example.batteryrisk.controller;
 
 import com.example.batteryrisk.dto.ApiResponse;
+import com.example.batteryrisk.dto.MarketPriceDto;
 import com.example.batteryrisk.dto.RiskEventDto;
+import com.example.batteryrisk.service.MarketPriceService;
 import com.example.batteryrisk.service.RiskEventService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,9 +24,11 @@ import java.util.List;
 @RequestMapping("/api/v1/public")
 public class PublicController {
     private final RiskEventService riskEventService;
+    private final MarketPriceService marketPriceService;
 
-    public PublicController(RiskEventService riskEventService) {
+    public PublicController(RiskEventService riskEventService, MarketPriceService marketPriceService) {
         this.riskEventService = riskEventService;
+        this.marketPriceService = marketPriceService;
     }
 
     @Operation(
@@ -51,5 +55,22 @@ public class PublicController {
     @GetMapping("/news-feed")
     public ApiResponse<List<RiskEventDto.NewsFeedItem>> newsFeed() {
         return ApiResponse.ok(riskEventService.newsFeed());
+    }
+
+    @Operation(
+            summary = "원자재 가격 추이 (비로그인 공개)",
+            description = "자재별 대표 종목 주가를 프록시로 한 최근 30일 지수(구간 첫 거래일=100). "
+                    + "매일 07:00(KST)에 자동 갱신된다.")
+    @GetMapping("/price-trends")
+    public ApiResponse<List<MarketPriceDto.PriceSeries>> priceTrends() {
+        return ApiResponse.ok(marketPriceService.priceTrends());
+    }
+
+    @Operation(
+            summary = "원자재 가격 요약 카드 (비로그인 공개)",
+            description = "가격 추이와 같은 구간·같은 데이터에서 파생한다. risk_score는 연율화 변동성(%)이다.")
+    @GetMapping("/price-summaries")
+    public ApiResponse<List<MarketPriceDto.PriceSummary>> priceSummaries() {
+        return ApiResponse.ok(marketPriceService.priceSummaries());
     }
 }

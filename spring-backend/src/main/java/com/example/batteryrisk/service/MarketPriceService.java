@@ -1,0 +1,205 @@
+package com.example.batteryrisk.service;
+
+import com.example.batteryrisk.domain.MaterialPricePoint;
+import com.example.batteryrisk.dto.MarketPriceDto;
+import com.example.batteryrisk.repository.MaterialPriceRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * 원자재 가격 추이(공개 대시보드 패널)의 수집·저장·조회를 담당한다.
+ *
+ * <p><b>수집 경로:</b> Spring 스케줄러 → FastAPI {@code /internal/market/prices}(yfinance) →
+ * {@code material_price_points} upsert. FastAPI는 PostgreSQL에 접근하지 않으므로 저장은 여기서 한다.
+ * yfinance는 API 키가 필요 없는 공개 데이터라 <b>호출 비용이 없다</b> — 뉴스 수집의 LLM 추출과 달리
+ * 별도 비용 가드를 두지 않는 이유다.
+ *
+ * <p><b>갱신 시각:</b> 미국 증시 종가는 한국 시간 이른 아침에 확정되므로 07:00(KST)에 돈다.
+ * 자정에 돌리면 미국 장중이라 당일 종가가 없다. 매번 넉넉한 구간을 다시 받아 upsert하므로
+ * 며칠 꺼져 있다가 켜져도 빠진 구간이 자동으로 메워진다.
+ */
+@Service
+public class MarketPriceService {
+    private static final Logger log = LoggerFactory.getLogger(MarketPriceService.class);
+
+    /** 한 번에 다시 받아오는 구간. 넉넉히 잡아야 스케줄러가 쉰 기간이 자동으로 메워진다. */
+    private static final int REFRESH_DAYS = 180;
+
+    /** 화면에 그리는 구간. 프론트 기본 선택 탭("1개월")에 맞춘다. */
+    private static final int TREND_DAYS = 30;
+
+    /** 연율화 계수(연간 거래일 √252). 일간 변동성을 연율화 변동성(%)으로 바꿔 리스크 지수로 쓴다. */
+    private static final double ANNUALIZATION = Math.sqrt(252);
+
+    private static final int RISK_CRITICAL_MIN = 70;
+    private static final int RISK_WARNING_MIN = 40;
+
+    private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
+
+    private final RestClient fastApiRestClient;
+    private final MaterialPriceRepository priceRepository;
+
+    /** 자동 갱신 on/off. 비용이 없어 기본 true지만, 오프라인 시연 등에서 끌 수 있게 열어둔다. */
+    @Value("${app.market-price.scheduler-enabled:true}")
+    private boolean schedulerEnabled;
+
+    public MarketPriceService(RestClient fastApiRestClient, MaterialPriceRepository priceRepository) {
+        this.fastApiRestClient = fastApiRestClient;
+        this.priceRepository = priceRepository;
+    }
+
+    /** 매일 07:00(KST). 미국 증시 마감 이후라 전 거래일 종가가 확정돼 있다. */
+    @Scheduled(cron = "0 0 7 * * *", zone = "Asia/Seoul")
+    public void refreshDaily() {
+        if (!schedulerEnabled) {
+            log.debug("가격 자동 갱신 비활성(app.market-price.scheduler-enabled=false) — 건너뜀");
+            return;
+        }
+        refresh();
+    }
+
+    /**
+     * 최초 기동 시 데이터가 하나도 없으면 즉시 한 번 채운다 — 그러지 않으면 다음 07:00까지 패널이 빈다.
+     * 이미 데이터가 있으면 아무 것도 하지 않으므로 재기동이 잦아도 부담이 없다.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void backfillOnFirstBoot() {
+        if (!schedulerEnabled || priceRepository.count() > 0) {
+            return;
+        }
+        log.info("가격 데이터가 비어 있어 최초 적재를 시작합니다.");
+        refresh();
+    }
+
+    /**
+     * FastAPI에서 가격을 받아 저장한다. 실패해도 예외를 밖으로 던지지 않는다 —
+     * 스케줄러/기동 훅에서 호출하므로 여기서 터지면 애플리케이션 상태에 영향을 준다.
+     */
+    @Transactional
+    public MarketPriceDto.RefreshResult refresh() {
+        // 조회부터 저장까지를 한 번에 감싼다 — 스케줄러와 기동 훅에서 호출되므로 어느 단계에서
+        // 터지든 밖으로 나가면 안 된다(기동 훅에서 예외가 나가면 애플리케이션 기동 자체가 실패한다).
+        try {
+            MarketPriceDto.FastApiPriceResponse response = fastApiRestClient.post()
+                    .uri("/api/v1/internal/market/prices")
+                    .body(new MarketPriceDto.FastApiPriceRequest(REFRESH_DAYS))
+                    .retrieve()
+                    .body(MarketPriceDto.FastApiPriceResponse.class);
+            if (response == null || !response.success() || response.data() == null
+                    || response.data().points() == null) {
+                throw new IllegalStateException("FastAPI 가격 응답이 올바르지 않습니다.");
+            }
+
+            List<MaterialPricePoint> entities = response.data().points().stream()
+                    .map(point -> MaterialPricePoint.of(
+                            point.materialCategory(), LocalDate.parse(point.priceDate()),
+                            point.closePrice(), point.stockVol20d(), point.ticker()))
+                    .toList();
+            // 복합키(자재, 거래일)라 이미 있는 날짜는 갱신, 없으면 삽입으로 수렴한다.
+            priceRepository.saveAll(entities);
+
+            List<String> failed = response.data().failedTickers() == null
+                    ? List.of() : response.data().failedTickers();
+            log.info("원자재 가격 갱신 완료: {}건 저장, 실패 종목 {}", entities.size(), failed.isEmpty() ? "없음" : failed);
+            return new MarketPriceDto.RefreshResult(entities.size(), failed, "SUCCESS", null);
+        } catch (RuntimeException exception) {
+            log.warn("원자재 가격 갱신 실패: {}", exception.toString());
+            return new MarketPriceDto.RefreshResult(0, List.of(), "FAILED", exception.getMessage());
+        }
+    }
+
+    /**
+     * 공개 가격 추이. 자재별로 구간 첫 거래일을 100으로 둔 지수를 만든다 — 종목마다 주가 절대값이
+     * 달라(예: BHP 60달러대, ALB 130달러대) 원값 그대로는 한 차트에 겹쳐 그릴 수 없기 때문이다.
+     */
+    public List<MarketPriceDto.PriceSeries> priceTrends() {
+        return groupByMaterial().entrySet().stream()
+                .map(entry -> new MarketPriceDto.PriceSeries(
+                        RiskEventService.MATERIAL_NAME_KO.getOrDefault(entry.getKey(), entry.getKey()),
+                        "지수(기준일=100)",
+                        toIndexedPoints(entry.getValue())))
+                .toList();
+    }
+
+    /**
+     * 공개 요약 카드. 가격 추이와 <b>같은 구간·같은 데이터</b>에서 파생하므로 차트와 어긋나지 않는다.
+     *
+     * <p>risk_score는 연율화 변동성(일간 변동성 × √252)을 백분율로 환산해 0~100으로 자른 값이다.
+     * 자재별 리스크 판정을 별도로 정의하기 전까지의 대용이며, 임의 수치가 아니라 표준 지표를 쓴다.
+     */
+    public List<MarketPriceDto.PriceSummary> priceSummaries() {
+        return groupByMaterial().entrySet().stream()
+                .map(entry -> {
+                    List<MaterialPricePoint> points = entry.getValue();
+                    int riskScore = riskScore(points);
+                    return new MarketPriceDto.PriceSummary(
+                            RiskEventService.MATERIAL_NAME_KO.getOrDefault(entry.getKey(), entry.getKey()),
+                            changeLabel(points), riskScore, grade(riskScore));
+                })
+                .toList();
+    }
+
+    /** 조회 구간의 가격을 자재별로 묶는다(리포지토리가 자재·날짜 오름차순으로 반환). */
+    private Map<String, List<MaterialPricePoint>> groupByMaterial() {
+        LocalDate from = LocalDate.now(SERVICE_ZONE).minusDays(TREND_DAYS);
+        Map<String, List<MaterialPricePoint>> grouped = new LinkedHashMap<>();
+        for (MaterialPricePoint point :
+                priceRepository.findByPriceDateGreaterThanEqualOrderByMaterialCategoryAscPriceDateAsc(from)) {
+            grouped.computeIfAbsent(point.getMaterialCategory(), key -> new ArrayList<>()).add(point);
+        }
+        return grouped;
+    }
+
+    private static List<MarketPriceDto.PricePoint> toIndexedPoints(List<MaterialPricePoint> points) {
+        double base = points.get(0).getClosePrice();
+        return points.stream()
+                .map(point -> new MarketPriceDto.PricePoint(
+                        point.getPriceDate().toString(),
+                        base == 0 ? 100.0 : Math.round(point.getClosePrice() / base * 1000.0) / 10.0))
+                .toList();
+    }
+
+    /** 구간 첫 거래일 대비 등락. 프론트 mock과 같은 표기(▲/▼ + 소수 1자리 %)를 유지한다. */
+    private static String changeLabel(List<MaterialPricePoint> points) {
+        double first = points.get(0).getClosePrice();
+        double last = points.get(points.size() - 1).getClosePrice();
+        if (first == 0) {
+            return "— 0.0%";
+        }
+        double changePercent = (last - first) / first * 100.0;
+        String arrow = changePercent > 0 ? "▲" : changePercent < 0 ? "▼" : "—";
+        return String.format(Locale.KOREA, "%s %.1f%%", arrow, Math.abs(changePercent));
+    }
+
+    /** 가장 최근 거래일의 20일 변동성을 연율화 백분율로 환산. 변동성이 아직 없으면 0으로 둔다. */
+    private static int riskScore(List<MaterialPricePoint> points) {
+        for (int i = points.size() - 1; i >= 0; i--) {
+            Double volatility = points.get(i).getStockVol20d();
+            if (volatility != null) {
+                return (int) Math.min(100, Math.round(volatility * ANNUALIZATION * 100));
+            }
+        }
+        return 0;
+    }
+
+    private static String grade(int riskScore) {
+        if (riskScore >= RISK_CRITICAL_MIN) return "심각";
+        if (riskScore >= RISK_WARNING_MIN) return "주의";
+        return "정상";
+    }
+}

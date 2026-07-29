@@ -17,3 +17,5 @@ scikit-learn==1.9.0
 requests==2.34.2
 newspaper3k==0.2.8
 lxml_html_clean==0.4.5
+# 원자재 가격 프록시(대표 종목 주가) 수집. API 키 불필요 — 호출 비용 없음.
+yfinance==0.2.66

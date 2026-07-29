@@ -74,8 +74,11 @@ public class RiskEventService {
      * 자재 대분류 → 화면 표기명. 키는 FastAPI {@code extraction_inference.MaterialCategory}(8종) 및
      * {@code materials.material_category}와 같은 값이다. 매핑에 없으면 원본 값을 그대로 노출한다
      * (Literal 강제 이전에 저장된 "lithium carbonate" 같은 과거 데이터를 숨기지 않기 위함).
+     *
+     * <p>같은 공개 대시보드를 그리는 {@link MarketPriceService}도 이 표기명을 쓴다 — 지도·속보와
+     * 가격 패널이 같은 자재를 다른 이름으로 부르지 않도록 한 곳에서만 정의한다(package-private).
      */
-    private static final Map<String, String> MATERIAL_NAME_KO = Map.of(
+    static final Map<String, String> MATERIAL_NAME_KO = Map.of(
             "LITHIUM", "리튬",
             "COBALT", "코발트",
             "NICKEL", "니켈",
@@ -392,6 +395,9 @@ public class RiskEventService {
                 analysis != null ? analysis.getAnalysisId().toString() : "RAW-" + event.getId(),
                 LocalDate.ofInstant(event.getCollectedAt(), DISPLAY_ZONE).toString(),
                 material,
+                // 등급은 분석 결과이므로 분석이 붙은 뉴스에만 있다. 수집만 된 뉴스는 null로 두고
+                // 프론트가 배지를 생략한다 — 판정하지 않은 기사를 "정상"으로 보이게 하면 안 된다.
+                analysis != null ? GRADE_BY_SEVERITY.get(analysis.getSeverity()) : null,
                 event.getSource(),
                 event.getTitle(),
                 analysis != null ? confidenceLabel(analysis) : "참고");
@@ -417,6 +423,7 @@ public class RiskEventService {
                 event.riskEventId(),
                 parsePlaceholderDate(event.riskEventId()),
                 event.marketContext().material(),
+                event.grade(),
                 event.marketContext().source(),
                 event.marketContext().eventSummary(),
                 event.confidenceLabel());
