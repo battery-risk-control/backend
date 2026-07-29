@@ -64,6 +64,8 @@ def test_converts_rag_result_to_contract_evidence():
                 "공급자는 납기 지연 발생 시 "
                 "변경 일정을 통보해야 한다."
             ),
+            "clause_type": "delivery_delay",
+            "clause_name_kr": "납기·지체상금 조항",
             "similarity_score": 0.91,
             "source_type": "chroma",
         }
@@ -100,3 +102,8 @@ def test_adapter_uses_real_minji_rag_service():
     assert result[0]["page"] == 1
     assert "납기 지연" in result[0]["evidence_text"]
     assert result[0]["source_type"] == "chroma"
+    assert result[0]["clause_type"] == "delivery_delay"
+    assert (
+        result[0]["clause_name_kr"]
+        == "납기·지체상금 조항"
+    )

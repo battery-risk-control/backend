@@ -52,13 +52,16 @@ def test_classification_mock_supports_multiple_domains() -> None:
 
 
 def test_severity_mock_supports_all_three_levels() -> None:
+    """F3 심각도는 외부 데이터(뉴스·기상·시장)만으로 계산됩니다 — ERP 데이터는 관여하지 않습니다.
+
+    2026-07-27: article_signal(tone×log(news_count)) 곱셈 공식 + GDACS 하드게이트로 교체.
+    gdacs_alert_level<2는 base_score에 기여하지 않고, >=2면 base_score와 무관하게
+    무조건 CRITICAL_MIN(75) 이상으로 끌어올립니다.
+    """
     service = SeverityService()
-    assert service.score(_features(), None).severity == "NORMAL"
-    assert service.score(_features(gdacs_alert_level=1), None).severity == "WARNING"
-    assert service.score(_features(gdacs_alert_level=2, goldstein_scale=-7), None).severity == "WARNING"
-    from app.repositories.erp_repository import InMemoryErpRepository
-    context = InMemoryErpRepository().find_context("CL", ["LITHIUM"])
-    critical = service.score(_features(gdacs_alert_level=2, goldstein_scale=-7), context)
+    assert service.score(_features()).severity == "NORMAL"
+    assert service.score(_features(goldstein_scale=-10)).severity == "WARNING"
+    critical = service.score(_features(gdacs_alert_level=2, goldstein_scale=-7))
     assert critical.severity == "CRITICAL"
     assert critical.calculation_details
 

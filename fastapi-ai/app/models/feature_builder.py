@@ -9,6 +9,10 @@ DEFAULT_FEATURES = {
     "actor1_type": "GOV",
     "actor2_type": "COM",
     "stock_volatility_20d": 0.041,
+    # [surin F3] severity_engine(v0.2-realtime) 입력 기본값
+    "bdi_index": 1800.0,
+    "tone_score": -0.3,
+    "is_supply_chain_relevant": True,
 }
 
 def build_feature_vector(overrides: FeatureOverrides | None = None) -> FeatureVector:

@@ -108,7 +108,7 @@ class BriefingService:
             if len(snippet) > 60:
                 snippet = snippet[:60] + "…"
             lines.append(
-                f"- 계약 {item.contract_id} p.{item.page_number} "
+                f"- 계약 {item.contract_id} p.{item.page_number} 청크 #{item.chunk_index} "
                 f"(유사도 {item.similarity_score:g}): {snippet}"
             )
         return "\n".join(lines)

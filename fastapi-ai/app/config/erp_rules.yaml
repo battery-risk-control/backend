@@ -76,6 +76,42 @@ alternativeSupplierRisk:
   NONE: 100
 
 
+# 공급사별 위험 평가(ErpSupplierAssessment)에 쓰는 규칙
+supplierAssessmentRisk:
+  # capacity 가중치 0: availableCapacityQuantity를 채워줄 실제 데이터가 우리 ERP 스키마에
+  # 없어서 항상 UNKNOWN(70점 고정)으로만 나옴 — 전 후보에 똑같이 적용돼 순위엔 영향도 없이
+  # 점수만 부풀리므로, 실제 가용 capacity 데이터가 생기기 전까지는 계산에서 제외한다.
+  # qualification/supplierStatus 비중은 원래 비율(0.40:0.30)을 유지한 채 합 1.0으로 재조정.
+  weights:
+    qualification: 0.57
+    supplierStatus: 0.43
+    capacity: 0.0
+
+  qualification:
+    APPROVED: 0
+    CONDITIONAL: 60
+    PENDING: 80
+    REJECTED: 100
+
+  supplierStatus:
+    ACTIVE: 0
+    UNDER_REVIEW: 60
+    SUSPENDED: 100
+    TERMINATED: 100
+
+  capacity:
+    sufficient: 0
+    partial: 50
+    severelyInsufficient: 80
+    unavailable: 100
+    unknown: 70
+    requiredQuantityUnknown: 40
+
+  coverageThresholds:
+    sufficient: 1.0
+    partial: 0.5
+
+
 # 기본 점수에 따른 ERP 노출등급
 exposureLevelThresholds:
   warning: 30

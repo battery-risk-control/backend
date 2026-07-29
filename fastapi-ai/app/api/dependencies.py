@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 
 from app.core.config import get_settings
@@ -11,6 +12,7 @@ from app.services.feature_service import FeatureService
 from app.services.rag_service import RagService
 from app.services.severity_service import SeverityService
 from app.services.document_service import DocumentService
+from app.services.supplier_recommendation_service import SupplierRecommendationService
 from app.services.embedding_service import (
     EmbeddingProvider,
     get_embedding_provider as build_embedding_provider,
@@ -20,8 +22,20 @@ from app.multi_agent.graph.briefing_graph import (
     build_briefing_graph,
 )
 
+logger = logging.getLogger(__name__)
+
+
 @lru_cache
-def get_extraction_service() -> ExtractionService: return ExtractionService()
+def get_extraction_service() -> ExtractionService:
+    """[surin F3] OPENAI_API_KEY가 설정돼 있으면 실제 GPT-4o-mini 추출, 아니면 mock 폴백."""
+    import os
+    if os.environ.get("OPENAI_API_KEY"):
+        try:
+            from app.models.extraction_inference import OpenAIExtractionInference
+            return ExtractionService(OpenAIExtractionInference())
+        except Exception as exception:
+            logger.warning("OpenAI 추출기 초기화 실패, mock 추출기로 폴백합니다: %s", exception)
+    return ExtractionService()
 
 
 @lru_cache
@@ -87,6 +101,11 @@ def get_document_service() -> DocumentService:
 
 
 @lru_cache
+def get_supplier_recommendation_service() -> SupplierRecommendationService:
+    return SupplierRecommendationService()
+
+
+@lru_cache
 def get_orchestration_service():
     from app.services.orchestration_service import OrchestrationService
     return OrchestrationService(
@@ -103,6 +122,6 @@ def reset_dependencies() -> None:
         get_severity_service, get_erp_context_service, get_briefing_service,
         get_risk_repository, get_embedding_service, get_vector_store,
         get_rag_service, get_document_service, get_multi_agent_graph,
-        get_orchestration_service,
+        get_supplier_recommendation_service, get_orchestration_service,
     ):
         dependency.cache_clear()

@@ -1,0 +1,477 @@
+EX-10.5.70 3 tm546671_ex10.htm EXHIBIT 10.5.70
+
+Exhibit 10.5.70
+
+CERTAIN IDENTIFIED INFORMATION HAS BEEN EXCLUDED FROM THE EXHIBIT BECAUSE IT IS BOTH (I) NOT MATERIAL AND (II) WOULD BE COMPETITIVELY HARMFUL IF PUBLICLY DISCLOSED. [* * *] INDICATES THAT INFORMATION HAS BEEN REDACTED.
+
+Execution Version
+
+LITHIUM CARBONATE SUPPLY AGREEMENT
+
+This lithium carbonate supply agreement (together with the schedules attached hereto, this “Agreement”) is entered into effective as of February 18, 2024 (the “Effective Date”) and is between LG Energy Solution, having its registered office in the United States (“Buyer”), and Albemarle, having its registered office in its country of incorporation (“Seller,” and together with Buyer, the “Parties”).
+
+BACKGROUND
+
+A.            Buyer is developing and manufacturing lithium-ion battery cells for the automotive market.
+
+B.            Seller is developing and securing technology in the extraction, refinement, and supply of lithium carbonate.
+
+C.            Buyer desires to procure lithium carbonate from Seller to be used in Buyer's battery cell production lines.
+
+Agreement
+
+NOW, THEREFORE, in consideration of the premises and the mutual promises contained herein, the Parties agree as follows:
+
+Article I
+DEFINITIONS
+
+1.01            Definitions.
+
+   (a)            “Affiliate” of a specified person means a person who, directly or indirectly through one or more intermediaries, Controls, is Controlled by, or is under common Control with, such specified person.
+
+   (b)            “Business Day” means a day other than Saturday, Sunday, or any day on which banks are closed.
+
+   (c)            “Force Majeure Event” has the meaning set forth in Section 4.01.
+
+   (d)            “Material” means Seller's lithium carbonate meeting the specifications outlined in Schedule A.
+
+Article II
+SUPPLY AND PRICING
+
+2.01            Quantity. Seller shall supply 48,292 Metric Tons (MT) of Material per calendar year.
+
+2.02            Price. The baseline price for the Material is $74,096 per MT, subject to quarterly adjustments based on the LME (London Metal Exchange) index.
+
+Article III
+DELIVERY AND PENALTY
+
+3.01            Delivery Schedule. Seller must deliver the Material according to the Forecast provided by Buyer 90 days in advance.
+
+3.02            Delay Penalty. If Seller fails to deliver the Material by the required delivery date, Seller shall pay a penalty of 0.5% of the delayed shipment's value per week of delay. The maximum cumulative penalty under this section shall not exceed 30.0% of the total order value.
+
+Article IV
+FORCE MAJEURE
+
+4.01            Excusable Delay. Supplier must notify Buyer in writing within 48 hours of any strike, pandemic, or natural disaster that impacts the supply chain. Failure to notify voids the Force Majeure protection.
+
+4.02            Mitigation. The affected Party must use commercially reasonable efforts to mitigate the effects of the Force Majeure Event and resume performance as soon as possible.
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]
+
+Article V
+CONFIDENTIALITY
+
+5.01            Confidential Information. For purposes of this Agreement, "Confidential Information" means all non-public, confidential or proprietary information disclosed before, on or after the Effective Date, by either Party (a "Disclosing Party") to the other Party (a "Receiving Party") or its Affiliates, or to any of such Receiving Party's or its Affiliates' employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, "Representatives"), whether disclosed orally or disclosed or accessed in written, electronic or other form or media, and whether or not marked, designated or otherwise identified as "confidential".
+
+5.02            Obligations. The Receiving Party shall: (a) protect and safeguard the confidentiality of the Disclosing Party's Confidential Information with at least the same degree of care as the Receiving Party would protect its own Confidential Information, but in no event with less than a commercially reasonable degree of care; (b) not use the Disclosing Party's Confidential Information, or permit it to be accessed or used, for any purpose other than to exercise its rights or perform its obligations under this Agreement; and (c) not disclose any such Confidential Information to any Person, except to the Receiving Party's Representatives who need to know the Confidential Information to assist the Receiving Party, or act on its behalf, to exercise its rights or perform its obligations under this Agreement.
+
+Article VI
+REPRESENTATIONS AND WARRANTIES
+
+6.01            Mutual Representations. Each Party represents and warrants to the other Party that: (a) it is duly organized, validly existing and in good standing as a corporation or other entity as represented herein under the laws and regulations of its jurisdiction of incorporation, organization or chartering; (b) it has the full right, power and authority to enter into this Agreement, to grant the rights and licenses granted hereunder and to perform its obligations hereunder; (c) the execution of this Agreement by its representative whose signature is set forth at the end hereof has been duly authorized by all necessary corporate action of the Party; and (d) when executed and delivered by such Party, this Agreement will constitute the legal, valid and binding obligation of such Party, enforceable against such Party in accordance with its terms.
+
+Article VII
+INDEMNIFICATION
+
+7.01            Indemnification by Seller. Seller shall indemnify, defend and hold harmless Buyer and its officers, directors, employees, agents, affiliates, successors and permitted assigns (collectively, "Indemnified Party") against any and all losses, damages, liabilities, deficiencies, claims, actions, judgments, settlements, interest, awards, penalties, fines, costs, or expenses of whatever kind, including reasonable attorneys' fees, fees and the costs of enforcing any right to indemnification under this Agreement and the cost of pursuing any insurance providers, relating to any claim of a third party or Buyer arising out of or occurring in connection with: (a) Seller's negligence or willful misconduct; or (b) Seller's breach of this Agreement.
+
+Article VIII
+MISCELLANEOUS
+
+8.01            Governing Law. This Agreement and all related documents, and all matters arising out of or relating to this Agreement, whether sounding in contract, tort, or statute are governed by, and construed in accordance with, the laws of the State of New York, United States of America (including its statutes of limitations), without giving effect to the conflict of laws provisions thereof to the extent such principles or rules would require or permit the application of the laws of any jurisdiction other than those of the State of New York.
+
+8.02            Dispute Resolution. Any dispute, controversy or claim arising out of, relating to, or in connection with this contract, including the breach, termination or validity thereof, shall be finally resolved by arbitration. The arbitral tribunal shall have the power to rule on any challenge to its own jurisdiction or to the validity or enforceability of any portion of the agreement to arbitrate.
+
+8.03            Severability. If any term or provision of this Agreement is invalid, illegal or unenforceable in any jurisdiction, such invalidity, illegality or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
+
+[SIGNATURES OMITTED]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.core.config import get_settings
-from app.repositories.erp_repository import ErpContext
+from app.models.severity_engine import score_severity
 from app.schemas.analyze import FeatureVector
 from app.schemas.common import Severity
 from app.schemas.severity import (
@@ -28,6 +28,31 @@ class SeverityService:
     )
 
     def evaluate(self, inputs: SeverityInput) -> SeverityResult:
+        """severity-rule-v1: ERP 노출도 기반 심각도 계산.
+
+        [보류 중인 정리 계획 — 2026-07-29]
+        ERP 노출도 계산은 soojung의 erp_calculator(erp-exposure-v0.1)로 단일화하기로 합의됐다.
+        (이 메서드는 2026-07-22 S11 구현 시 만들어졌고, 4일 뒤 멀티에이전트 설계안 기준의
+        ERP Exposure Agent가 별도로 들어오면서 supplyGap·safetyStock·dependency·PO delay가
+        중복됐다. 기능 결함은 아니며 두 경로가 각각 정상 동작 중이다.)
+
+        다만 아래 경로가 이 메서드에 의존하고 있어 변환 어댑터 없이는 제거할 수 없다:
+            POST /api/v1/briefings (F5)
+              → BriefingService.callSeverity() → /api/v1/internal/severity/score → 여기
+              → severity_assessments 저장
+                  → briefings.assessment_id (F7 근거 계보)
+                  → DashboardRepository (F11 집계)
+
+        제거 전 필요한 것:
+          1) FEOC 하드게이트(F8)를 erp_rules.yaml의 forcedCriticalRules로 이관
+             — 현재 FEOC 강제격상은 이 메서드에만 있다(기준선 S5 참고)
+          2) ErpExposureResponse → SeverityResult 변환 어댑터
+             (exposureLevel→severity, erpExposureScore→score, riskComponents→reason_codes)
+          3) 교체 전후 등급 변화 비교 — 임계값이 다르다(v1: WARNING 30/CRITICAL 70)
+
+        회귀 기준선(8종 시나리오): docs/severity-v1-baseline.md
+        신규 기능은 이 메서드가 아니라 POST /api/v1/internal/erp/exposure를 사용할 것.
+        """
         known_inputs = [name for name in self.NUMERIC_FIELDS if getattr(inputs, name) is not None]
         missing_inputs = [name for name in self.NUMERIC_FIELDS if getattr(inputs, name) is None]
         base_details = {
@@ -110,25 +135,13 @@ class SeverityService:
             mock=True,
         )
 
-    def score(
-        self, features: FeatureVector, erp_context: ErpContext | None
-    ) -> SeverityResult:
-        """Compatibility adapter used by /analyze until Spring owns its orchestration."""
-        return self.evaluate(
-            SeverityInput(
-                inventory_days=(erp_context.stock_days if erp_context else None),
-                safety_stock_days=(erp_context.safety_stock_days if erp_context else None),
-                expected_supply_gap_days=None,
-                supplier_dependency_ratio=None,
-                price_change_rate=features.stock_volatility_20d * 100,
-                logistics_delay_days=None,
-                gdacs_alert_level=features.gdacs_alert_level,
-                feoc_status=FeocStatus.UNKNOWN,
-                data_quality_status=(
-                    DataQualityStatus.VALID if erp_context else DataQualityStatus.UNKNOWN
-                ),
-            )
-        )
+    def score(self, features: FeatureVector) -> SeverityResult:
+        """[surin F3] /analyze 이벤트 심각도: severity_engine(severity-rule-v0.2-realtime, 4,081건 실측 검증).
+
+        merge의 evaluate()(severity-rule-v1, ERP 노출도 기반)는 internal.py /severity/score와
+        F9/ERP 경로용으로 그대로 보존한다(둘 다 공존).
+        """
+        return score_severity(features)
 
     def _unknown(
         self,

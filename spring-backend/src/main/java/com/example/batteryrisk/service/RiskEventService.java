@@ -6,6 +6,7 @@ import com.example.batteryrisk.dto.RiskEventDto.MarketContext;
 import com.example.batteryrisk.dto.RiskEventDto.OutputArtifacts;
 import com.example.batteryrisk.dto.RiskEventDto.QualityCheck;
 import com.example.batteryrisk.dto.RiskEventDto.RagView;
+import com.example.batteryrisk.dto.RiskEventDto.RiskBoardItem;
 import com.example.batteryrisk.dto.RiskEventDto.RiskEvent;
 import org.springframework.stereotype.Service;
 
@@ -86,6 +87,24 @@ public class RiskEventService {
         return PLACEHOLDER_EVENTS.stream()
                 .filter(event -> grade == null || grade.isBlank() || event.grade().equals(grade.trim()))
                 .limit(limit)
+                .toList();
+    }
+
+    /**
+     * 비로그인 공개 지도용 안전 subset. erp_view/quality_check/rag_view/output_artifacts는 제외하고
+     * 지도 마커에 필요한 등급·신뢰도·국가·좌표만 내려준다.
+     */
+    public List<RiskBoardItem> riskBoard() {
+        return PLACEHOLDER_EVENTS.stream()
+                .map(event -> new RiskBoardItem(
+                        event.riskEventId(),
+                        event.marketContext().material(),
+                        event.grade(),
+                        event.confidenceLabel(),
+                        event.marketContext().eventSummary(),
+                        event.marketContext().countryCode(),
+                        event.marketContext().countryName(),
+                        event.marketContext().coordinates()))
                 .toList();
     }
 }

@@ -69,6 +69,13 @@ public class GlobalExceptionHandler {
         }
     }
 
+    // [surin F3] AnalysisService가 존재하지 않는 분석 조회 시 던진다.
+    public static class AnalysisNotFoundException extends RuntimeException {
+        public AnalysisNotFoundException(String analysisId) {
+            super("분석을 찾을 수 없습니다: " + analysisId);
+        }
+    }
+
     @ExceptionHandler(BusinessException.class)
     ResponseEntity<ApiErrorResponse> handleBusinessException(BusinessException exception) {
         ErrorCode errorCode = exception.getErrorCode();
@@ -92,6 +99,12 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiErrorResponse> handleDocumentNotFound(DocumentNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiErrorResponse.of("DOCUMENT_NOT_FOUND", exception.getMessage()));
+    }
+
+    @ExceptionHandler(AnalysisNotFoundException.class)
+    ResponseEntity<ApiErrorResponse> handleAnalysisNotFound(AnalysisNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiErrorResponse.of("ANALYSIS_NOT_FOUND", exception.getMessage()));
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, MissingServletRequestParameterException.class})

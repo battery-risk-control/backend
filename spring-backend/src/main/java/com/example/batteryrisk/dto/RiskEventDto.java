@@ -62,4 +62,21 @@ public final class RiskEventDto {
             String fileUrl,
             boolean fallbackToJson
     ) {}
+
+    /**
+     * 비로그인 공개 화면(Seq 23 글로벌 리스크 관제 지도)용 안전 subset.
+     *
+     * <p>프론트 {@code GlobalRiskBoardItem} 계약과 1:1. RiskEvent에서 등급·신뢰도·국가·좌표만 남기고
+     * ERP 내부 상세({@code erp_view}·{@code quality_check}·{@code rag_view})는 <b>노출하지 않는다</b>.
+     */
+    public record RiskBoardItem(
+            String riskEventId,
+            String material,
+            String grade,
+            String confidenceLabel,
+            String eventSummary,
+            String countryCode,
+            String countryName,
+            Coordinates coordinates
+    ) {}
 }
