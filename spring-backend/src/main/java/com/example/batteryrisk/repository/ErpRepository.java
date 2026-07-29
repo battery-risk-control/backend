@@ -175,6 +175,74 @@ public class ErpRepository {
                 nullableInt(rs, "lead_time_days")));
     }
 
+    public List<PurchaseOrderRow> findOpenPurchaseOrders(
+        long materialId,
+        LocalDate asOfDate
+) {
+    MapSqlParameterSource params =
+            new MapSqlParameterSource()
+                    .addValue("materialId", materialId)
+                    .addValue("asOfDate", asOfDate);
+
+    return jdbc.query("""
+            SELECT
+                poi.erp_purchase_order_item_id,
+                po.erp_purchase_order_id,
+                m.erp_material_id,
+                s.erp_supplier_id,
+                c.erp_contract_id,
+                poi.ordered_quantity
+                    - poi.received_quantity
+                    AS remaining_quantity,
+                po.order_status,
+                COALESCE(
+                    poi.confirmed_arrival_date,
+                    poi.expected_arrival_date
+                ) AS effective_arrival_date
+            FROM purchase_order_items poi
+            JOIN purchase_orders po
+              ON po.purchase_order_id =
+                 poi.purchase_order_id
+            JOIN materials m
+              ON m.material_id = poi.material_id
+            JOIN suppliers s
+              ON s.supplier_id = po.supplier_id
+            JOIN contracts c
+              ON c.contract_id = poi.contract_id
+            WHERE poi.material_id = :materialId
+              AND po.order_status <> 'CLOSED'
+              AND po.order_date <= :asOfDate
+              AND poi.ordered_quantity
+                    > poi.received_quantity
+            ORDER BY
+                COALESCE(
+                    poi.confirmed_arrival_date,
+                    poi.expected_arrival_date
+                ) NULLS LAST,
+                poi.purchase_order_item_id
+            """,
+            params,
+            (rs, rowNum) -> new PurchaseOrderRow(
+                    rs.getString(
+                            "erp_purchase_order_item_id"
+                    ),
+                    rs.getString(
+                            "erp_purchase_order_id"
+                    ),
+                    rs.getString("erp_material_id"),
+                    rs.getString("erp_supplier_id"),
+                    rs.getString("erp_contract_id"),
+                    rs.getBigDecimal(
+                            "remaining_quantity"
+                    ),
+                    rs.getString("order_status"),
+                    rs.getObject(
+                            "effective_arrival_date",
+                            LocalDate.class
+                    )
+            )
+    );
+}
     public Optional<InboundRow> findNextInbound(long materialId, LocalDate asOfDate) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("materialId", materialId)
@@ -303,4 +371,15 @@ public class ErpRepository {
             boolean ppapApproved,
             Integer leadTimeDays
     ) {}
+
+    public record PurchaseOrderRow(
+        String erpPurchaseOrderItemId,
+        String erpPurchaseOrderId,
+        String erpMaterialId,
+        String erpSupplierId,
+        String erpContractId,
+        BigDecimal remainingQuantity,
+        String orderStatus,
+        LocalDate effectiveArrivalDate
+) {}
 }
