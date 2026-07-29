@@ -29,9 +29,24 @@ public class HistoricalFeatureJoinService {
     private static final int GDACS_MATCH_WINDOW_DAYS = 7;
     private static final int YFINANCE_MATCH_WINDOW_DAYS = 5;
 
-    /** extraction_service.py의 mock 추출기가 지원하는 자재만 매핑 가능(NICKEL/COBALT/LITHIUM). */
+    /**
+     * 자재 대분류 코드 → yfinance CSV의 {@code material_or_label} 값(한글). 두 값이 문자열 단위로
+     * 정확히 일치해야 조인이 성립하며, 어긋나면 로그 없이 조용히 null이 된다.
+     *
+     * <p>키는 FastAPI {@code extraction_inference.MaterialCategory}(8종)의 부분집합이다 —
+     * RARE_EARTH만 빠져 있는데, 대표 상장 종목이 없어 수집 스크립트
+     * ({@code data/yfinance/collect_yfinance_data.py}의 MATERIAL_TICKER_MAP)가 애초에 받지 않기 때문이다.
+     * 나머지 7종은 CSV에 모두 존재한다(리튬 ALB · 니켈 BHP · 코발트 GLNCY · 망간 S32.AX ·
+     * 알루미늄 AA · 구리 FCX · 흑연 SYR.AX).
+     */
     private static final Map<String, String> MATERIAL_CODE_TO_KOREAN_LABEL = Map.of(
-            "NICKEL", "니켈", "COBALT", "코발트", "LITHIUM", "리튬"
+            "NICKEL", "니켈",
+            "COBALT", "코발트",
+            "LITHIUM", "리튬",
+            "GRAPHITE", "흑연",
+            "MANGANESE", "망간",
+            "COPPER", "구리",
+            "ALUMINUM", "알루미늄"
     );
 
     private final RawEventRepository rawEventRepository;
