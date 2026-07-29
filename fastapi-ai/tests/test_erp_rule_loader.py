@@ -39,3 +39,10 @@ def testRequiredWeights() -> None:
         rules["weights"]["alternativeSupplier"]
         == 0.10
     )
+
+# 같은 중복 키가 append돼도 즉시 잡힘. 재발 방지용 추가
+def testSupplierAssessmentWeightsAreTuned() -> None:
+    weights = loadErpRules()["supplierAssessmentRisk"]["weights"]
+    assert weights["capacity"] == 0.0
+    assert weights["qualification"] == 0.57
+    assert weights["supplierStatus"] == 0.43

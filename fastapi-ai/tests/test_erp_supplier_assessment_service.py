@@ -65,8 +65,10 @@ def testConditionalPartialSupplier() -> None:
     )
     assert result.capacityRiskScore == 50
 
-    # 60 × 0.4 + 50 × 0.3 = 39
-    assert result.supplierRiskScore == 39
+    # 60 × 0.4 + 50 × 0.3 = 39에서 수정.
+    # capacity 가중치 0.0 (erp_rules.yaml 80행 주석: 가용 capacity 원천 데이터 없음)
+    # 60 × 0.57 + 50 × 0.0 = 34.2
+    assert result.supplierRiskScore == 34.2
 
 
 def testUnknownCapacity() -> None:
@@ -103,5 +105,6 @@ def testUnderReviewSupplier() -> None:
         == 60
     )
 
-    # 60 × 0.3
-    assert result.supplierRiskScore == 18
+    # 60 × 0.3에서 수정
+    # 60 × 0.43 = 25.8
+    assert result.supplierRiskScore == 25.8
