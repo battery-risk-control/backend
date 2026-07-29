@@ -27,10 +27,12 @@ def test_classification_and_severity_are_deterministic() -> None:
         actor1_type="GOV", actor2_type="COM", stock_volatility_20d=0.041,
     )
     classification = ClassificationService().classify(features)
-    severity = SeverityService().score(features, InMemoryErpRepository().find_context("CL", ["LITHIUM"]))
+    # [surin 병합] /analyze severity는 severity_engine(v0.2-realtime) 단일 인자 호출로 계산한다.
+    # ERP는 관여하지 않으며, gdacs>=2 하드게이트가 점수를 CRITICAL_MIN(75)까지 끌어올린다.
+    severity = SeverityService().score(features)
     assert classification.impact_domain == "PRODUCTION"
     assert severity.severity == "CRITICAL"
-    assert severity.score == 70.0
+    assert severity.score == 75.0
 
 
 def test_document_chunker_returns_stable_chunks() -> None:

@@ -55,10 +55,22 @@
 
 **무손실 확정**: surin F3/F4/F9/F10 + merge F5~F8(classifier·multi_agent·briefing·rag·erp_context) 모두 보존 — classifier는 `/ml/classify`, severity v1은 `evaluate()`로 공존.
 
+### ✅ 풀 라이브 E2E (2026-07-29 · mock 추출 · OpenAI 0)
+실제 Spring→FastAPI→Spring 왕복까지 검증. 로그인(AUTH_TEST_SEED 계정) 후 `POST /api/v1/analyses`(칠레 리튬):
+- **F3**: `CRITICAL` / `severity-rule-v0.2-realtime` (surin 검증 공식 실동작)
+- **F9**: `material_category=LITHIUM` 추천 3건 — AUS-1001(Pilbara)·KOR-1001(Han River)·CHL-1001(Atacama), surin 문서와 일치
+- **F10**: CRITICAL → 4계정 알림 발송(수신자 조회 정상), SMTP 미설정이라 발송만 비활성(정상)
+
+**E2E가 잡아낸 F9 배선 버그 2건 (수정 완료):**
+1. **응답 형태** — orchestration을 merge rich 응답으로 바꾸며 top-level `affected_materials`가 누락 → surin `AnalysisService`의 F9 트리거 불발. **수정**: `schemas/analyze.py`의 `AnalyzeResponseData`에 `affected_materials` 필드 복원 + `orchestration_service.py`에서 `affected_materials=extraction.affected_materials`로 채움.
+2. **F9 콜백 URL** — FastAPI `supplier_recommendation_service`가 Spring `/suppliers/qualified`로 콜백 시 `spring_base_url` 기본값 `localhost:8080`이 docker에선 fastapi 자신을 가리켜 실패 → 후보 0. **수정**: `docker-compose.yml` fastapi env에 `SPRING_BASE_URL=http://spring:8080` 추가.
+
+> ⚠️ 운영 주의: E2E로 fastapi를 만지는 docker 명령엔 반드시 `OPENAI_API_KEY=` 프리픽스로 mock 강제(안 붙이면 compose가 `.env` 실제 키로 fastapi 재생성 → OpenAI 호출). `.env` 파일 자체는 불변.
+
 **미완/선택**:
-- Spring `/api/v1/analyses` 풀 라이브 E2E: 추출이 OpenAI를 호출하므로 미실행(원하면 추출=mock 또는 소액 실호출로 검증).
-- `GdeltRealtimeTriageAdapter` octet-stream 파싱 오류(F4 실시간) — 별건 버그, 병합과 무관.
-- git 커밋(진행 예정).
+- 실제 OpenAI 추출 경로 E2E는 미실행(mock으로 검증 완료). 실추출 시 `affected_materials`가 구체 물질명("lithium carbonate" 등)으로 나와 DB `material_category`(대분류)와 매칭되도록 매핑 보강이 필요할 수 있음 — surin 기존 과제.
+- **F4 실시간 자동수집 = 의도된 동작.** `app.collection.scheduler-enabled`(기본 false)로 opt-in — 켜면 GDELT 실시간 트리아지 파이프라인 작동.
+- git 커밋: F9 수정 3파일(`schemas/analyze.py`·`orchestration_service.py`·`docker-compose.yml`) 커밋 예정.
 
 ## 실행 순서 (의존성 순 — 이대로 진행)
 
