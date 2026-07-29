@@ -96,6 +96,7 @@ def validate_llm_citations(
                 f"{page}페이지",
                 f"페이지 {page}",
                 f"page {page}",
+                f"page: {page}",
             ]
 
             if not any(

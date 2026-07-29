@@ -139,4 +139,59 @@ def generate_response_with_llm(
             "LLM 구조화 출력 결과가 없습니다."
         )
 
-    return parsed.model_dump()
+    result = parsed.model_dump()
+
+    briefing = result.get(
+        "briefing",
+        "",
+    ).strip()
+
+    risk_level = state.get(
+        "procurement_risk_level",
+    )
+
+    metadata_lines = [
+        "[validation metadata]",
+    ]
+
+    if risk_level:
+        metadata_lines.append(
+            f"final_risk_level: {risk_level}"
+        )
+
+    seen_citations = set()
+
+    for finding in state.get(
+        "contract_findings",
+        [],
+    ):
+        contract_id = finding.get("contract_id")
+        page = finding.get(
+            "page",
+            finding.get("page_number"),
+        )
+
+        if contract_id in (None, ""):
+            continue
+
+        if page is None:
+            continue
+
+        citation = (
+            f"[contract_id: {contract_id}, "
+            f"page: {page}]"
+        )
+
+        if citation in seen_citations:
+            continue
+
+        seen_citations.add(citation)
+        metadata_lines.append(citation)
+
+    result["briefing"] = (
+        briefing
+        + "\n\n"
+        + "\n".join(metadata_lines)
+    )
+
+    return result

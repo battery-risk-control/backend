@@ -120,7 +120,22 @@ def test_generates_structured_llm_response(
         create_state(),
     )
 
-    assert result == parsed_output.model_dump()
+    assert (
+    result["recommended_actions"]
+    == parsed_output.recommended_actions
+    )
+
+    assert parsed_output.briefing in result["briefing"]
+
+    assert (
+        "final_risk_level: critical"
+        in result["briefing"]
+    )
+
+    assert (
+        "[contract_id: 1001, page: 1]"
+        in result["briefing"]
+    )
     assert (
         fake_client.responses.last_request["model"]
         == "gpt-4o-mini"
