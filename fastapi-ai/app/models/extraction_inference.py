@@ -1,15 +1,38 @@
 import os
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, get_args
 
 from pydantic import BaseModel, Field
 
 from app.schemas.analyze import EventInput, ExtractionRequest
 
-_MATERIAL_KEYWORDS = {
+# 자재 대분류 단일 소스.
+# DB의 materials.material_category와 값이 같아야 F9(대체 공급사 추천)가 매칭된다 —
+# 값이 어긋나면 SupplierQualificationService의 WHERE material_category = ? 가 0건을 반환해
+# 추천이 조용히 비어버린다(예: LLM이 "lithium carbonate"를 뱉던 문제).
+# 자재를 추가·변경할 때는 여기만 고치면 mock/OpenAI 양쪽이 함께 따라간다.
+MaterialCategory = Literal[
+    "LITHIUM", "COBALT", "NICKEL", "GRAPHITE",
+    "MANGANESE", "COPPER", "ALUMINUM", "RARE_EARTH",
+]
+MATERIAL_CATEGORIES: tuple[str, ...] = get_args(MaterialCategory)
+
+# mock 추출용 키워드. 키는 위 MaterialCategory 값만 사용한다(타입체커가 오타를 잡는다).
+# 키워드 매핑 자체는 언어별 표현이라 자동 파생이 불가능해 수동 유지한다.
+#
+# ⚠️ 순서 주의: 한 기사에서 여러 자재가 매칭되면 여기 등록 순서대로 리스트에 담기고,
+# Spring AnalysisService가 그중 첫 번째만(get(0)) ERP 노출도·F9 추천에 사용한다.
+# 그래서 기존 3종(NICKEL·COBALT·LITHIUM)의 순서를 바꾸면 같은 기사라도 분석 대상 자재가
+# 달라진다 — 기존 동작 보존을 위해 순서를 유지하고, 신규 자재는 뒤에 추가한다.
+_MATERIAL_KEYWORDS: dict[MaterialCategory, list[str]] = {
     "NICKEL": ["nickel", "니켈"],
     "COBALT": ["cobalt", "코발트"],
     "LITHIUM": ["lithium", "리튬"],
+    "GRAPHITE": ["graphite", "흑연"],
+    "MANGANESE": ["manganese", "망간"],
+    "COPPER": ["copper", "구리"],
+    "ALUMINUM": ["aluminum", "aluminium", "알루미늄"],
+    "RARE_EARTH": ["rare earth", "rare-earth", "희토류"],
 }
 
 _EVENT_TYPE_RULES = [
@@ -80,7 +103,10 @@ class _ArticleRiskExtraction(BaseModel):
                     "직결된 새로운 리스크 이벤트인지 여부."
     )
     country: str = Field(description="리스크 이벤트가 발생한 국가. 불분명하면 '알 수 없음'")
-    affected_material: list[str] = Field(description="영향받은 원자재 목록. 없으면 빈 배열 []")
+    # Structured Outputs가 이 Literal을 JSON 스키마 enum으로 변환해, 모델이 목록 밖 값을
+    # 생성하지 못하도록 강제한다. 덕분에 DB material_category와 항상 일치한다.
+    affected_material: list[MaterialCategory] = Field(
+        description="영향받은 원자재 대분류. 목록에 없으면 빈 배열 []")
     tone_score: float = Field(description="-1.0(극도로 부정적/위기) ~ +1.0(극도로 긍정적/기회)")
     event_type: str = Field(description="파업, 관세 부과, 수출 금지 등 구체적 사건 키워드. 없으면 '알 수 없음'")
     impact_domain_draft: Literal["생산", "지정학", "정책", "물류", "시장", "기타/무관"] = Field(
