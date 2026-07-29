@@ -56,8 +56,8 @@ public class CollectionService {
     @Value("${app.collection.scheduler-enabled:false}")
     private boolean schedulerEnabled;
 
-    /** Fast Track: 뉴스·재난은 30분 주기로 최신성이 중요합니다. (schedulerEnabled=true일 때만 실행) */
-    @Scheduled(fixedRate = 1_800_000, initialDelay = 60_000)
+    /** Fast Track: GDELT 자체 갱신 주기(15분)에 맞춰 뉴스·재난을 폴링합니다. (schedulerEnabled=true일 때만 실행) */
+    @Scheduled(fixedRate = 900_000, initialDelay = 60_000)
     public void runFastTrack() {
         if (!schedulerEnabled) {
             log.debug("자동 수집 스케줄러 비활성(app.collection.scheduler-enabled=false) — 건너뜀");
