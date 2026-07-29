@@ -108,3 +108,8 @@ app:
     # [surin F4] 자동 수집 스케줄러(30분 주기). 기본 false — 자동 F3 분석→OpenAI 추출 비용 사고 방지.
     # 자동 수집이 필요할 때만 COLLECTION_SCHEDULER_ENABLED=true 로 켠다. 수동 트리거는 항상 가능.
     scheduler-enabled: ${COLLECTION_SCHEDULER_ENABLED:false}
+    # 수집된 뉴스에 대한 F3 분석 자동 트리거. false면 raw_events 저장까지만 하고 LLM 추출을 건너뛴다
+    # (공개 뉴스 속보 패널은 수집 원본만으로 채워지므로 비용 없이 운영 가능).
+    # 주의: 환경변수는 이 줄이 있어야 바인딩된다 — COLLECTION_ANALYSIS_ENABLED만 넣고 여기를 빠뜨리면
+    # @Value가 기본값 true로 떨어져 가드가 조용히 무력화된다(실제로 그렇게 30건이 호출된 적 있음).
+    analysis-enabled: ${COLLECTION_ANALYSIS_ENABLED:true}

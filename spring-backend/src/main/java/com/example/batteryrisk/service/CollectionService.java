@@ -56,6 +56,19 @@ public class CollectionService {
     @Value("${app.collection.scheduler-enabled:false}")
     private boolean schedulerEnabled;
 
+    /**
+     * 수집된 뉴스에 대한 F3 분석 자동 트리거 on/off. 기본 true(기존 동작 유지).
+     *
+     * <p>false로 두면 raw_events 저장까지만 하고 LLM 추출·분석을 건너뛴다 — 공개 뉴스 속보 패널처럼
+     * 뉴스 원본(제목·출처·시각)만 필요한 경우 OpenAI 호출 비용 없이 수집할 수 있다.
+     * GDELT 수집·트리아지 자체는 로컬 XGBoost와 공개 파일만 쓰므로 이 경로에는 비용이 없다.
+     *
+     * <p>수동 검증용 {@link #triggerTestNews}는 이 플래그의 영향을 받지 않는다 — 호출 자체가
+     * "이 뉴스를 분석해보라"는 명시적 의사표시이기 때문이다.
+     */
+    @Value("${app.collection.analysis-enabled:true}")
+    private boolean analysisEnabled;
+
     /** Fast Track: 뉴스·재난은 30분 주기로 최신성이 중요합니다. (schedulerEnabled=true일 때만 실행) */
     @Scheduled(fixedRate = 1_800_000, initialDelay = 60_000)
     public void runFastTrack() {
@@ -96,6 +109,9 @@ public class CollectionService {
         int newItems = 0;
         int analysesTriggered = 0;
         boolean isEventLike = "NEWS".equals(adapter.dataType()) || "DISASTER".equals(adapter.dataType());
+        if (!analysisEnabled && "NEWS".equals(adapter.dataType())) {
+            log.info("{} 수집: 분석 자동 트리거 비활성(app.collection.analysis-enabled=false) — 원본만 저장합니다.", sourceName);
+        }
 
         for (CollectionDto.CollectedItem item : items) {
             if (isEventLike && item.externalId() != null
@@ -112,7 +128,7 @@ public class CollectionService {
             // title==null은 트리아지 통과 기사가 0건인 구간의 커서 전진용 sentinel(GdeltRealtimeTriageAdapter)
             // 이므로 분석 트리거 대상이 아니다. 이 체크가 없으면 sentinel 최초 발생 시 title/content가
             // null인 채로 FastAPI 추출(422)·Analysis 저장(event_title NOT NULL 위반)이 조용히 실패한다.
-            if ("NEWS".equals(adapter.dataType()) && rawEvent.getTitle() != null) {
+            if (analysisEnabled && "NEWS".equals(adapter.dataType()) && rawEvent.getTitle() != null) {
                 UUID analysisId = triggerAnalysis(rawEvent);
                 if (analysisId != null) {
                     rawEvent.markTriggeredAnalysis(analysisId);

@@ -79,6 +79,11 @@ services:
       RAG_SEED_ENABLED: ${RAG_SEED_ENABLED:-false}
       RAG_SEED_DIRECTORY: /app/rag-seed
       AUTH_TEST_SEED_ENABLED: ${AUTH_TEST_SEED_ENABLED:-false}
+      # 뉴스 수집(GDELT)은 로컬 XGBoost·공개 파일만 써서 비용이 없지만, 수집된 뉴스마다 도는
+      # F3 분석은 OpenAI 추출을 호출한다. 공개 뉴스 속보 패널은 수집 원본만으로 채워지므로
+      # 비용 없이 수집만 하려면 COLLECTION_ANALYSIS_ENABLED=false로 둔다.
+      COLLECTION_SCHEDULER_ENABLED: ${COLLECTION_SCHEDULER_ENABLED:-false}
+      COLLECTION_ANALYSIS_ENABLED: ${COLLECTION_ANALYSIS_ENABLED:-true}
       TZ: Asia/Seoul
     ports:
       - "${SPRING_PORT:-8080}:8080"
