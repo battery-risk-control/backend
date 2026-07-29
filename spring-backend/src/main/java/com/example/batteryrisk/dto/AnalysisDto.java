@@ -20,6 +20,19 @@ public final class AnalysisDto {
             @JsonProperty("bdi_index") Double bdiIndex
     ) {}
 
+    /** FastAPI ExtractionResult와 동일한 필드 구성 — 이미 완료된 추출 결과를 /analyze로 그대로 전달할 때 사용합니다. */
+    public record ExtractionOverride(
+            @JsonProperty("country_code") String countryCode,
+            @JsonProperty("affected_materials") List<String> affectedMaterials,
+            @JsonProperty("event_type") String eventType,
+            @JsonProperty("tone_score") Double toneScore,
+            @JsonProperty("impact_domain_draft") String impactDomainDraft,
+            @JsonProperty("summary_kr") String summaryKr,
+            @JsonProperty("is_supply_chain_relevant") Boolean isSupplyChainRelevant,
+            @JsonProperty("extraction_model_version") String extractionModelVersion,
+            Boolean mock
+    ) {}
+
     public record AnalyzeRequest(
             @JsonProperty("material_id") Long materialId,
             @JsonProperty("supplier_id") Long supplierId,
@@ -29,12 +42,19 @@ public final class AnalysisDto {
             @JsonProperty("event_content") String eventContent,
             @JsonProperty("source_name") String sourceName,
             @JsonProperty("country_code") String countryCode,
-            @JsonProperty("feature_overrides") FeatureOverrides featureOverrides
+            @JsonProperty("feature_overrides") FeatureOverrides featureOverrides,
+            @JsonProperty("extraction_override") ExtractionOverride extractionOverride
     ) {
         public AnalyzeRequest(
                 Long materialId, Long supplierId, String eventTitle, String eventContent,
                 String sourceName, String countryCode) {
-            this(materialId, supplierId, eventTitle, eventContent, sourceName, countryCode, null);
+            this(materialId, supplierId, eventTitle, eventContent, sourceName, countryCode, null, null);
+        }
+
+        public AnalyzeRequest(
+                Long materialId, Long supplierId, String eventTitle, String eventContent,
+                String sourceName, String countryCode, FeatureOverrides featureOverrides) {
+            this(materialId, supplierId, eventTitle, eventContent, sourceName, countryCode, featureOverrides, null);
         }
     }
 
@@ -83,7 +103,8 @@ public final class AnalysisDto {
     /** FastAPI POST /api/v1/analyze 요청 바디입니다. FastAPI 스펙은 event를 중첩 객체로 받습니다. */
     public record FastApiAnalyzeRequest(
             FastApiEvent event,
-            @JsonProperty("feature_overrides") FastApiFeatureOverrides featureOverrides
+            @JsonProperty("feature_overrides") FastApiFeatureOverrides featureOverrides,
+            @JsonProperty("extraction_override") ExtractionOverride extractionOverride
     ) {}
 
     public record FastApiEvent(

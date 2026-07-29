@@ -52,7 +52,8 @@ public class AnalysisService {
         analysisRepository.saveAndFlush(analysis);
 
         try {
-            AnalysisDto.FastApiAnalyzeData data = requestFastApiAnalysis(analysis, request.featureOverrides());
+            AnalysisDto.FastApiAnalyzeData data = requestFastApiAnalysis(
+                    analysis, request.featureOverrides(), request.extractionOverride());
             analysis.markCompleted(
                     data.classification().impactDomain(), data.classification().confidence(),
                     data.severity().severity(), data.severity().score(),
@@ -169,7 +170,8 @@ public class AnalysisService {
     }
 
     private AnalysisDto.FastApiAnalyzeData requestFastApiAnalysis(
-            Analysis analysis, AnalysisDto.FeatureOverrides overrides) {
+            Analysis analysis, AnalysisDto.FeatureOverrides overrides,
+            AnalysisDto.ExtractionOverride extractionOverride) {
         AnalysisDto.FastApiEvent event = new AnalysisDto.FastApiEvent(
                 analysis.getAnalysisId().toString(), analysis.getEventTitle(), analysis.getEventContent(),
                 analysis.getSourceName() != null ? analysis.getSourceName() : "SPRING",
@@ -179,7 +181,7 @@ public class AnalysisService {
                         overrides.goldsteinScale(), overrides.newsCount(), overrides.countryIsMiningHub(),
                         overrides.gdacsAlertLevel(), overrides.stockVolatility20d(), overrides.bdiIndex());
         AnalysisDto.FastApiAnalyzeRequest fastApiRequest =
-                new AnalysisDto.FastApiAnalyzeRequest(event, fastApiOverrides);
+                new AnalysisDto.FastApiAnalyzeRequest(event, fastApiOverrides, extractionOverride);
 
         AnalysisDto.FastApiAnalyzeResponse response;
         try {

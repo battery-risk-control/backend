@@ -13,10 +13,14 @@ public final class ExtractionDto {
     public record ExtractResponse(boolean success, ExtractData data) {}
 
     public record ExtractData(
+            @JsonProperty("country_code") String countryCode,
             @JsonProperty("affected_materials") List<String> affectedMaterials,
             @JsonProperty("event_type") String eventType,
             @JsonProperty("impact_domain_draft") String impactDomainDraft,
             @JsonProperty("tone_score") Double toneScore,
-            @JsonProperty("summary_kr") String summaryKr
+            @JsonProperty("summary_kr") String summaryKr,
+            @JsonProperty("is_supply_chain_relevant") Boolean isSupplyChainRelevant,
+            @JsonProperty("extraction_model_version") String extractionModelVersion,
+            Boolean mock
     ) {}
 }

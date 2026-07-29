@@ -42,7 +42,9 @@ class OrchestrationService:
     def analyze(self, request: AnalyzeRequest) -> AnalyzeResponseData:
         self.risk_repository.remember(request.event.external_event_id)
 
-        extraction = self.extraction.extract(request.event)
+        # 호출자(Spring CollectionService)가 feature_overrides 계산을 위해 이미 추출을
+        # 한 번 마쳤다면 그 결과를 재사용하고, 여기서 같은 뉴스를 다시 추출하지 않는다.
+        extraction = request.extraction_override or self.extraction.extract(request.event)
         features = self.feature.build(request.feature_overrides, request.options.enrich_features)
         # 추출이 판단한 톤·공급망 관련성을 심각도 입력에 반영(override 명시 시 존중).
         feature_updates = {}

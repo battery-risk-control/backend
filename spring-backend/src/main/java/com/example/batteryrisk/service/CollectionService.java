@@ -109,7 +109,10 @@ public class CollectionService {
             rawEventRepository.saveAndFlush(rawEvent);
             newItems++;
 
-            if ("NEWS".equals(adapter.dataType())) {
+            // title==null은 트리아지 통과 기사가 0건인 구간의 커서 전진용 sentinel(GdeltRealtimeTriageAdapter)
+            // 이므로 분석 트리거 대상이 아니다. 이 체크가 없으면 sentinel 최초 발생 시 title/content가
+            // null인 채로 FastAPI 추출(422)·Analysis 저장(event_title NOT NULL 위반)이 조용히 실패한다.
+            if ("NEWS".equals(adapter.dataType()) && rawEvent.getTitle() != null) {
                 UUID analysisId = triggerAnalysis(rawEvent);
                 if (analysisId != null) {
                     rawEvent.markTriggeredAnalysis(analysisId);
@@ -151,12 +154,19 @@ public class CollectionService {
                 analysisId != null ? "SUCCESS" : "ANALYSIS_TRIGGER_FAILED");
     }
 
+    /**
+     * 추출은 여기서 딱 한 번만 호출한다(feature_overrides의 material 파생용). 그 결과를
+     * extraction_override로 /analyze에 그대로 실어 보내, FastAPI가 같은 뉴스를 다시
+     * 추출하지 않도록 한다(중복 LLM 호출 제거).
+     */
     private UUID triggerAnalysis(RawEvent rawEvent) {
         try {
-            AnalysisDto.FeatureOverrides overrides = buildFeatureOverrides(rawEvent);
+            ExtractionDto.ExtractData extraction = extractionClient.extract(
+                    rawEvent.getTitle(), rawEvent.getContent(), rawEvent.getCountryCode());
+            AnalysisDto.FeatureOverrides overrides = buildFeatureOverrides(rawEvent, extraction);
             AnalysisDto.AnalysisResponse response = analysisService.create(new AnalysisDto.AnalyzeRequest(
                     null, null, rawEvent.getTitle(), rawEvent.getContent(),
-                    rawEvent.getSource(), rawEvent.getCountryCode(), overrides));
+                    rawEvent.getSource(), rawEvent.getCountryCode(), overrides, toExtractionOverride(extraction)));
             return UUID.fromString(response.analysisId());
         } catch (RuntimeException exception) {
             log.warn("수집된 뉴스에 대한 분석 트리거 실패: {}", exception.getMessage(), exception);
@@ -164,12 +174,10 @@ public class CollectionService {
         }
     }
 
-    private AnalysisDto.FeatureOverrides buildFeatureOverrides(RawEvent rawEvent) {
+    private AnalysisDto.FeatureOverrides buildFeatureOverrides(RawEvent rawEvent, ExtractionDto.ExtractData extraction) {
         String countryCode = rawEvent.getCountryCode();
         Instant eventTimestamp = rawEvent.getCollectedAt();
 
-        ExtractionDto.ExtractData extraction = extractionClient.extract(
-                rawEvent.getTitle(), rawEvent.getContent(), countryCode);
         String material = extraction != null && !extraction.affectedMaterials().isEmpty()
                 ? extraction.affectedMaterials().get(0) : null;
 
@@ -184,6 +192,17 @@ public class CollectionService {
         return new AnalysisDto.FeatureOverrides(
                 joinResult.goldsteinScale(), (int) newsCount, miningHub,
                 joinResult.gdacsAlertLevel(), joinResult.stockVolatility20d(), bdiIndex);
+    }
+
+    /** extraction이 null(FastAPI 호출 실패 등)이면 null을 반환 — analyze()가 자체적으로 재추출하도록 정상 폴백된다. */
+    private AnalysisDto.ExtractionOverride toExtractionOverride(ExtractionDto.ExtractData extraction) {
+        if (extraction == null) {
+            return null;
+        }
+        return new AnalysisDto.ExtractionOverride(
+                extraction.countryCode(), extraction.affectedMaterials(), extraction.eventType(),
+                extraction.toneScore(), extraction.impactDomainDraft(), extraction.summaryKr(),
+                extraction.isSupplyChainRelevant(), extraction.extractionModelVersion(), extraction.mock());
     }
 
     private <T> T parseKeyValue(String content, String key, Function<String, T> parser) {

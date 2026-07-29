@@ -48,6 +48,9 @@ class AnalyzeRequest(ApiModel):
     event: EventInput
     options: AnalyzeOptions = AnalyzeOptions()
     feature_overrides: Optional[FeatureOverrides] = None
+    # [surin F4] 호출자가 이미 /internal/llm/extract로 추출을 마쳤다면 그 결과를 그대로 전달해
+    # analyze() 내부에서 같은 뉴스에 대해 LLM 추출을 중복 호출하지 않도록 한다.
+    extraction_override: Optional[ExtractionResult] = None
 
 
 class FeatureVector(ApiModel):
