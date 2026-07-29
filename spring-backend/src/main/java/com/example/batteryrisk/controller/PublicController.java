@@ -43,4 +43,13 @@ public class PublicController {
     public ApiResponse<List<RiskEventDto.AiRecommendationItem>> recommendations() {
         return ApiResponse.ok(riskEventService.aiRecommendations());
     }
+
+    @Operation(
+            summary = "실시간 뉴스 속보 (비로그인 공개)",
+            description = "수집 원본(raw_events)의 최신 뉴스를 반환한다. 분석(F3)이 붙지 않은 뉴스도 포함하므로 "
+                    + "LLM 호출 없이 수집만으로도 채워진다.")
+    @GetMapping("/news-feed")
+    public ApiResponse<List<RiskEventDto.NewsFeedItem>> newsFeed() {
+        return ApiResponse.ok(riskEventService.newsFeed());
+    }
 }

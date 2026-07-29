@@ -94,4 +94,19 @@ public final class RiskEventDto {
             String confidenceLabel,
             String recommendation
     ) {}
+
+    /**
+     * 비로그인 공개 화면의 실시간 뉴스 속보 1건. 프론트 {@code NewsFeedItem} 계약과 1:1.
+     *
+     * <p>{@code raw_events}의 수집 원본에서 만들며, 분석(F3)이 붙은 뉴스면 그 결과로 자재·신뢰도를
+     * 채우고 아니면 제목 키워드로 자재만 추정한다 — 뉴스 원본 노출에 LLM 호출이 필요 없게 하기 위함이다.
+     */
+    public record NewsFeedItem(
+            String riskEventId,
+            @Schema(example = "2026-07-29", description = "수집일(Asia/Seoul)") String date,
+            String material,
+            @Schema(example = "GDELT") String source,
+            String headline,
+            String confidenceLabel
+    ) {}
 }

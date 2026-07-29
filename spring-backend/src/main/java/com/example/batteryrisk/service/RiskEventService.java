@@ -1,10 +1,12 @@
 package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.domain.Analysis;
+import com.example.batteryrisk.domain.RawEvent;
 import com.example.batteryrisk.dto.RiskEventDto.AiRecommendationItem;
 import com.example.batteryrisk.dto.RiskEventDto.Coordinates;
 import com.example.batteryrisk.dto.RiskEventDto.ErpView;
 import com.example.batteryrisk.dto.RiskEventDto.MarketContext;
+import com.example.batteryrisk.dto.RiskEventDto.NewsFeedItem;
 import com.example.batteryrisk.dto.RiskEventDto.OutputArtifacts;
 import com.example.batteryrisk.dto.RiskEventDto.QualityCheck;
 import com.example.batteryrisk.dto.RiskEventDto.RagView;
@@ -12,11 +14,14 @@ import com.example.batteryrisk.dto.RiskEventDto.RiskBoardItem;
 import com.example.batteryrisk.dto.RiskEventDto.RiskEvent;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.AnalysisSupplierRecommendationRepository;
+import com.example.batteryrisk.repository.RawEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -178,14 +183,45 @@ public class RiskEventService {
             "주의", "대체 조달처 사전 확보 권고",
             "정상", "정기 모니터링 유지");
 
+    /** 공개 뉴스 속보에 올릴 최대 건수. */
+    private static final int NEWS_FEED_LIMIT = 20;
+
+    /** 중복 제거·자재 필터 전에 훑을 최신 뉴스 건수. 노출 상한보다 넉넉히 잡는다. */
+    private static final int NEWS_FEED_SCAN_SIZE = 200;
+
+    /** 사용자에게 보이는 날짜는 서비스 기준 시간대로 표기한다(collected_at은 UTC Instant). */
+    private static final ZoneId DISPLAY_ZONE = ZoneId.of("Asia/Seoul");
+
+    /**
+     * 분석이 붙지 않은 뉴스의 자재를 제목에서 추정하기 위한 키워드.
+     * FastAPI {@code extraction_inference._MATERIAL_KEYWORDS}를 화면 표기용으로 옮긴 것이며,
+     * <b>표시 목적에만 쓴다</b> — F9 매칭·ERP 조인 같은 판단에는 쓰지 않으므로 두 곳이 다소 어긋나도
+     * 기능이 깨지지 않는다. 자재를 추가할 때 이쪽을 잊어도 "기타"로 떨어질 뿐이다.
+     */
+    private static final Map<String, List<String>> MATERIAL_KEYWORDS = Map.of(
+            "니켈", List.of("nickel", "니켈"),
+            "코발트", List.of("cobalt", "코발트"),
+            "리튬", List.of("lithium", "리튬"),
+            "흑연", List.of("graphite", "흑연"),
+            "망간", List.of("manganese", "망간"),
+            "구리", List.of("copper", "구리"),
+            "알루미늄", List.of("aluminum", "aluminium", "알루미늄"),
+            "희토류", List.of("rare earth", "rare-earth", "희토류"));
+
+    /** 키워드로도 자재를 못 정한 뉴스의 표기. 화면에서 빈 칸이 보이지 않게 한다. */
+    private static final String UNCLASSIFIED_MATERIAL = "기타";
+
     private final AnalysisRepository analysisRepository;
     private final AnalysisSupplierRecommendationRepository supplierRecommendationRepository;
+    private final RawEventRepository rawEventRepository;
 
     public RiskEventService(
             AnalysisRepository analysisRepository,
-            AnalysisSupplierRecommendationRepository supplierRecommendationRepository) {
+            AnalysisSupplierRecommendationRepository supplierRecommendationRepository,
+            RawEventRepository rawEventRepository) {
         this.analysisRepository = analysisRepository;
         this.supplierRecommendationRepository = supplierRecommendationRepository;
+        this.rawEventRepository = rawEventRepository;
     }
 
     /**
@@ -293,6 +329,106 @@ public class RiskEventService {
             return base;
         }
         return base + " — 대체 후보 " + candidateCount + "곳 확인됨";
+    }
+
+    /**
+     * 비로그인 공개 화면의 실시간 뉴스 속보. 수집 원본({@code raw_events})의 최신 뉴스를 그대로 보여준다.
+     *
+     * <p>지도·권고 리스트가 <b>분석 결과</b>를 보여주는 것과 달리 이쪽은 <b>수집 원본</b>이라, 분석(F3)이
+     * 돌지 않아도 화면이 채워진다. 덕분에 {@code app.collection.analysis-enabled=false}로 두면
+     * LLM 호출 없이 뉴스만 수집해 이 패널을 운영할 수 있다.
+     *
+     * <p>자재·신뢰도는 분석이 붙은 뉴스면 분석 결과에서, 아니면 제목 키워드에서 파생한다.
+     * 수집된 뉴스가 0건이면 placeholder로 폴백한다(지도·권고 리스트와 같은 방침).
+     */
+    public List<NewsFeedItem> newsFeed() {
+        List<RawEvent> events = rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(
+                "NEWS", PageRequest.of(0, NEWS_FEED_SCAN_SIZE));
+        Map<UUID, Analysis> analysesById = loadAnalyses(events);
+
+        // 같은 기사가 GDELT GlobalEventID만 다른 채로 여러 번 들어오므로 제목 기준으로 한 번만 남긴다.
+        Map<String, NewsFeedItem> unique = new LinkedHashMap<>();
+        for (RawEvent event : events) {
+            unique.putIfAbsent(
+                    event.getTitle().trim(),
+                    toNewsFeedItem(event, analysesById.get(event.getTriggeredAnalysisId())));
+        }
+
+        // 자재가 특정된 뉴스만 노출한다. GDELT 트리아지는 생산국 이벤트를 폭넓게 통과시켜서 공급망과
+        // 무관한 기사(정치·사건사고 등)가 상당수 섞여 들어오는데, "공급망 뉴스 속보" 패널에 그런 기사를
+        // 올리면 화면이 오히려 망가진다 — 실측에서 19건 중 자재 매칭 0건이 나온 적이 있다.
+        List<NewsFeedItem> supplyChainNews = unique.values().stream()
+                .filter(item -> !UNCLASSIFIED_MATERIAL.equals(item.material()))
+                .limit(NEWS_FEED_LIMIT)
+                .toList();
+
+        // 한 건도 없으면 무관한 기사를 채우는 대신 placeholder로 폴백한다(지도·권고 리스트와 같은 방침).
+        // 공급망 뉴스가 수집되는 즉시 자동으로 실데이터로 전환된다.
+        if (supplyChainNews.isEmpty()) {
+            log.info("자재가 특정된 뉴스가 없어 공개 뉴스 속보를 placeholder로 폴백합니다. (수집 뉴스 {}건)", unique.size());
+            return PLACEHOLDER_EVENTS.stream().map(RiskEventService::toNewsFeedItem).toList();
+        }
+        return supplyChainNews;
+    }
+
+    /** 뉴스에 붙은 분석을 한 번에 조회한다(분석이 없는 뉴스만 있으면 쿼리를 생략). */
+    private Map<UUID, Analysis> loadAnalyses(List<RawEvent> events) {
+        List<UUID> analysisIds = events.stream()
+                .map(RawEvent::getTriggeredAnalysisId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (analysisIds.isEmpty()) {
+            return Map.of();
+        }
+        return analysisRepository.findAllById(analysisIds).stream()
+                .collect(Collectors.toMap(Analysis::getAnalysisId, analysis -> analysis));
+    }
+
+    private static NewsFeedItem toNewsFeedItem(RawEvent event, Analysis analysis) {
+        String material = analysis != null && analysis.getMaterialCategory() != null
+                ? MATERIAL_NAME_KO.getOrDefault(analysis.getMaterialCategory(), analysis.getMaterialCategory())
+                : guessMaterial(event.getTitle(), event.getContent());
+        return new NewsFeedItem(
+                analysis != null ? analysis.getAnalysisId().toString() : "RAW-" + event.getId(),
+                LocalDate.ofInstant(event.getCollectedAt(), DISPLAY_ZONE).toString(),
+                material,
+                event.getSource(),
+                event.getTitle(),
+                analysis != null ? confidenceLabel(analysis) : "참고");
+    }
+
+    /**
+     * 분석이 없는 뉴스의 자재 추정. FastAPI {@code MockExtractionInference}와 같이 <b>제목+본문</b>을 본다 —
+     * 제목만 보면 놓치는 기사가 많다(실측: 수집 150건 중 제목 매칭 0건, 본문 매칭 4건).
+     * 여러 자재가 걸리면 먼저 매칭된 하나만 표기한다(속보 한 줄 표기용).
+     */
+    private static String guessMaterial(String title, String content) {
+        String text = ((title == null ? "" : title) + " " + (content == null ? "" : content)).toLowerCase();
+        return MATERIAL_KEYWORDS.entrySet().stream()
+                .filter(entry -> entry.getValue().stream().anyMatch(text::contains))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(UNCLASSIFIED_MATERIAL);
+    }
+
+    /** placeholder RiskEvent → 뉴스 속보 변환(수집 뉴스 0건 폴백 전용). */
+    private static NewsFeedItem toNewsFeedItem(RiskEvent event) {
+        return new NewsFeedItem(
+                event.riskEventId(),
+                parsePlaceholderDate(event.riskEventId()),
+                event.marketContext().material(),
+                event.marketContext().source(),
+                event.marketContext().eventSummary(),
+                event.confidenceLabel());
+    }
+
+    /** placeholder id 형식 "RISK-yyyy-MMdd-nnn"에서 날짜를 뽑는다. 형식이 다르면 오늘 날짜로 둔다. */
+    private static String parsePlaceholderDate(String riskEventId) {
+        String[] parts = riskEventId.split("-");
+        if (parts.length >= 3 && parts[1].length() == 4 && parts[2].length() == 4) {
+            return parts[1] + "-" + parts[2].substring(0, 2) + "-" + parts[2].substring(2);
+        }
+        return LocalDate.now(DISPLAY_ZONE).toString();
     }
 
     private static RiskBoardItem toBoardItem(Analysis analysis, String grade) {
