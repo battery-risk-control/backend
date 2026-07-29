@@ -1,6 +1,7 @@
 package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.domain.Analysis;
+import com.example.batteryrisk.dto.RiskEventDto.AiRecommendationItem;
 import com.example.batteryrisk.dto.RiskEventDto.Coordinates;
 import com.example.batteryrisk.dto.RiskEventDto.ErpView;
 import com.example.batteryrisk.dto.RiskEventDto.MarketContext;
@@ -10,6 +11,7 @@ import com.example.batteryrisk.dto.RiskEventDto.RagView;
 import com.example.batteryrisk.dto.RiskEventDto.RiskBoardItem;
 import com.example.batteryrisk.dto.RiskEventDto.RiskEvent;
 import com.example.batteryrisk.repository.AnalysisRepository;
+import com.example.batteryrisk.repository.AnalysisSupplierRecommendationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +20,9 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 구매팀 대시보드의 허브인 리스크 이벤트 목록을 프론트 RiskEvent 계약으로 제공한다.
@@ -164,10 +169,23 @@ public class RiskEventService {
                     new RagView("기존 계약서 3조(정기 검수) — 별도 특이사항 없음", List.of()),
                     JSON_ONLY));
 
-    private final AnalysisRepository analysisRepository;
+    /**
+     * 등급별 기본 권고 문구. 공개 화면이므로 ERP 내부 상세 없이 등급만으로 판단 가능한 일반 조치를 쓴다
+     * (프론트 mock의 RECOMMENDATION_BY_GRADE와 같은 문구 — 실 API 전환 시 화면 표현이 바뀌지 않게).
+     */
+    private static final Map<String, String> RECOMMENDATION_BY_GRADE = Map.of(
+            "심각", "즉시 대체 조달처 검토 필요",
+            "주의", "대체 조달처 사전 확보 권고",
+            "정상", "정기 모니터링 유지");
 
-    public RiskEventService(AnalysisRepository analysisRepository) {
+    private final AnalysisRepository analysisRepository;
+    private final AnalysisSupplierRecommendationRepository supplierRecommendationRepository;
+
+    public RiskEventService(
+            AnalysisRepository analysisRepository,
+            AnalysisSupplierRecommendationRepository supplierRecommendationRepository) {
         this.analysisRepository = analysisRepository;
+        this.supplierRecommendationRepository = supplierRecommendationRepository;
     }
 
     /**
@@ -221,6 +239,60 @@ public class RiskEventService {
             return PLACEHOLDER_EVENTS.stream().map(RiskEventService::toBoardItem).toList();
         }
         return List.copyOf(markers.values());
+    }
+
+    /**
+     * 비로그인 공개 화면의 AI 기반 권고 조치 리스트.
+     *
+     * <p><b>{@link #riskBoard()}와 같은 분석 집합에서 파생한다</b> — 지도와 권고 리스트가 서로 다른 자재를
+     * 가리키는 일이 구조적으로 생기지 않게 하기 위함이다(둘을 따로 조회하면 정렬·상한·중복 제거 규칙이
+     * 어긋나는 순간 화면이 모순된다). 따라서 riskBoard()가 placeholder로 폴백하면 이쪽도 함께 폴백한다.
+     *
+     * <p>문구는 등급 기반 일반 조치이며, F9가 대체 공급사를 이미 뽑아둔 분석이면 <b>후보 수만</b> 덧붙인다.
+     * 공개 화면이라 공급사명·재고일수 등 ERP 내부 상세는 노출하지 않는다.
+     */
+    public List<AiRecommendationItem> aiRecommendations() {
+        List<RiskBoardItem> board = riskBoard();
+        Map<String, Long> candidateCounts = countSupplierCandidates(board);
+
+        return board.stream()
+                .map(item -> new AiRecommendationItem(
+                        item.riskEventId(), item.material(), item.grade(), item.confidenceLabel(),
+                        recommendationText(item.grade(), candidateCounts.get(item.riskEventId()))))
+                .toList();
+    }
+
+    /**
+     * 분석 id별 F9 대체 공급사 후보 수. placeholder 폴백 시 risk_event_id는 UUID가 아니므로(RISK-YYYY-...)
+     * 파싱 가능한 것만 조회 대상으로 삼고, 조회 대상이 없으면 쿼리 자체를 생략한다.
+     */
+    private Map<String, Long> countSupplierCandidates(List<RiskBoardItem> board) {
+        List<UUID> analysisIds = board.stream()
+                .map(item -> parseUuidOrNull(item.riskEventId()))
+                .filter(Objects::nonNull)
+                .toList();
+        if (analysisIds.isEmpty()) {
+            return Map.of();
+        }
+        return supplierRecommendationRepository.findByAnalysisIdIn(analysisIds).stream()
+                .collect(Collectors.groupingBy(
+                        recommendation -> recommendation.getAnalysisId().toString(), Collectors.counting()));
+    }
+
+    private static UUID parseUuidOrNull(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private static String recommendationText(String grade, Long candidateCount) {
+        String base = RECOMMENDATION_BY_GRADE.getOrDefault(grade, "정기 모니터링 유지");
+        if (candidateCount == null || candidateCount == 0) {
+            return base;
+        }
+        return base + " — 대체 후보 " + candidateCount + "곳 확인됨";
     }
 
     private static RiskBoardItem toBoardItem(Analysis analysis, String grade) {

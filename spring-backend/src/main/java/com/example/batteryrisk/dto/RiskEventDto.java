@@ -79,4 +79,19 @@ public final class RiskEventDto {
             String countryName,
             Coordinates coordinates
     ) {}
+
+    /**
+     * 비로그인 공개 화면의 AI 기반 권고 조치 1건. 프론트 {@code AiRecommendation} 계약과 1:1.
+     *
+     * <p>{@link RiskBoardItem}과 같은 분석 집합에서 파생되므로 지도와 항상 같은 자재·등급을 가리킨다.
+     * 공개 화면이라 {@code recommendation} 문구에 <b>공급사명·재고일수 같은 ERP 내부 상세는 넣지 않는다</b>
+     * — 대체 후보는 개수까지만 표현한다.
+     */
+    public record AiRecommendationItem(
+            String riskEventId,
+            String material,
+            String grade,
+            String confidenceLabel,
+            String recommendation
+    ) {}
 }

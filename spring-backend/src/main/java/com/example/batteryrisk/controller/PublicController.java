@@ -34,4 +34,13 @@ public class PublicController {
     public ApiResponse<List<RiskEventDto.RiskBoardItem>> riskBoard() {
         return ApiResponse.ok(riskEventService.riskBoard());
     }
+
+    @Operation(
+            summary = "AI 기반 권고 조치 리스트 (비로그인 공개)",
+            description = "risk-board와 같은 분석 집합에서 파생하므로 지도와 항상 같은 자재·등급을 가리킨다. "
+                    + "권고 문구에 공급사명·재고일수 등 ERP 내부 상세는 포함하지 않는다.")
+    @GetMapping("/recommendations")
+    public ApiResponse<List<RiskEventDto.AiRecommendationItem>> recommendations() {
+        return ApiResponse.ok(riskEventService.aiRecommendations());
+    }
 }
