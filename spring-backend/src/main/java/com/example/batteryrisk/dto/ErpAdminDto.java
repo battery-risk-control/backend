@@ -144,4 +144,34 @@ public final class ErpAdminDto {
             @NotBlank String batchNumber,
             OffsetDateTime qualityReleasedAt
     ) {}
+
+    // --- 아웃바운드(LG에너지솔루션 -> 완성차/ESS 고객사) 전용, 인바운드 테이블과 완전히 분리 ---
+
+    public record ProductUpsertRequest(
+            @NotBlank @Schema(example = "PROD-001") String erpProductId,
+            @NotBlank String nameEn,
+            @NotBlank String nameKr,
+            @NotBlank String productLine
+    ) {}
+
+    public record CustomerUpsertRequest(
+            @NotBlank @Schema(example = "CUST-001") String erpCustomerId,
+            @NotBlank String nameEn,
+            @NotBlank String nameKr,
+            @NotBlank String countryCode
+    ) {}
+
+    public record OutboundContractUpsertRequest(
+            @NotBlank @Schema(example = "CTR-OUT-001") String erpOutboundContractId,
+            @NotBlank @Schema(example = "PROD-001") String erpProductId,
+            @NotBlank @Schema(example = "CUST-001") String erpCustomerId,
+            @NotBlank String seller,
+            @NotNull @DecimalMin("0") BigDecimal quantityGwh,
+            @NotNull @DecimalMin("0") BigDecimal unitPriceUsdKwh,
+            @NotNull @DecimalMin("0") BigDecimal penaltyPct,
+            BigDecimal lineStopChargeUsd,
+            BigDecimal lineStopChargeKrw,
+            @NotNull @Positive Integer deliveryLeadTimeDays,
+            @NotBlank String contractLanguage
+    ) {}
 }

@@ -1,0 +1,17 @@
+﻿product_id,name_en,name_kr,product_line
+PROD-001,NCM 9-Series Battery Cells,NCM 9-시리즈 배터리 셀,NCM
+PROD-002,NCM 6-Series Battery Cells,NCM 6-시리즈 배터리 셀,NCM
+PROD-003,High-Nickel Pouch Cells,하이니켈 파우치 셀,NCM
+PROD-004,Cylindrical Battery 4680,46시리즈 원통형 배터리(4680),Cylindrical
+PROD-005,Cylindrical Battery 2170,21700 원통형 배터리,Cylindrical
+PROD-006,LFP Battery Packs,LFP 배터리 팩,LFP
+PROD-007,LFP ESS Racks,LFP ESS 랙,LFP
+PROD-008,NCA Cylindrical Cells,NCA 원통형 셀,NCA
+PROD-009,Prismatic Battery Modules,각형 배터리 모듈,Prismatic
+PROD-010,Standard Range NCM Packs,표준형 NCM 팩,NCM
+PROD-011,Commercial EV Battery Packs,상용 전기차 배터리 팩,Commercial
+PROD-012,Home ESS Units,가정용 ESS 유닛,ESS
+PROD-013,Grid-Scale ESS Containers,계통연계형 ESS 컨테이너,ESS
+PROD-014,Two-Wheeler Battery Packs,이륜차 배터리 팩,TwoWheeler
+PROD-015,Drive Motor Magnet Assembly,구동모터 마그넷 어셈블리,Motor
+PROD-016,Traction Motor Rotor Modules,견인모터 로터 모듈,Motor

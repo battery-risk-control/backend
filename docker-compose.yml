@@ -79,7 +79,8 @@ services:
       UPLOAD_ROOT: /app/uploads
       ERP_SEED_ENABLED: ${ERP_SEED_ENABLED:-false}
       ERP_SEED_DIRECTORY: /app/erp-seed
-
+      OUTBOUND_ERP_SEED_ENABLED: ${OUTBOUND_ERP_SEED_ENABLED:-false}
+      OUTBOUND_ERP_SEED_DIRECTORY: /app/outbound-erp-seed
 
       RAG_SEED_ENABLED: ${RAG_SEED_ENABLED:-false}
       RAG_SEED_DIRECTORY: /app/rag-seed
@@ -97,6 +98,7 @@ services:
     volumes:
       - battery_spring_uploads:/app/uploads
       - ./data/ERP_data/spring-csv:/app/erp-seed
+      - ./data/ERP_data/outbound-mock:/app/outbound-erp-seed
       - ./data/RAG_DATA/erp_aligned:/app/rag-seed
 
     depends_on:

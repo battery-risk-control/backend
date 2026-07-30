@@ -17,6 +17,8 @@ class RagFilters(ApiModel):
     supplier_id: int | None = None
     material_id: int | None = None
     contract_id: int | None = None
+    product_id: int | None = None
+    customer_id: int | None = None
     clause_types: list[str] = Field(default_factory=list)
 
 
@@ -29,8 +31,6 @@ class RagSearchRequest(ApiModel):
 class RagSearchItem(ApiModel):
     document_id: str
     contract_id: int
-    supplier_id: int
-    material_id: int
     document_type: str
     chunk_index: int
     clause_id: int | None = None
@@ -42,6 +42,11 @@ class RagSearchItem(ApiModel):
     embedding_type: str
     embedding_version: str
     mock_embedding: bool
+    # 인바운드/아웃바운드 문서에 따라 한 쌍만 채워진다(app/schemas/document.py와 동일 이유)
+    supplier_id: int | None = None
+    material_id: int | None = None
+    product_id: int | None = None
+    customer_id: int | None = None
 
 
 class RagSearchResult(ApiModel):

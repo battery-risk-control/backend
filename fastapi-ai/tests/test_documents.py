@@ -79,6 +79,8 @@ def test_process_text_document_and_detect_duplicate():
         "contract_id": 1,
         "supplier_id": 2,
         "material_id": 3,
+        "product_id": None,
+        "customer_id": None,
         "document_type": "LTA",
         "content_hash": first.json()["data"]["content_hash"],
     }
@@ -117,11 +119,12 @@ def test_document_chunk_output_is_exposed_in_openapi():
     operation = schema["paths"]["/api/v1/documents/process"]["post"]
     assert "200" in operation["responses"]
 
+    # supplier_id/material_id(인바운드)와 product_id/customer_id(아웃바운드)는 문서 종류에 따라
+    # 둘 중 한 쌍만 채워지므로 스키마 레벨에선 전부 optional — 실제 인바운드 응답값은 그대로 채워짐.
     chunk_schema = schema["components"]["schemas"]["DocumentChunkResult"]
     assert set(chunk_schema["required"]) == {
         "document_id", "chunk_index", "page_number", "content",
-        "contract_id", "supplier_id", "material_id", "document_type",
-        "content_hash",
+        "contract_id", "document_type", "content_hash",
     }
 
 

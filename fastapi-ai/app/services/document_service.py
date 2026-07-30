@@ -30,22 +30,24 @@ class ExtractedPage:
 class DocumentChunk:
     document_id: str
     contract_id: int
-    supplier_id: int
-    material_id: int
     document_type: str
     file_name: str
     content_hash: str
     content: str
     chunk_index: int
     page_number: int
+    # 인바운드(공급사 계약)는 supplier_id+material_id, 아웃바운드(고객사 계약)는
+    # product_id+customer_id — 최소 한 쌍은 있어야 한다(ChromaVectorStore._normalize_chunk 검증).
+    supplier_id: int | None = None
+    material_id: int | None = None
+    product_id: int | None = None
+    customer_id: int | None = None
 
 
 @dataclass(frozen=True)
 class ProcessedDocument:
     document_id: str
     contract_id: int
-    supplier_id: int
-    material_id: int
     document_type: str
     file_name: str
     content_hash: str
@@ -53,6 +55,10 @@ class ProcessedDocument:
     embedding_type: str
     embedding_version: str
     mock_embedding: bool
+    supplier_id: int | None = None
+    material_id: int | None = None
+    product_id: int | None = None
+    customer_id: int | None = None
 
 
 class InMemoryDocumentStore:
@@ -120,11 +126,13 @@ class DocumentService:
         content: bytes,
         file_name: str,
         contract_id: int,
-        supplier_id: int,
-        material_id: int,
+        supplier_id: int | None,
+        material_id: int | None,
         document_type: str,
         document_id: str,
         force_reprocess: bool = False,
+        product_id: int | None = None,
+        customer_id: int | None = None,
     ) -> tuple[ProcessedDocument, bool]:
         content_hash = sha256(content).hexdigest()
         existing = self.store.find_by_hash(contract_id, content_hash)
@@ -163,6 +171,8 @@ class DocumentService:
                 contract_id=contract_id,
                 supplier_id=supplier_id,
                 material_id=material_id,
+                product_id=product_id,
+                customer_id=customer_id,
                 document_type=document_type,
                 file_name=file_name,
                 content_hash=content_hash,
@@ -186,6 +196,8 @@ class DocumentService:
             contract_id=contract_id,
             supplier_id=supplier_id,
             material_id=material_id,
+            product_id=product_id,
+            customer_id=customer_id,
             document_type=document_type,
             file_name=file_name,
             content_hash=content_hash,

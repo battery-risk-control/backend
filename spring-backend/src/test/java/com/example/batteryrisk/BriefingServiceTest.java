@@ -108,7 +108,7 @@ class BriefingServiceTest {
         when(erpService.buildContext(any())).thenReturn(erpContext());
         when(ragService.search(any())).thenReturn(new RagDto.SearchResult(
                 List.of(new RagDto.SearchItem(
-                        "CONTRACT-DOC-1", 2L, 3L, 2L, "CONTRACT",
+                        "CONTRACT-DOC-1", 2L, 3L, 2L, null, null, "CONTRACT",
                         7, 4, "가격 조정 조항 원문", "hash",
                         0.82, "MOCK_TOKEN_HASH", "mock-v1", true)),
                 true));

@@ -92,6 +92,11 @@ app:
     seed:
       enabled: ${ERP_SEED_ENABLED:false}
       directory: ${ERP_SEED_DIRECTORY:}
+    outbound-seed:
+      # 아웃바운드(products/product_compositions/customers/outbound_contracts) mock CSV 시드.
+      # ErpSeedConfig(인바운드, 10개 파일 하드코딩)와 완전히 독립된 별도 러너(OutboundErpSeedConfig).
+      enabled: ${OUTBOUND_ERP_SEED_ENABLED:false}
+      directory: ${OUTBOUND_ERP_SEED_DIRECTORY:}
   rag:
     # RAG 계약서 자동 적재기(RagSeedConfig). enabled=true면 시작 시 directory의 계약서를 ChromaDB에 적재.
     seed:

@@ -359,6 +359,60 @@ public class ErpRepository {
                 rs.getLong("contract_id"), rs.getString("erp_contract_id"))));
     }
 
+    // --- 아웃바운드(LG에너지솔루션 -> 완성차/ESS 고객사) 전용, 인바운드 테이블과 완전히 분리 ---
+
+    public Optional<Long> resolveProductId(String erpProductId) {
+        return resolveId("products", "product_id", "erp_product_id", erpProductId);
+    }
+
+    public Optional<Long> resolveCustomerId(String erpCustomerId) {
+        return resolveId("customers", "customer_id", "erp_customer_id", erpCustomerId);
+    }
+
+    public Optional<Long> resolveOutboundContractId(String erpOutboundContractId) {
+        return resolveId(
+                "outbound_contracts", "outbound_contract_id",
+                "erp_outbound_contract_id", erpOutboundContractId);
+    }
+
+    /**
+     * 아웃바운드 계약서 업로드에서 다음 CTR-OUT-XXX를 채번할 때 쓴다. "CTR-OUT-" 접두어(8자) +
+     * 3자리 숫자 형식(예: CTR-OUT-028)인 것만 보고 가장 큰 숫자를 반환한다.
+     * {@link #findMaxContractSequence()}의 아웃바운드 버전.
+     */
+    public Optional<Integer> findMaxOutboundContractSequence() {
+        List<String> ids = jdbc.query(
+                "SELECT erp_outbound_contract_id FROM outbound_contracts"
+                        + " WHERE erp_outbound_contract_id ~ '^CTR-OUT-[0-9]{3}$'",
+                new MapSqlParameterSource(), (rs, rowNum) -> rs.getString("erp_outbound_contract_id"));
+        return ids.stream()
+                .map(id -> Integer.valueOf(id.substring(8)))
+                .max(Integer::compareTo);
+    }
+
+    /** 아웃바운드 계약 내부 PK + erp_outbound_contract_id를 함께 담는다. */
+    public record OutboundContractRef(long outboundContractId, String erpOutboundContractId) {}
+
+    /**
+     * 이 제품+고객사 조합에 이미 계약이 있으면 반환한다(어느 계약이든 하나). 인바운드와 달리
+     * outbound_contracts가 product_id/customer_id를 직접 갖고 있어 supplier_materials 같은
+     * 별도 junction 테이블 조인이 필요 없다.
+     */
+    public Optional<OutboundContractRef> findOutboundContractForProductCustomer(
+            long productId, long customerId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("productId", productId)
+                .addValue("customerId", customerId);
+        return first(jdbc.query("""
+                SELECT outbound_contract_id, erp_outbound_contract_id
+                FROM outbound_contracts
+                WHERE product_id = :productId AND customer_id = :customerId
+                ORDER BY outbound_contract_id
+                LIMIT 1
+                """, params, (rs, rowNum) -> new OutboundContractRef(
+                rs.getLong("outbound_contract_id"), rs.getString("erp_outbound_contract_id"))));
+    }
+
     private Optional<Long> resolveId(String table, String pkColumn, String erpColumn, String erpId) {
         String value = blankToNull(erpId);
         if (value == null) {

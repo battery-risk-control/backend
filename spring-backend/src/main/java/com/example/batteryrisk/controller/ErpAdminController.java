@@ -98,4 +98,25 @@ public class ErpAdminController {
             @Valid @RequestBody ErpAdminDto.GoodsReceiptUpsertRequest request) {
         return ApiResponse.ok(service.upsertGoodsReceipt(request));
     }
+
+    @Operation(summary = "완제품(products) Upsert", description = "아웃바운드 전용, 인바운드 테이블과 분리")
+    @PostMapping("/products")
+    public ApiResponse<ErpAdminDto.UpsertResponse> upsertProduct(
+            @Valid @RequestBody ErpAdminDto.ProductUpsertRequest request) {
+        return ApiResponse.ok(service.upsertProduct(request));
+    }
+
+    @Operation(summary = "고객사(customers) Upsert", description = "아웃바운드 전용, 인바운드 테이블과 분리")
+    @PostMapping("/customers")
+    public ApiResponse<ErpAdminDto.UpsertResponse> upsertCustomer(
+            @Valid @RequestBody ErpAdminDto.CustomerUpsertRequest request) {
+        return ApiResponse.ok(service.upsertCustomer(request));
+    }
+
+    @Operation(summary = "아웃바운드 계약(outbound_contracts) Upsert")
+    @PostMapping("/outbound-contracts")
+    public ApiResponse<ErpAdminDto.UpsertResponse> upsertOutboundContract(
+            @Valid @RequestBody ErpAdminDto.OutboundContractUpsertRequest request) {
+        return ApiResponse.ok(service.upsertOutboundContract(request));
+    }
 }

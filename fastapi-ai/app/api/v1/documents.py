@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel
 
 from app.api.dependencies import get_document_service
+from app.core.exceptions import DocumentIdentifierRequired
 from app.schemas.common import ApiErrorResponse, ApiResponse
 from app.schemas.document import DocumentChunkResult, DocumentProcessResult
 from app.services.document_service import DocumentService
@@ -39,16 +40,25 @@ async def process_document(
     file: Annotated[UploadFile, File(description="PDF 또는 UTF-8 TXT 문서")],
     document_id: Annotated[str, Form(min_length=1)],
     contract_id: Annotated[int, Form(gt=0)],
-    supplier_id: Annotated[int, Form(gt=0)],
-    material_id: Annotated[int, Form(gt=0)],
     document_type: Annotated[str, Form()] = "LTA",
+    supplier_id: Annotated[int | None, Form(gt=0)] = None,
+    material_id: Annotated[int | None, Form(gt=0)] = None,
+    product_id: Annotated[int | None, Form(gt=0)] = None,
+    customer_id: Annotated[int | None, Form(gt=0)] = None,
     force_reprocess: Annotated[bool, Form()] = False,
     service: DocumentService = Depends(get_document_service),
 ) -> ApiResponse[DocumentProcessResult]:
+    # 인바운드(공급사 계약)는 supplier_id+material_id, 아웃바운드(고객사 계약)는
+    # product_id+customer_id — 최소 한 쌍은 있어야 한다(청킹 전에 빠르게 실패시킨다).
+    has_inbound = supplier_id is not None and material_id is not None
+    has_outbound = product_id is not None and customer_id is not None
+    if not (has_inbound or has_outbound):
+        raise DocumentIdentifierRequired()
+
     document, duplicate = service.process(
         await file.read(), file.filename or "document", contract_id,
         supplier_id, material_id, document_type, document_id=document_id,
-        force_reprocess=force_reprocess,
+        force_reprocess=force_reprocess, product_id=product_id, customer_id=customer_id,
     )
 
     return ApiResponse(data=DocumentProcessResult(
@@ -56,6 +66,8 @@ async def process_document(
         contract_id=document.contract_id,
         supplier_id=document.supplier_id,
         material_id=document.material_id,
+        product_id=document.product_id,
+        customer_id=document.customer_id,
         document_type=document.document_type,
         file_name=document.file_name,
         content_hash=document.content_hash,
@@ -69,6 +81,8 @@ async def process_document(
                 contract_id=chunk.contract_id,
                 supplier_id=chunk.supplier_id,
                 material_id=chunk.material_id,
+                product_id=chunk.product_id,
+                customer_id=chunk.customer_id,
                 document_type=chunk.document_type,
                 content_hash=chunk.content_hash,
             )

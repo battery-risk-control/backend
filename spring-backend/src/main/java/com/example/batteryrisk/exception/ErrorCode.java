@@ -19,6 +19,8 @@ public enum ErrorCode {
     ERP_CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "ERP 계약을 찾을 수 없습니다."),
     ERP_PURCHASE_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ERP 발주를 찾을 수 없습니다."),
     ERP_PURCHASE_ORDER_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "ERP 발주 품목을 찾을 수 없습니다."),
+    ERP_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "ERP 완제품을 찾을 수 없습니다."),
+    ERP_CUSTOMER_NOT_FOUND(HttpStatus.NOT_FOUND, "ERP 고객사를 찾을 수 없습니다."),
     ERP_CONTEXT_NOT_FOUND(HttpStatus.UNPROCESSABLE_ENTITY, "ERP 분석 Context를 구성할 수 없습니다."),
     FASTAPI_SEVERITY_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "FastAPI Severity 분석을 사용할 수 없습니다."),
     INVALID_SEVERITY_RESPONSE(HttpStatus.BAD_GATEWAY, "FastAPI Severity 응답이 올바르지 않습니다."),

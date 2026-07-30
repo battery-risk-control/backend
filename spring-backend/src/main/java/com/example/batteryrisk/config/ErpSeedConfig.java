@@ -443,8 +443,12 @@ public class ErpSeedConfig {
         return entries;
     }
 
-    /** CSV 파일 한 개를 읽어 헤더 + 행 목록(CsvTable)으로 변환한다. 첫 줄은 헤더, 이후는 데이터 행. */
-    private static CsvTable readCsv(Path path) {
+    /**
+     * CSV 파일 한 개를 읽어 헤더 + 행 목록(CsvTable)으로 변환한다. 첫 줄은 헤더, 이후는 데이터 행.
+     * package-private — {@link OutboundErpSeedConfig}가 완전히 별개의 시드 러너에서 재사용한다
+     * (같은 인코딩 폴백/CSV 파싱 로직을 중복 작성하지 않기 위함, 로직 자체는 안 바뀜).
+     */
+    static CsvTable readCsv(Path path) {
         if (!Files.isRegularFile(path)) {
             throw new IllegalStateException("Required ERP seed file is missing: " + path);
         }
@@ -532,7 +536,7 @@ public class ErpSeedConfig {
         return fields;
     }
 
-    private static Path resolveInside(Path root, String fileName) {
+    static Path resolveInside(Path root, String fileName) {
         Path resolved = root.resolve(fileName).normalize();
         if (!resolved.startsWith(root)) {
             throw new IllegalStateException("ERP manifest path escapes seed directory: " + fileName);
@@ -540,7 +544,7 @@ public class ErpSeedConfig {
         return resolved;
     }
 
-    private static Map<String, Long> readIdMap(JdbcTemplate jdbc, String sql) {
+    static Map<String, Long> readIdMap(JdbcTemplate jdbc, String sql) {
         Map<String, Long> result = new LinkedHashMap<>();
         jdbc.query(sql, (rs, rowNumber) -> Map.entry(rs.getString(1), rs.getLong(2)))
                 .forEach(entry -> result.put(entry.getKey(), entry.getValue()));
@@ -548,16 +552,21 @@ public class ErpSeedConfig {
     }
 
     @SafeVarargs
-    private static void requireMaps(ManifestEntry entry, Map<String, Long>... maps) {
+    static void requireMaps(String fileNameForError, Map<String, Long>... maps) {
         for (Map<String, Long> map : maps) {
             if (map.isEmpty()) {
                 throw new IllegalStateException(
-                        "ERP manifest dependency was not loaded before " + entry.fileName());
+                        "ERP manifest dependency was not loaded before " + fileNameForError);
             }
         }
     }
 
-    private static Long reference(Map<String, Long> ids, Map<String, String> row, String column) {
+    @SafeVarargs
+    private static void requireMaps(ManifestEntry entry, Map<String, Long>... maps) {
+        requireMaps(entry.fileName(), maps);
+    }
+
+    static Long reference(Map<String, Long> ids, Map<String, String> row, String column) {
         String externalId = required(row, column);
         Long internalId = ids.get(externalId);
         if (internalId == null) {
@@ -567,7 +576,7 @@ public class ErpSeedConfig {
         return internalId;
     }
 
-    private static String required(Map<String, String> row, String column) {
+    static String required(Map<String, String> row, String column) {
         String value = row.get(column);
         if (value == null || value.isBlank()) {
             throw new IllegalStateException("Required ERP CSV value is blank: " + column);
@@ -580,7 +589,7 @@ public class ErpSeedConfig {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private static boolean bool(Map<String, String> row, String column) {
+    static boolean bool(Map<String, String> row, String column) {
         String value = required(row, column);
         if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
             throw new IllegalStateException("Invalid boolean " + column + "=" + value);
@@ -588,15 +597,15 @@ public class ErpSeedConfig {
         return Boolean.parseBoolean(value);
     }
 
-    private static int integer(Map<String, String> row, String column) {
+    static int integer(Map<String, String> row, String column) {
         return Integer.parseInt(required(row, column));
     }
 
-    private static BigDecimal decimal(Map<String, String> row, String column) {
+    static BigDecimal decimal(Map<String, String> row, String column) {
         return new BigDecimal(required(row, column));
     }
 
-    private static BigDecimal nullableDecimal(Map<String, String> row, String column) {
+    static BigDecimal nullableDecimal(Map<String, String> row, String column) {
         String value = nullable(row, column);
         return value == null ? null : new BigDecimal(value);
     }
@@ -625,5 +634,6 @@ public class ErpSeedConfig {
 
     private record ManifestEntry(int loadOrder, String fileName, String targetTable, int rowCount) {}
 
-    private record CsvTable(List<String> headers, List<Map<String, String>> rows) {}
+    /** package-private — {@link OutboundErpSeedConfig}가 {@link #readCsv(Path)} 반환 타입으로 재사용. */
+    record CsvTable(List<String> headers, List<Map<String, String>> rows) {}
 }

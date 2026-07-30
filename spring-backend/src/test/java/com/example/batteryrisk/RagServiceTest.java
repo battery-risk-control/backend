@@ -50,7 +50,7 @@ class RagServiceTest {
                         """, APPLICATION_JSON));
 
         RagDto.SearchResult result = service.search(new RagDto.SearchRequest(
-                "리튬 가격 조정", new RagDto.SearchFilters(1L, 2L, 3L), null));
+                "리튬 가격 조정", new RagDto.SearchFilters(1L, 2L, 3L, null, null), null));
 
         assertEquals(1, result.results().size());
         assertEquals("DOC-1", result.results().get(0).documentId());
@@ -63,7 +63,7 @@ class RagServiceTest {
     void requiresContractOrSupplierFilter() {
         RagSearchException exception = assertThrows(RagSearchException.class,
                 () -> service.search(new RagDto.SearchRequest(
-                        "리튬", new RagDto.SearchFilters(null, null, 3L), 5)));
+                        "리튬", new RagDto.SearchFilters(null, null, 3L, null, null), 5)));
 
         assertEquals("RAG_FILTER_REQUIRED", exception.getCode());
         assertEquals(422, exception.getStatus().value());
@@ -81,7 +81,7 @@ class RagServiceTest {
 
         RagSearchException exception = assertThrows(RagSearchException.class,
                 () -> service.search(new RagDto.SearchRequest(
-                        "리튬", new RagDto.SearchFilters(1L, null, null), 5)));
+                        "리튬", new RagDto.SearchFilters(1L, null, null, null, null), 5)));
 
         assertEquals("VECTOR_STORE_UNAVAILABLE", exception.getCode());
         assertEquals(503, exception.getStatus().value());

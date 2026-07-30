@@ -29,7 +29,9 @@ public final class RagDto {
     public record SearchFilters(
             @JsonProperty("contract_id") @Positive Long contractId,
             @JsonProperty("supplier_id") @Positive Long supplierId,
-            @JsonProperty("material_id") @Positive Long materialId
+            @JsonProperty("material_id") @Positive Long materialId,
+            @JsonProperty("product_id") @Positive Long productId,
+            @JsonProperty("customer_id") @Positive Long customerId
     ) {}
 
     public record FastApiResponse(
@@ -48,6 +50,8 @@ public final class RagDto {
             @JsonProperty("contract_id") Long contractId,
             @JsonProperty("supplier_id") Long supplierId,
             @JsonProperty("material_id") Long materialId,
+            @JsonProperty("product_id") Long productId,
+            @JsonProperty("customer_id") Long customerId,
             @JsonProperty("document_type") String documentType,
             @JsonProperty("chunk_index") int chunkIndex,
             @JsonProperty("page_number") int pageNumber,

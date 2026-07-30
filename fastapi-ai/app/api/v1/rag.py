@@ -46,16 +46,22 @@ def search_contracts(
     request: RagSearchRequest,
     service: RagService = Depends(get_rag_service),
 ) -> ApiResponse[RagSearchResult]:
-    if request.filters.contract_id is None and request.filters.supplier_id is None:
+    if (
+        request.filters.contract_id is None
+        and request.filters.supplier_id is None
+        and request.filters.product_id is None
+    ):
         raise RagFilterRequired()
     chunks = service.search(
         request.query, request.filters.contract_id,
         request.filters.supplier_id, request.top_k,
         request.filters.material_id,
+        request.filters.product_id, request.filters.customer_id,
     )
     results = [RagSearchItem(
         document_id=item.document_id, contract_id=item.contract_id,
         supplier_id=item.supplier_id, material_id=item.material_id,
+        product_id=item.product_id, customer_id=item.customer_id,
         document_type=item.document_type, chunk_index=item.chunk_index,
         content=item.content, content_hash=item.content_hash,
         similarity_score=item.similarity_score,
