@@ -127,6 +127,7 @@ public class NotificationService {
     private String buildBody(Analysis analysis) {
         return "사건: " + analysis.getEventTitle() + "\n"
                 + "국가: " + analysis.getCountryCode() + "\n"
+                + "원문: " + analysis.getSourceUrl() + "\n"
                 + "심각도: " + analysis.getSeverity() + " (점수 " + analysis.getSeverityScore() + ")\n"
                 + "판단 근거: " + analysis.getReasonCodes() + "\n"
                 + "analysis_id: " + analysis.getAnalysisId();

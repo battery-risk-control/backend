@@ -34,6 +34,9 @@ public class Analysis {
     @Column(name = "country_code", length = 2)
     private String countryCode;
 
+    @Column(name = "source_url", length = 500)
+    private String sourceUrl;
+
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
@@ -80,7 +83,7 @@ public class Analysis {
 
     public static Analysis pending(
             Long materialId, Long supplierId, String eventTitle, String eventContent,
-            String sourceName, String countryCode) {
+            String sourceName, String countryCode, String sourceUrl) {
         Analysis analysis = new Analysis();
         analysis.analysisId = UUID.randomUUID();
         analysis.materialId = materialId;
@@ -89,6 +92,7 @@ public class Analysis {
         analysis.eventContent = eventContent;
         analysis.sourceName = sourceName;
         analysis.countryCode = countryCode;
+        analysis.sourceUrl = sourceUrl;
         analysis.status = "PENDING";
         analysis.createdAt = Instant.now();
         return analysis;
@@ -134,6 +138,7 @@ public class Analysis {
     public String getEventContent() { return eventContent; }
     public String getSourceName() { return sourceName; }
     public String getCountryCode() { return countryCode; }
+    public String getSourceUrl() { return sourceUrl; }
     public String getStatus() { return status; }
     public String getImpactDomain() { return impactDomain; }
     public String getSeverity() { return severity; }

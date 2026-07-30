@@ -41,25 +41,27 @@ public final class AnalysisDto {
             @JsonProperty("event_content") String eventContent,
             @JsonProperty("source_name") String sourceName,
             @JsonProperty("country_code") String countryCode,
+            @JsonProperty("source_url") String sourceUrl,
             @JsonProperty("feature_overrides") FeatureOverrides featureOverrides,
             @JsonProperty("extraction_override") ExtractionOverride extractionOverride
     ) {
         public AnalyzeRequest(
                 Long materialId, Long supplierId, String eventTitle, String eventContent,
                 String sourceName, String countryCode) {
-            this(materialId, supplierId, eventTitle, eventContent, sourceName, countryCode, null, null);
+            this(materialId, supplierId, eventTitle, eventContent, sourceName, countryCode, null, null, null);
         }
 
         public AnalyzeRequest(
                 Long materialId, Long supplierId, String eventTitle, String eventContent,
                 String sourceName, String countryCode, FeatureOverrides featureOverrides) {
-            this(materialId, supplierId, eventTitle, eventContent, sourceName, countryCode, featureOverrides, null);
+            this(materialId, supplierId, eventTitle, eventContent, sourceName, countryCode, null, featureOverrides, null);
         }
     }
 
     public record AnalysisResponse(
             @JsonProperty("analysis_id") String analysisId,
             String status,
+            @JsonProperty("source_url") String sourceUrl,
             @JsonProperty("impact_domain") String impactDomain,
             Double confidence,
             String severity,

@@ -193,7 +193,8 @@ public class CollectionService {
             AnalysisDto.FeatureOverrides overrides = buildFeatureOverrides(rawEvent, extraction);
             AnalysisDto.AnalysisResponse response = analysisService.create(new AnalysisDto.AnalyzeRequest(
                     null, null, rawEvent.getTitle(), rawEvent.getContent(),
-                    rawEvent.getSource(), rawEvent.getCountryCode(), overrides, toExtractionOverride(extraction)));
+                    rawEvent.getSource(), rawEvent.getCountryCode(), rawEvent.getSourceUrl(),
+                    overrides, toExtractionOverride(extraction)));
             return UUID.fromString(response.analysisId());
         } catch (RuntimeException exception) {
             log.warn("수집된 뉴스에 대한 분석 트리거 실패: {}", exception.getMessage(), exception);

@@ -45,7 +45,7 @@ public class AnalysisService {
     public AnalysisDto.AnalysisResponse create(AnalysisDto.AnalyzeRequest request) {
         Analysis analysis = Analysis.pending(
                 request.materialId(), request.supplierId(), request.eventTitle(),
-                request.eventContent(), request.sourceName(), request.countryCode());
+                request.eventContent(), request.sourceName(), request.countryCode(), request.sourceUrl());
         analysisRepository.saveAndFlush(analysis);
 
         analysis.markProcessing();
@@ -175,7 +175,7 @@ public class AnalysisService {
         AnalysisDto.FastApiEvent event = new AnalysisDto.FastApiEvent(
                 analysis.getAnalysisId().toString(), analysis.getEventTitle(), analysis.getEventContent(),
                 analysis.getSourceName() != null ? analysis.getSourceName() : "SPRING",
-                null, Instant.now().toString(), analysis.getCountryCode());
+                analysis.getSourceUrl(), Instant.now().toString(), analysis.getCountryCode());
         AnalysisDto.FastApiFeatureOverrides fastApiOverrides = overrides == null ? null
                 : new AnalysisDto.FastApiFeatureOverrides(
                         overrides.goldsteinScale(), overrides.newsCount(),
@@ -205,8 +205,8 @@ public class AnalysisService {
         List<String> reasonCodes = analysis.getReasonCodes() == null || analysis.getReasonCodes().isBlank()
                 ? List.of() : List.of(analysis.getReasonCodes().split(","));
         return new AnalysisDto.AnalysisResponse(
-                analysis.getAnalysisId().toString(), analysis.getStatus(), analysis.getImpactDomain(),
-                analysis.getConfidence(), analysis.getSeverity(), analysis.getSeverityScore(),
+                analysis.getAnalysisId().toString(), analysis.getStatus(), analysis.getSourceUrl(),
+                analysis.getImpactDomain(), analysis.getConfidence(), analysis.getSeverity(), analysis.getSeverityScore(),
                 reasonCodes, analysis.getRuleVersion(), analysis.isMock(),
                 analysis.getErrorCode(), analysis.getErrorMessage(), analysis.getCreatedAt(),
                 analysis.getCompletedAt(), buildSupplierRecommendationSummary(analysis));
