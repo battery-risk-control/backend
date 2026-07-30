@@ -196,6 +196,15 @@ class DocumentService:
         )
         return self.store.save(document), False
 
+    def extract_text(self, content: bytes, file_name: str) -> str:
+        """청킹/임베딩 없이 원문 텍스트만 뽑는다.
+
+        Spring의 계약서 업로드 미리보기(정규식 필드 추출용)가 쓴다 — RAG 적재(`process()`)와
+        달리 여기선 텍스트만 필요하고 ChromaDB에 아무것도 쓰지 않는다.
+        """
+        pages = self._extract_pages(content, file_name)
+        return "\n\n".join(page.text for page in pages)
+
     def _extract_pages(self, content: bytes, file_name: str) -> tuple[ExtractedPage, ...]:
         suffix = Path(file_name).suffix.lower()
         if suffix in (".txt", ".csv"):

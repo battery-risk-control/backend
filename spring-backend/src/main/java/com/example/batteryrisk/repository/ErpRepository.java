@@ -308,6 +308,57 @@ public class ErpRepository {
                 "erp_purchase_order_item_id", erpPurchaseOrderItemId);
     }
 
+    /**
+     * 계약서 업로드에서 다음 CTR-XXX를 채번할 때 쓴다(계약서 업로드 → CTR-XXX 자동 발급 작업).
+     * "CTR-" 접두어 + 3자리 숫자 형식(예: CTR-028)인 것만 보고 가장 큰 숫자를 반환한다
+     * (예: 28). 그 형식을 벗어나는 erp_contract_id는 무시한다.
+     */
+    public Optional<Integer> findMaxContractSequence() {
+        List<String> ids = jdbc.query(
+                "SELECT erp_contract_id FROM contracts WHERE erp_contract_id ~ '^CTR-[0-9]{3}$'",
+                new MapSqlParameterSource(), (rs, rowNum) -> rs.getString("erp_contract_id"));
+        return ids.stream()
+                .map(id -> Integer.valueOf(id.substring(4)))
+                .max(Integer::compareTo);
+    }
+
+    /**
+     * 새 공급관계(supplier_materials) 행을 만들 때 SM-XXX를 채번한다.
+     * {@link #findMaxContractSequence()}와 같은 방식(SM- 접두어 + 3자리 숫자).
+     */
+    public Optional<Integer> findMaxSupplierMaterialSequence() {
+        List<String> ids = jdbc.query(
+                "SELECT erp_supplier_material_id FROM supplier_materials"
+                        + " WHERE erp_supplier_material_id ~ '^SM-[0-9]{3}$'",
+                new MapSqlParameterSource(), (rs, rowNum) -> rs.getString("erp_supplier_material_id"));
+        return ids.stream()
+                .map(id -> Integer.valueOf(id.substring(3)))
+                .max(Integer::compareTo);
+    }
+
+    /** 계약 내부 PK + erp_contract_id를 함께 담는다(계약서 업로드에서 기존 계약 재사용 판단용). */
+    public record ContractRef(long contractId, String erpContractId) {}
+
+    /**
+     * 이 공급사+자재 조합에 이미 연결된 계약이 있으면 그 계약을 반환한다(어느 계약이든 하나,
+     * 우선순위 낮은 것 우선). 계약서 업로드에서 "이미 계약이 있으면 새로 안 만들고 문서만 추가"
+     * 판단에 쓴다.
+     */
+    public Optional<ContractRef> findContractForSupplierMaterial(long supplierId, long materialId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("supplierId", supplierId)
+                .addValue("materialId", materialId);
+        return first(jdbc.query("""
+                SELECT sm.contract_id, c.erp_contract_id
+                FROM supplier_materials sm
+                JOIN contracts c ON c.contract_id = sm.contract_id
+                WHERE sm.supplier_id = :supplierId AND sm.material_id = :materialId
+                ORDER BY sm.priority_rank NULLS LAST
+                LIMIT 1
+                """, params, (rs, rowNum) -> new ContractRef(
+                rs.getLong("contract_id"), rs.getString("erp_contract_id"))));
+    }
+
     private Optional<Long> resolveId(String table, String pkColumn, String erpColumn, String erpId) {
         String value = blankToNull(erpId);
         if (value == null) {

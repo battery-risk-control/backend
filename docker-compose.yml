@@ -69,6 +69,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-battery_app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-battery_app_password}
       FASTAPI_BASE_URL: http://fastapi:8000
+      # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 컨테이너 네트워크 서비스명이
+      # 아니라 host.docker.internal로 접근해야 한다(.env에 KG_SERVICE_BASE_URL로 설정).
+      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
       JWT_SECRET: ${JWT_SECRET:-change-this-development-only-secret-key-please-override-in-env-32bytes+}
       JWT_ACCESS_TOKEN_VALIDITY_SECONDS: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:-3600}
       JWT_REFRESH_TOKEN_VALIDITY_SECONDS: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:-1209600}
@@ -93,8 +96,8 @@ services:
       - "${SPRING_PORT:-8080}:8080"
     volumes:
       - battery_spring_uploads:/app/uploads
-      - ./data/ERP_data/spring-csv:/app/erp-seed:ro
-      - ./data/RAG_DATA/erp_aligned:/app/rag-seed:ro
+      - ./data/ERP_data/spring-csv:/app/erp-seed
+      - ./data/RAG_DATA/erp_aligned:/app/rag-seed
 
     depends_on:
       postgres:
