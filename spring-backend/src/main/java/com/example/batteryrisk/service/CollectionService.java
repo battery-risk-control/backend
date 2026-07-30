@@ -132,7 +132,8 @@ public class CollectionService {
             }
             RawEvent rawEvent = RawEvent.of(
                     sourceName, adapter.dataType(), item.externalId(), contentHash,
-                    item.title(), item.content(), item.sourceUrl(), item.countryCode(), item.payloadJson());
+                    item.title(), item.content(), item.sourceUrl(), item.countryCode(),
+                    item.goldsteinScale(), item.payloadJson());
             rawEventRepository.saveAndFlush(rawEvent);
             newItems++;
 
@@ -167,7 +168,7 @@ public class CollectionService {
         String contentHash = sha256((title == null ? "" : title) + "|" + content);
         RawEvent rawEvent = RawEvent.of(
                 "TEST_NEWS", "NEWS", externalId, contentHash,
-                title, content, sourceUrl, countryCode, null);
+                title, content, sourceUrl, countryCode, null, null);
         rawEventRepository.saveAndFlush(rawEvent);
 
         UUID analysisId = triggerAnalysis(rawEvent);
@@ -216,8 +217,14 @@ public class CollectionService {
                 .map(event -> parseKeyValue(event.getContent(), "bdi_price", Double::parseDouble))
                 .orElse(null);
 
+        // GDELT가 이 이벤트에 이미 계산해준 GoldsteinScale이 있으면(rawEvent.goldsteinScale) 그걸
+        // 원본 파이프라인처럼 그대로 쓴다 — countryCode 단위 재조회(joinResult)는 URL 매칭 실패 시
+        // 부정확한 국가평균/기본값으로 샐 수 있어, 값이 없는 경우(수동 테스트 뉴스 등)의 폴백으로만 쓴다.
+        Double goldsteinScale = rawEvent.getGoldsteinScale() != null
+                ? rawEvent.getGoldsteinScale() : joinResult.goldsteinScale();
+
         return new AnalysisDto.FeatureOverrides(
-                joinResult.goldsteinScale(), (int) newsCount,
+                goldsteinScale, (int) newsCount,
                 joinResult.gdacsAlertLevel(), joinResult.stockVolatility20d(), bdiIndex);
     }
 

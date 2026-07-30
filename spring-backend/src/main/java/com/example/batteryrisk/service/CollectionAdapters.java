@@ -86,7 +86,7 @@ class GdeltRealtimeTriageAdapter implements DataSourceAdapter {
             String itemCursorValue = (i == candidates.size() - 1) ? newCursorValue : null;
             items.add(new CollectionDto.CollectedItem(
                     "GDELT-" + candidate.globalEventId(), candidate.title(), candidate.content(),
-                    candidate.sourceUrl(), countryCode, null, itemCursorValue));
+                    candidate.sourceUrl(), countryCode, null, itemCursorValue, candidate.goldsteinScale()));
         }
         if (items.isEmpty() && newCursorValue != null) {
             // 트리아지 통과 후보가 0건이어도 커서는 전진해야 다음 주기에 같은 구간을 반복 조회하지
@@ -94,7 +94,7 @@ class GdeltRealtimeTriageAdapter implements DataSourceAdapter {
             // 커서 갱신에 쓰므로, external_id를 고정값으로 둬서 최초 1회만 실제 저장·분석 트리거가
             // 일어나고 그 뒤로는 항상 dedup으로 스킵되면서 커서만 전진하게 만든다.
             items.add(new CollectionDto.CollectedItem(
-                    "GDELT-CURSOR-ADVANCE-SENTINEL", null, null, null, null, null, newCursorValue));
+                    "GDELT-CURSOR-ADVANCE-SENTINEL", null, null, null, null, null, newCursorValue, null));
         }
         log.info("GDELT 실시간 트리아지 완료: {}건 크롤링 성공, 새 커서={}", candidates.size(), newCursorValue);
         return items;
@@ -130,7 +130,7 @@ class GdacsDisasterAdapter extends AbstractHttpAdapter implements DataSourceAdap
                 String iso3 = properties.path("iso3").asText(null);
                 items.add(new CollectionDto.CollectedItem(
                         "GDACS-" + externalId, name, "alertlevel=" + alertLevel, properties.path("url").asText(null),
-                        iso3ToIso2(iso3), properties.toString(), null));
+                        iso3ToIso2(iso3), properties.toString(), null, null));
             }
         } catch (Exception exception) {
             log.warn("GDACS 수집 실패 (다음 주기에 재시도): {}", exception.getMessage());

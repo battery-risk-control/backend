@@ -17,6 +17,7 @@ def fetch_and_triage_route(request: RealtimeFetchRequest) -> ApiResponse[Realtim
         RealtimeCandidate(
             global_event_id=c["global_event_id"], title=c["title"], content=c["content"],
             source_url=c["source_url"], action_geo_country_code=c.get("action_geo_country_code"),
+            goldstein_scale=c.get("goldstein_scale"),
         )
         for c in candidates
     ]

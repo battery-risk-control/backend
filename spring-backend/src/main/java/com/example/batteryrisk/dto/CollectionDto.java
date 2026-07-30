@@ -16,7 +16,8 @@ public final class CollectionDto {
             String sourceUrl,
             String countryCode,
             String payloadJson,
-            String newCursorValue
+            String newCursorValue,
+            Double goldsteinScale
     ) {}
 
     public record CollectionRunResult(
@@ -53,7 +54,8 @@ public final class CollectionDto {
             String title,
             String content,
             @JsonProperty("source_url") String sourceUrl,
-            @JsonProperty("action_geo_country_code") String actionGeoCountryCode
+            @JsonProperty("action_geo_country_code") String actionGeoCountryCode,
+            @JsonProperty("goldstein_scale") Double goldsteinScale
     ) {}
 
     public record RealtimeFetchResult(

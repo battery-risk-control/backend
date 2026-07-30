@@ -41,6 +41,9 @@ public class RawEvent {
     @Column(name = "country_code", length = 2)
     private String countryCode;
 
+    @Column(name = "goldstein_scale")
+    private Double goldsteinScale;
+
     @Column(name = "payload_json")
     private String payloadJson;
 
@@ -54,7 +57,8 @@ public class RawEvent {
 
     public static RawEvent of(
             String source, String dataType, String externalId, String contentHash,
-            String title, String content, String sourceUrl, String countryCode, String payloadJson) {
+            String title, String content, String sourceUrl, String countryCode,
+            Double goldsteinScale, String payloadJson) {
         RawEvent event = new RawEvent();
         event.source = source;
         event.dataType = dataType;
@@ -64,6 +68,7 @@ public class RawEvent {
         event.content = content;
         event.sourceUrl = sourceUrl;
         event.countryCode = countryCode;
+        event.goldsteinScale = goldsteinScale;
         event.payloadJson = payloadJson;
         event.collectedAt = Instant.now();
         return event;
@@ -82,6 +87,7 @@ public class RawEvent {
     public String getContent() { return content; }
     public String getSourceUrl() { return sourceUrl; }
     public String getCountryCode() { return countryCode; }
+    public Double getGoldsteinScale() { return goldsteinScale; }
     public String getPayloadJson() { return payloadJson; }
     public UUID getTriggeredAnalysisId() { return triggeredAnalysisId; }
     public Instant getCollectedAt() { return collectedAt; }
