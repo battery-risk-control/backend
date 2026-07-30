@@ -1,0 +1,199 @@
+EX-10.5.77 3 tm339774_ex10.htm EXHIBIT 10.5.77
+
+Exhibit 10.5.77
+
+CERTAIN IDENTIFIED INFORMATION HAS BEEN EXCLUDED FROM THE EXHIBIT BECAUSE IT IS BOTH (I) NOT MATERIAL AND (II) WOULD BE COMPETITIVELY HARMFUL IF PUBLICLY DISCLOSED. [* * *] INDICATES THAT INFORMATION HAS BEEN REDACTED.
+
+Execution Version
+
+Agreement No.: BA-2025-0019
+
+MANGANESE SULFATE SUPPLY AGREEMENT
+
+This manganese sulfate supply agreement (together with the schedules attached hereto, this "Agreement") is entered into effective as of July 27, 2025 (the "Effective Date") and continues through August 01, 2027 (the "Term"), and is between LG Energy Solution, Ltd., having its registered office in the Republic of Korea ("Buyer"), and Minas Battery Resources, having its registered office in its country of incorporation ("Seller," and together with Buyer, the "Parties").
+
+BACKGROUND
+
+A.            Buyer is developing and manufacturing lithium-ion battery cells for the automotive market.
+
+B.            Seller is developing and securing technology in the extraction, refinement, and supply of manganese sulfate.
+
+C.            Buyer desires to procure manganese sulfate from Seller to be used in Buyer's battery cell production lines.
+
+Agreement
+
+NOW, THEREFORE, in consideration of the premises and the mutual promises contained herein, the Parties agree as follows:
+
+Article 1
+DEFINITIONS
+
+1.01            Definitions.
+
+   (a)            "Affiliate" of a specified person means a person who, directly or indirectly through one or more intermediaries, Controls, is Controlled by, or is under common Control with, such specified person.
+
+   (b)            "Business Day" means a day other than Saturday, Sunday, or any day on which banks are closed.
+
+   (c)            "Force Majeure Event" has the meaning set forth in Section 5.01.
+
+   (d)            "Material" means Seller's manganese sulfate meeting the specifications outlined in Schedule A.
+
+   (e)            "Base Volume Commitment" has the meaning set forth in Section 2.01.
+
+   (f)            "Production Plan" has the meaning set forth in Section 2.02.
+
+Article 2
+VOLUME COMMITMENT
+
+2.01            Base Volume Commitment. Subject to Section 2.03 (Conditions), Seller shall produce and deliver, and Buyer shall order and purchase, 25,704 Metric Tons (MT) of Material per calendar year (the "Base Volume Commitment").
+
+2.02            Production Planning. At the beginning of each calendar quarter, the Parties shall confirm a rolling twelve-month production plan (the "Production Plan") reflecting Buyer's forecasted requirements and Seller's confirmed production capacity. Each Party shall provide the other with good-faith estimates sufficient to support this planning process no later than fifteen (15) Business Days before the start of the relevant quarter.
+
+2.03            Conditions.
+   (a)            If Seller's actual production in any quarter falls short of the Base Volume Commitment for reasons other than Buyer's failure to issue timely forecasts, Seller shall notify Buyer in writing within five (5) Business Days and propose a make-good delivery schedule for the shortfall within the following quarter.
+   (b)            If Seller's actual production exceeds the Base Volume Commitment, Buyer shall have a right of first refusal to purchase the excess volume at the then-current Unit Price before Seller offers such excess to any third party.
+   (c)            Volumes forecasted under the Production Plan in excess of the Base Volume Commitment are provided for planning purposes only and do not constitute a binding purchase obligation unless confirmed by a Purchase Order accepted by Seller.
+
+Article 3
+PRICING AND COMMODITY INDEX ADJUSTMENT
+
+3.01            Baseline Price. The baseline price for the Material is $78,823 per MT (the "Baseline Price"), determined as of the Effective Date.
+
+3.02            Index Adjustment. On the first Business Day of each calendar quarter during the Term, the Baseline Price shall be adjusted upward or downward by the percentage change in the average Manganese price on the London Metal Exchange ("LME") over the preceding three-month measurement window, as compared to the LME price in effect as of the Effective Date, subject to a maximum adjustment of 5% per quarter.
+
+3.03            Adjustment for Savings. If the Parties jointly identify verifiable cost savings arising from process improvements, either Party may request in good faith that a corresponding adjustment to the Baseline Price be discussed, provided that no such adjustment shall take effect except through a written amendment signed by both Parties.
+
+Article 4
+DELIVERY AND PENALTY
+
+4.01            Delivery Schedule. Seller must deliver the Material according to the Forecast provided by Buyer 90 days in advance.
+
+4.02            Delay Penalty. If Seller fails to deliver the Material by the required delivery date, Seller shall pay a penalty of 1.0% of the delayed shipment's value per week of delay. The maximum cumulative penalty under this section shall not exceed 15.0% of the total order value.
+
+4.03            Quality Warranty. Seller warrants that the Material delivered under this Agreement will conform to the specifications set out in Schedule A and will be free from defects in a form, fit, and function that would render the Material unusable in Buyer's production process. Any nonconforming shipment shall be replaced by Seller at its own cost within fifteen (15) Business Days of notice from Buyer.
+
+Article 5
+FORCE MAJEURE
+
+5.01            Excusable Delay. Supplier must notify Buyer in writing within 48 hours of any strike, pandemic, mine collapse, or natural disaster that impacts the supply chain. Failure to notify voids the Force Majeure protection.
+
+5.02            Mitigation. The affected Party must use commercially reasonable efforts to mitigate the effects of the Force Majeure Event and resume performance as soon as possible.
+
+5.03            Extended Force Majeure. If a Force Majeure Event continues for more than ninety (90) consecutive days, either Party may terminate this Agreement upon written notice without further liability for such non-performance, without prejudice to obligations accrued prior to the Force Majeure Event.
+
+Article 6
+RESPONSIBLE MINERAL SOURCING
+
+6.01            Seller shall conduct its sourcing of the Material in accordance with the OECD Due Diligence Guidance for Responsible Supply Chains of Minerals from Conflict-Affected and High-Risk Areas.
+
+6.02            Seller shall not knowingly source the Material, directly or indirectly, from any mine or facility that employs forced labor or child labor, or that is controlled by an armed group.
+
+6.03            Buyer may request, no more than once per calendar year, that Seller provide reasonable documentation supporting Seller's compliance with this Article 6.
+
+Article 7
+CUSTOMS, DUTIES, AND TARIFFS
+
+7.01            Except as otherwise expressly agreed in writing, Seller shall be responsible for all export duties, taxes, and customs clearance costs in the country of origin, and Buyer shall be responsible for all import duties, tariffs, and customs clearance costs in the Republic of Korea.
+
+7.02            The Unit Price shall not be adjusted on account of any change in duties, tariffs, or similar governmental charges imposed after the Effective Date, provided that if such change increases the landed cost of the Material by more than ten percent (10%), either Party may request good-faith renegotiation of the affected terms.
+
+Article 8
+CONFIDENTIALITY
+
+For purposes of this Agreement, "Confidential Information" means all non-public, technical, commercial, or financial information disclosed by either Party in connection with this Agreement. The receiving Party shall protect such information with at least the same degree of care it uses for its own confidential information, and shall not disclose it to any third party without the disclosing Party's prior written consent. This obligation survives termination of this Agreement for five (5) years.
+
+Article 9
+INTELLECTUAL PROPERTY
+
+Any intellectual property existing prior to the Effective Date remains the property of the Party that owned it. Improvements to the Material's extraction or refinement process developed solely by Seller during the Term remain Seller's property, unless jointly developed with Buyer, in which case the Parties shall negotiate ownership in good faith.
+
+Article 10
+ASSIGNMENT
+
+Neither Party may assign or transfer this Agreement, in whole or in part, without the prior written consent of the other Party, except to an Affiliate or in connection with a merger, acquisition, or sale of substantially all of its assets relating to the Material.
+
+Article 11
+GOVERNING LAW
+
+This Agreement shall be governed by and construed in accordance with the laws of the Republic of Korea, without regard to its conflict of laws principles.
+
+Article 12
+DISPUTE RESOLUTION
+
+Any dispute arising out of or relating to this Agreement shall first be referred to good-faith negotiation between the Parties' senior representatives. If not resolved within thirty (30) days, either Party may submit the dispute to arbitration administered by the Korean Commercial Arbitration Board in Seoul, and the arbitral award shall be final and binding on both Parties.
+
+Article 13
+TERMINATION
+
+Either Party may terminate this Agreement upon written notice if the other Party commits a material breach of this Agreement and fails to cure such breach within thirty (30) days after receiving written notice thereof.
+
+Article 14
+INDEMNIFICATION
+
+Seller shall indemnify, defend, and hold harmless Buyer from any third-party claims, losses, or damages arising from defects in the Material or Seller's breach of its representations and warranties under this Agreement.
+
+Article 15
+NOTICES
+
+All notices under this Agreement shall be in writing and delivered by email with confirmation of receipt, or by courier, to the address or email designated by each Party, and shall be deemed effective upon actual receipt.
+
+Article 16
+INDEPENDENT CONTRACTOR
+
+The Parties are independent contractors. Nothing in this Agreement creates a partnership, joint venture, agency, or employment relationship between the Parties.
+
+Article 17
+SEVERABILITY
+
+If any provision of this Agreement is held invalid or unenforceable, the remaining provisions shall remain in full force and effect, and the Parties shall negotiate in good faith to replace the invalid provision with one of similar economic effect.
+
+Article 18
+ENTIRE AGREEMENT
+
+This Agreement, together with its schedules, constitutes the entire agreement between the Parties with respect to its subject matter and supersedes all prior oral or written agreements or understandings.
+
+Article 19
+WAIVERS
+
+No failure or delay by either Party in exercising any right under this Agreement shall operate as a waiver of that right, nor shall any single exercise preclude any further exercise of that right.
+
+Article 20
+AMENDMENTS
+
+This Agreement may be amended only by a written instrument signed by authorized representatives of both Parties.
+
+Article 21
+LANGUAGE
+
+This Agreement is executed in the English language, which shall govern for all purposes. Any translation is provided for convenience only and has no legal effect.
+
+Article 22
+AUDIT RIGHTS
+
+Buyer shall have the right, upon reasonable prior notice and no more than once per calendar year, to audit Seller's production and quality-control records relevant to the Material supplied under this Agreement.
+
+Article 23
+SUBCONTRACTING
+
+Seller may subcontract portions of its extraction, refining, or processing operations only with Buyer's prior written approval, and shall remain fully responsible for the performance of any subcontractor.
+
+Article 24
+COMPLIANCE
+
+Each Party shall comply with all applicable export control, anti-corruption, and trade sanctions laws in connection with the performance of this Agreement.
+
+Article 25
+ENVIRONMENT & SAFETY
+
+Seller shall comply with all applicable environmental and workplace safety regulations in the jurisdictions where the Material is extracted or processed, and shall promptly notify Buyer of any material environmental or safety incident affecting supply.
+
+Article 26
+ETHICS
+
+Each Party shall conduct its business in accordance with applicable labor, human rights, and anti-corruption standards, including prohibitions on child labor and forced labor throughout its supply chain.
+
+Article 27
+MISCELLANEOUS
+
+This Agreement may be executed in counterparts, each of which is deemed an original. In the event of any conflict between this Agreement and its schedules, this Agreement shall control unless the schedule expressly states otherwise.
+
+[SIGNATURES OMITTED]

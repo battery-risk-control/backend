@@ -1,0 +1,209 @@
+ruleVersion: "erp-exposure-v0.1"
+
+# ERP Exposure Score를 구성하는 가중치
+weights:
+  supplyGap: 0.35
+  safetyStock: 0.20
+  supplierDependency: 0.20
+  purchaseOrderDelay: 0.15
+  alternativeSupplier: 0.10
+
+
+# 공급 공백일수에 따른 위험점수
+supplyGapRisk:
+  noGap:
+    maxDays: 0
+    score: 0
+
+  shortGap:
+    maxDays: 3
+    score: 40
+
+  mediumGap:
+    maxDays: 7
+    score: 70
+
+  longGap:
+    score: 100
+
+
+# 현재 재고일수와 안전재고일수 비율에 따른 점수
+#
+# stockRatio
+# = inventoryDays / safetyStockDays
+safetyStockRisk:
+  sufficient:
+    minRatio: 1.0
+    score: 0
+
+  belowSafety:
+    minRatio: 0.5
+    score: 80
+
+  severeShortage:
+    score: 100
+
+
+# 주 공급사 의존도에 따른 점수
+supplierDependencyRisk:
+  low:
+    maxRatioExclusive: 0.5
+    score: 20
+
+  medium:
+    maxRatioExclusive: 0.8
+    score: 70
+
+  high:
+    score: 100
+
+
+# 대표 미입고 발주 상태별 위험점수
+purchaseOrderDelayRisk:
+  OPEN: 0
+  CONFIRMED: 0
+  PARTIALLY_RECEIVED: 60
+  DELAYED: 100
+  CANCELLED: 100
+  CLOSED: 0
+
+
+# 대체 공급사 승인 상태별 위험점수
+alternativeSupplierRisk:
+  APPROVED: 0
+  CONDITIONAL: 60
+  PENDING: 80
+  NONE: 100
+
+
+# 공급사별 위험 평가(ErpSupplierAssessment)에 쓰는 규칙
+supplierAssessmentRisk:
+  # capacity 가중치 0: availableCapacityQuantity를 채워줄 실제 데이터가 우리 ERP 스키마에
+  # 없어서 항상 UNKNOWN(70점 고정)으로만 나옴 — 전 후보에 똑같이 적용돼 순위엔 영향도 없이
+  # 점수만 부풀리므로, 실제 가용 capacity 데이터가 생기기 전까지는 계산에서 제외한다.
+  # qualification/supplierStatus 비중은 원래 비율(0.40:0.30)을 유지한 채 합 1.0으로 재조정.
+  weights:
+    qualification: 0.57
+    supplierStatus: 0.43
+    capacity: 0.0
+
+  qualification:
+    APPROVED: 0
+    CONDITIONAL: 60
+    PENDING: 80
+    REJECTED: 100
+
+  supplierStatus:
+    ACTIVE: 0
+    UNDER_REVIEW: 60
+    SUSPENDED: 100
+    TERMINATED: 100
+
+  capacity:
+    sufficient: 0
+    partial: 50
+    severelyInsufficient: 80
+    unavailable: 100
+    unknown: 70
+    requiredQuantityUnknown: 40
+
+  coverageThresholds:
+    sufficient: 1.0
+    partial: 0.5
+
+
+# 기본 점수에 따른 ERP 노출등급
+exposureLevelThresholds:
+  warning: 30
+  critical: 60
+
+
+# 기본 점수와 관계없이 CRITICAL로 격상하는 조건
+forcedCriticalRules:
+  stockoutBeforeNextEta:
+    enabled: true
+    minimumGapDaysExclusive: 0
+
+  suspendedSupplierDependency:
+    enabled: true
+    minimumDependencyRatio: 0.9
+    supplierStatuses:
+      - "SUSPENDED"
+      - "TERMINATED"
+
+  noAlternativeBelowSafetyStock:
+    enabled: true
+    alternativeSupplierStatuses:
+      - "NONE"
+
+
+# 기본점수가 30점 미만이어도 WARNING으로 올리는 조건
+forcedWarningRules:
+  inventoryBelowSafetyStock:
+    enabled: true
+
+  partiallyReceivedPurchaseOrder:
+    enabled: true
+    purchaseOrderStatuses:
+      - "PARTIALLY_RECEIVED"
+
+  conditionalAlternativeSupplier:
+    enabled: true
+    alternativeSupplierStatuses:
+      - "CONDITIONAL"
+      - "PENDING"
+
+
+# ERP 데이터 품질 판정 규칙
+dataQualityRules:
+  maximumInventoryAgeHours: 24
+
+  requiredForInventoryDays:
+    - "averageDailyUsage"
+
+  requiredForSupplyGap:
+    - "effectiveArrivalDate"
+
+  invalidWhen:
+    availableQuantityNegative: true
+    averageDailyUsageNegative: true
+    dependencyRatioOutOfRange: true
+
+
+# Contract Agent 실행 조건
+contractReviewRules:
+  exposureLevels:
+    - "CRITICAL"
+
+  purchaseOrderStatuses:
+    - "DELAYED"
+
+  alternativeSupplierStatuses:
+    - "CONDITIONAL"
+    - "PENDING"
+    - "NONE"
+
+  supplierStatuses:
+    - "SUSPENDED"
+    - "TERMINATED"
+
+
+# Contract Agent에 전달할 질문 코드 규칙
+contractQuestionRules:
+  DELAYED:
+    - "DELIVERY_DELAY_NOTICE"
+    - "DELIVERY_PENALTY"
+    - "FORCE_MAJEURE"
+
+  PARTIALLY_RECEIVED:
+    - "DELIVERY_DELAY_NOTICE"
+
+  CONDITIONAL:
+    - "ALTERNATIVE_SUPPLIER_RESTRICTION"
+
+  PENDING:
+    - "ALTERNATIVE_SUPPLIER_RESTRICTION"
+
+  NONE:
+    - "ALTERNATIVE_SUPPLIER_RESTRICTION"
+    - "EMERGENCY_PURCHASE"

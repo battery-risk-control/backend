@@ -1,0 +1,124 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: battery-risk-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-battery_risk}
+      POSTGRES_USER: ${POSTGRES_USER:-battery_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-battery_app_password}
+      TZ: Asia/Seoul
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - battery_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  chroma:
+    image: chromadb/chroma:1.5.9
+    container_name: battery-risk-chroma
+    ports:
+      - "${CHROMA_PORT:-8001}:8000"
+    volumes:
+      - battery_chroma_data:/data
+    restart: unless-stopped
+
+  fastapi:
+    build: ./fastapi-ai
+    container_name: battery-risk-fastapi
+    # Swagger로 RAG 에이전트의 조항 유형(clause_type) 판별 테스트 시 필요 (개발용 — 프론트 연동엔 불필요)
+    environment:
+      # 컨테이너 안에서 Chroma의 포트는 진짜 포트 8000이다(호스트 매핑 8001이 아님).
+      CHROMA_MODE: http
+      CHROMA_HOST: chroma
+      CHROMA_PORT: 8000
+      CHROMA_SSL: "false"
+      CHROMA_COLLECTION_PREFIX: ${CHROMA_COLLECTION_PREFIX:-contract_documents}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-3072}
+      # 실제 임베딩을 쓰려면 EMBEDDING_PROVIDER=openai + OPENAI_API_KEY를 .env에 설정.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
+      # [surin F9] FastAPI supplier_recommendation_service가 Spring /api/v1/suppliers/qualified로 콜백. docker 네트워크에선 서비스명 spring 사용(localhost 아님).
+      SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
+      SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
+      MOCK_MODE: "true"
+    ports:
+      - "${FASTAPI_PORT:-8000}:8000"
+    depends_on:
+      - chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  spring:
+    build: ./spring-backend
+    container_name: battery-risk-spring
+    environment:
+      # 서비스 이름(postgres/fastapi)이 곧 컨테이너 네트워크의 호스트명이 된다.
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-battery_risk}
+      POSTGRES_USER: ${POSTGRES_USER:-battery_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-battery_app_password}
+      FASTAPI_BASE_URL: http://fastapi:8000
+      JWT_SECRET: ${JWT_SECRET:-change-this-development-only-secret-key-please-override-in-env-32bytes+}
+      JWT_ACCESS_TOKEN_VALIDITY_SECONDS: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:-3600}
+      JWT_REFRESH_TOKEN_VALIDITY_SECONDS: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:-1209600}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:4173}
+      UPLOAD_ROOT: /app/uploads
+      ERP_SEED_ENABLED: ${ERP_SEED_ENABLED:-false}
+      ERP_SEED_DIRECTORY: /app/erp-seed
+
+
+      RAG_SEED_ENABLED: ${RAG_SEED_ENABLED:-false}
+      RAG_SEED_DIRECTORY: /app/rag-seed
+      AUTH_TEST_SEED_ENABLED: ${AUTH_TEST_SEED_ENABLED:-false}
+      # 뉴스 수집(GDELT)은 로컬 XGBoost·공개 파일만 써서 비용이 없지만, 수집된 뉴스마다 도는
+      # F3 분석은 OpenAI 추출을 호출한다. 공개 뉴스 속보 패널은 수집 원본만으로 채워지므로
+      # 둘 다 기본 off로 두고, 비용이 나가는 쪽을 명시적으로 켜게 한다.
+      # 분석까지 돌리려면 COLLECTION_ANALYSIS_ENABLED=true. 단건 검증용 POST /collection/test-news는
+      # 이 플래그와 무관하게 항상 동작하므로, 기본 off로 두어도 분석 테스트 경로는 막히지 않는다.
+      COLLECTION_SCHEDULER_ENABLED: ${COLLECTION_SCHEDULER_ENABLED:-false}
+      COLLECTION_ANALYSIS_ENABLED: ${COLLECTION_ANALYSIS_ENABLED:-false}
+      TZ: Asia/Seoul
+    ports:
+      - "${SPRING_PORT:-8080}:8080"
+    volumes:
+      - battery_spring_uploads:/app/uploads
+      - ./data/ERP_data/spring-csv:/app/erp-seed:ro
+      - ./data/RAG_DATA/erp_aligned:/app/rag-seed:ro
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fastapi:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: battery-risk-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - spring
+    restart: unless-stopped
+
+volumes:
+  battery_postgres_data:
+  battery_chroma_data:
+  battery_spring_uploads:

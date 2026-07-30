@@ -1,0 +1,124 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: battery-risk-backend
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/battery_risk}
+    username: ${POSTGRES_USER:battery_app}
+    password: ${POSTGRES_PASSWORD:battery_app_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # [커넥션 풀 설정] HikariCP: DB 커넥션을 미리 만들어두고 재사용하는 풀.
+      # keepalive/max-lifetime은 죽은(half-open) 커넥션을 손님에게 건네기 전에
+      # 앱이 스스로 감지·교체하게 해, Docker/방화벽의 유휴 TCP 끊김으로 생기는
+      # 장시간 실행 시의 커넥션 확보 실패를 예방한다.
+      # minimum-idle을 두지 않아 maximum-pool-size와 같은 '고정 크기 풀'로 동작한다
+      # (HikariCP 권장). 항상 10개를 유지하므로 트래픽 급증 시 커넥션을 즉석 생성해
+      # 발생하는 지연 스파이크가 없다.
+      keepalive-time: 60000        # 60초마다 유휴 커넥션에 핑을 보내 살아있는지 확인
+      max-lifetime: 1200000        # 커넥션 최대 수명 20분 → 인프라가 끊기 전에 먼저 재생성
+      connection-timeout: 30000    # 커넥션을 못 얻을 때 대기 최대 30초(기본값, 순간부하 내성)
+      maximum-pool-size: 10        # 고정 풀 크기(= 동시 DB 작업 상한). minimum-idle 미설정
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 51MB
+  mail:
+    # [surin F10] 이메일 발송(JavaMailSender). host가 정의돼야 JavaMailSender 빈이 생성되어
+    # EmailNotificationChannel이 주입받는다(SMTP_HOST 미설정 시 빈 host라 발송만 비활성, 부팅은 정상).
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    # [surin F10] SMTP 미설정 시 mail 헬스체크가 /actuator/health를 DOWN으로 만들지 않도록 비활성화.
+    mail:
+      enabled: false
+
+app:
+  cors:
+    # 4173 = Vite preview(프론트 e2e/Playwright 대상). 5173 = Vite dev. 3000 = CRA 기본.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:4173}
+  fastapi:
+    base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
+  upload:
+    max-file-size: ${UPLOAD_MAX_FILE_SIZE:52428800}
+    root: ${UPLOAD_ROOT:../uploads}
+  jwt:
+    secret: ${JWT_SECRET:change-this-development-only-secret-key-please-override-in-env-32bytes+}
+    access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:3600}
+    refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:1209600}
+  erp:
+    seed:
+      enabled: ${ERP_SEED_ENABLED:false}
+      directory: ${ERP_SEED_DIRECTORY:}
+  rag:
+    # RAG 계약서 자동 적재기(RagSeedConfig). enabled=true면 시작 시 directory의 계약서를 ChromaDB에 적재.
+    seed:
+      enabled: ${RAG_SEED_ENABLED:false}
+      directory: ${RAG_SEED_DIRECTORY:}
+      document-type: ${RAG_SEED_DOCUMENT_TYPE:CONTRACT}
+  auth:
+    # 프론트 e2e용 고정 테스트 계정 시드. 운영에는 끄고, CI/로컬 e2e에서만 true로 켠다.
+    test-seed:
+      enabled: ${AUTH_TEST_SEED_ENABLED:false}
+  historical-data:
+    # [surin F4] BDI/GDACS 과거 아카이브 적재 경로. 로컬 경로 하드코딩 대신 env로 외부화(미설정 시 적재 스킵).
+    extra-path: ${HISTORICAL_DATA_EXTRA_PATH:}
+  notification:
+    # [surin F10] 알림 발신자 이메일 주소. 미설정 시 이메일 발송 비활성.
+    mail-from: ${NOTIFICATION_MAIL_FROM:}
+  collection:
+    # [surin F4] 자동 수집 스케줄러(GDELT 자체 갱신 주기에 맞춰 15분). 기본 false — 무인 반복 실행으로
+    # 인한 OpenAI 추출 비용 사고 방지. 자동 수집이 필요할 때만 COLLECTION_SCHEDULER_ENABLED=true 로 켠다.
+    # 수동 트리거(POST /collection/run)는 이 플래그와 무관하게 항상 가능.
+    scheduler-enabled: ${COLLECTION_SCHEDULER_ENABLED:false}
+    # 수집된 뉴스에 대한 F3 분석 자동 트리거. false면 raw_events 저장까지만 하고 LLM 추출을 건너뛴다
+    # (공개 뉴스 속보 패널은 수집 원본만으로 채워지므로 비용 없이 운영 가능).
+    #
+    # 기본 false. 스케줄러를 꺼두어도 수동 POST /collection/run 한 번이 수집된 뉴스 건수만큼 LLM 호출을
+    # 발생시키기 때문이다(실제로 그렇게 30건이 호출된 적 있음). 실수의 대가가 비대칭이다 — 켜는 걸
+    # 깜빡하면 분석이 안 생길 뿐 재실행하면 되지만, 끄는 걸 깜빡하면 실제 비용이 나가고 되돌릴 수 없다.
+    # 비활성 상태는 CollectionService가 설정 키까지 찍어 INFO 로그로 알리고, 단건 검증용
+    # POST /collection/test-news는 이 플래그의 영향을 받지 않으므로 분석 테스트 경로는 막히지 않는다.
+    #
+    # 주의: 환경변수는 이 줄이 있어야 바인딩된다 — COLLECTION_ANALYSIS_ENABLED만 넣고 여기를 빠뜨리면
+    # CollectionService의 @Value 기본값으로 떨어져 이 설정이 조용히 무시된다. 그래서 @Value 기본값도
+    # 여기와 같은 false로 맞춰 두었다(기본값이 세 군데로 갈라지지 않게).
+    analysis-enabled: ${COLLECTION_ANALYSIS_ENABLED:false}
