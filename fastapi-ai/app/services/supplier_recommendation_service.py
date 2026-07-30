@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 class SupplierRecommendationService:
     """F9: Spring이 필수조건으로 걸러준 적격 공급사 후보만 비교·우선순위화합니다.
 
-    실제 LLM 연동 전까지는 리드타임/가격/리스크등급/우선순위 기반 점수로 정렬하는 mock 규칙이며,
+    LLM이 아니라 우선순위/주공급사 여부/리드타임/단가/ERP 위험점수를 조합한 결정론적 규칙으로
+    점수를 매겨 정렬합니다(입력 데이터는 Spring이 실제 DB에서 조회해 보내주는 진짜 값 — mock 데이터 아님).
     Spring이 보내지 않은 후보를 새로 만들어내지 않습니다.
     """
 

@@ -52,7 +52,7 @@ TRIAGE_COLS = [
 
 
 class CrawledCandidate(dict):
-    """{global_event_id, title, content, source_url, action_geo_country_code} 형태의 결과 1건."""
+    """{global_event_id, title, content, source_url, action_geo_country_code, goldstein_scale} 형태의 결과 1건."""
 
 
 def get_latest_gdelt_url() -> str:
@@ -96,7 +96,9 @@ def fetch_events_for_ts(ts: str) -> pd.DataFrame | None:
         return pd.read_csv(f, sep="\t", header=None, names=GDELT_COLUMNS, low_memory=False)
 
 
-def _crawl_one(global_event_id: str, url: str, country_code: str) -> CrawledCandidate | None:
+def _crawl_one(
+    global_event_id: str, url: str, country_code: str, goldstein_scale: float | None,
+) -> CrawledCandidate | None:
     from newspaper import Article, Config
 
     try:
@@ -112,6 +114,7 @@ def _crawl_one(global_event_id: str, url: str, country_code: str) -> CrawledCand
         return CrawledCandidate(
             global_event_id=global_event_id, title=title, content=text,
             source_url=url, action_geo_country_code=country_code,
+            goldstein_scale=goldstein_scale,
         )
     except Exception:
         return None
@@ -147,6 +150,9 @@ def fetch_and_triage(cursor_value: str | None) -> tuple[list[CrawledCandidate], 
                 pool.submit(
                     _crawl_one, str(int(row.GlobalEventID)), str(row.SOURCEURL),
                     str(row.ActionGeo_CountryCode) if pd.notna(row.ActionGeo_CountryCode) else None,
+                    # GDELT가 이 이벤트에 이미 계산해준 값 — 원본 파이프라인처럼 크롤링 이후
+                    # Spring이 국가 단위로 재조회하지 않고 이 값을 그대로 들고 간다.
+                    float(row.GoldsteinScale) if pd.notna(row.GoldsteinScale) else None,
                 )
                 for row in candidates.itertuples()
             ]

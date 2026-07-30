@@ -132,7 +132,8 @@ public class CollectionService {
             }
             RawEvent rawEvent = RawEvent.of(
                     sourceName, adapter.dataType(), item.externalId(), contentHash,
-                    item.title(), item.content(), item.sourceUrl(), item.countryCode(), item.payloadJson());
+                    item.title(), item.content(), item.sourceUrl(), item.countryCode(),
+                    item.goldsteinScale(), item.payloadJson());
             rawEventRepository.saveAndFlush(rawEvent);
             newItems++;
 
@@ -167,7 +168,7 @@ public class CollectionService {
         String contentHash = sha256((title == null ? "" : title) + "|" + content);
         RawEvent rawEvent = RawEvent.of(
                 "TEST_NEWS", "NEWS", externalId, contentHash,
-                title, content, sourceUrl, countryCode, null);
+                title, content, sourceUrl, countryCode, null, null);
         rawEventRepository.saveAndFlush(rawEvent);
 
         UUID analysisId = triggerAnalysis(rawEvent);
@@ -216,8 +217,9 @@ public class CollectionService {
                 .map(event -> parseKeyValue(event.getContent(), "bdi_price", Double::parseDouble))
                 .orElse(null);
 
+
         return new AnalysisDto.FeatureOverrides(
-                joinResult.goldsteinScale(), (int) newsCount,
+                rawEvent.getGoldsteinScale(), (int) newsCount,
                 joinResult.gdacsAlertLevel(), joinResult.stockVolatility20d(), bdiIndex);
     }
 
