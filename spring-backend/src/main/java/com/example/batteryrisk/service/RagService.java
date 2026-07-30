@@ -28,10 +28,11 @@ public class RagService {
                     "INVALID_REQUEST", "검색 요청과 filters가 필요합니다.", HttpStatus.BAD_REQUEST);
         }
         if (request.filters().contractId() == null
-                && request.filters().supplierId() == null) {
+                && request.filters().supplierId() == null
+                && request.filters().productId() == null) {
             throw new RagSearchException(
                     "RAG_FILTER_REQUIRED",
-                    "contract_id 또는 supplier_id가 필요합니다.",
+                    "contract_id, supplier_id 또는 product_id가 필요합니다.",
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
 

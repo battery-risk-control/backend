@@ -259,7 +259,7 @@ public class BriefingService {
                 : request.query();
         RagDto.SearchResult searchResult = ragService.search(new RagDto.SearchRequest(
                 query,
-                new RagDto.SearchFilters(null, context.primarySupplierId(), context.materialId()),
+                new RagDto.SearchFilters(null, context.primarySupplierId(), context.materialId(), null, null),
                 request.resolvedTopK()));
         return searchResult.results().stream()
                 .map(item -> new BriefingDto.ContractEvidence(

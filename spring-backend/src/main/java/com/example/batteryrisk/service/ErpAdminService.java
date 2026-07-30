@@ -435,6 +435,102 @@ public class ErpAdminService {
         return response("goods_receipts", request.erpGoodsReceiptId(), id, !existed);
     }
 
+    // --- 아웃바운드(LG에너지솔루션 -> 완성차/ESS 고객사) 전용, 인바운드 테이블과 완전히 분리 ---
+
+    @Transactional
+    public ErpAdminDto.UpsertResponse upsertProduct(ErpAdminDto.ProductUpsertRequest request) {
+        boolean existed = repository.resolveProductId(request.erpProductId()).isPresent();
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("erpProductId", request.erpProductId())
+                .addValue("nameEn", request.nameEn())
+                .addValue("nameKr", request.nameKr())
+                .addValue("productLine", request.productLine());
+        jdbc.update("""
+                INSERT INTO products (
+                    erp_product_id, name_en, name_kr, product_line, created_at, updated_at
+                ) VALUES (
+                    :erpProductId, :nameEn, :nameKr, :productLine, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                )
+                ON CONFLICT (erp_product_id) DO UPDATE SET
+                    name_en = EXCLUDED.name_en,
+                    name_kr = EXCLUDED.name_kr,
+                    product_line = EXCLUDED.product_line,
+                    updated_at = CURRENT_TIMESTAMP
+                """, params);
+        Long id = repository.resolveProductId(request.erpProductId()).orElseThrow();
+        return response("products", request.erpProductId(), id, !existed);
+    }
+
+    @Transactional
+    public ErpAdminDto.UpsertResponse upsertCustomer(ErpAdminDto.CustomerUpsertRequest request) {
+        boolean existed = repository.resolveCustomerId(request.erpCustomerId()).isPresent();
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("erpCustomerId", request.erpCustomerId())
+                .addValue("nameEn", request.nameEn())
+                .addValue("nameKr", request.nameKr())
+                .addValue("countryCode", request.countryCode());
+        jdbc.update("""
+                INSERT INTO customers (
+                    erp_customer_id, name_en, name_kr, country_code, created_at, updated_at
+                ) VALUES (
+                    :erpCustomerId, :nameEn, :nameKr, :countryCode, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                )
+                ON CONFLICT (erp_customer_id) DO UPDATE SET
+                    name_en = EXCLUDED.name_en,
+                    name_kr = EXCLUDED.name_kr,
+                    country_code = EXCLUDED.country_code,
+                    updated_at = CURRENT_TIMESTAMP
+                """, params);
+        Long id = repository.resolveCustomerId(request.erpCustomerId()).orElseThrow();
+        return response("customers", request.erpCustomerId(), id, !existed);
+    }
+
+    @Transactional
+    public ErpAdminDto.UpsertResponse upsertOutboundContract(ErpAdminDto.OutboundContractUpsertRequest request) {
+        boolean existed = repository.resolveOutboundContractId(request.erpOutboundContractId()).isPresent();
+        long productId = requireFk(repository.resolveProductId(request.erpProductId()),
+                ErrorCode.ERP_PRODUCT_NOT_FOUND);
+        long customerId = requireFk(repository.resolveCustomerId(request.erpCustomerId()),
+                ErrorCode.ERP_CUSTOMER_NOT_FOUND);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("erpOutboundContractId", request.erpOutboundContractId())
+                .addValue("productId", productId)
+                .addValue("customerId", customerId)
+                .addValue("seller", request.seller())
+                .addValue("quantityGwh", request.quantityGwh())
+                .addValue("unitPriceUsdKwh", request.unitPriceUsdKwh())
+                .addValue("penaltyPct", request.penaltyPct())
+                .addValue("lineStopChargeUsd", request.lineStopChargeUsd())
+                .addValue("lineStopChargeKrw", request.lineStopChargeKrw())
+                .addValue("deliveryLeadTimeDays", request.deliveryLeadTimeDays())
+                .addValue("contractLanguage", request.contractLanguage());
+        jdbc.update("""
+                INSERT INTO outbound_contracts (
+                    erp_outbound_contract_id, product_id, customer_id, seller, quantity_gwh,
+                    unit_price_usd_kwh, penalty_pct, line_stop_charge_usd, line_stop_charge_krw,
+                    delivery_lead_time_days, contract_language, created_at, updated_at
+                ) VALUES (
+                    :erpOutboundContractId, :productId, :customerId, :seller, :quantityGwh,
+                    :unitPriceUsdKwh, :penaltyPct, :lineStopChargeUsd, :lineStopChargeKrw,
+                    :deliveryLeadTimeDays, :contractLanguage, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                )
+                ON CONFLICT (erp_outbound_contract_id) DO UPDATE SET
+                    product_id = EXCLUDED.product_id,
+                    customer_id = EXCLUDED.customer_id,
+                    seller = EXCLUDED.seller,
+                    quantity_gwh = EXCLUDED.quantity_gwh,
+                    unit_price_usd_kwh = EXCLUDED.unit_price_usd_kwh,
+                    penalty_pct = EXCLUDED.penalty_pct,
+                    line_stop_charge_usd = EXCLUDED.line_stop_charge_usd,
+                    line_stop_charge_krw = EXCLUDED.line_stop_charge_krw,
+                    delivery_lead_time_days = EXCLUDED.delivery_lead_time_days,
+                    contract_language = EXCLUDED.contract_language,
+                    updated_at = CURRENT_TIMESTAMP
+                """, params);
+        Long id = repository.resolveOutboundContractId(request.erpOutboundContractId()).orElseThrow();
+        return response("outbound_contracts", request.erpOutboundContractId(), id, !existed);
+    }
+
     private Long resolveSupplierMaterialId(String erpId) {
         return single("SELECT supplier_material_id FROM supplier_materials"
                 + " WHERE erp_supplier_material_id = :erpId", erpId);

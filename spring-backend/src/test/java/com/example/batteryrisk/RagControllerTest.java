@@ -29,7 +29,7 @@ class RagControllerTest {
     @WithMockUser(username = "purchaser", roles = "PURCHASING")
     void exposesSnakeCaseSearchResponse() throws Exception {
         RagDto.SearchItem item = new RagDto.SearchItem(
-                "DOC-1", 1L, 2L, 3L, "LTA", 0, 1,
+                "DOC-1", 1L, 2L, 3L, null, null, "LTA", 0, 1,
                 "리튬 가격 조정 조항",
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 0.75, "MOCK_TOKEN_HASH", "mock-v1", true);

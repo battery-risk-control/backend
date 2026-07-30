@@ -19,8 +19,6 @@ class UploadSummary:
 class StoredChunkView:
     document_id: str
     contract_id: int
-    supplier_id: int
-    material_id: int
     document_type: str
     chunk_index: int
     page_number: int
@@ -30,6 +28,10 @@ class StoredChunkView:
     embedding_version: str
     mock_embedding: bool
     similarity_score: float
+    supplier_id: int | None = None
+    material_id: int | None = None
+    product_id: int | None = None
+    customer_id: int | None = None
 
 
 class RagService:
@@ -46,10 +48,15 @@ class RagService:
     def mock_embedding(self) -> bool:
         return self._vector_store.mock_embedding if self._vector_store else True
 
-    def upload(self, content: bytes, file_name: str, contract_id: int, supplier_id: int, material_id: int, document_type: str) -> UploadSummary:
+    def upload(
+        self, content: bytes, file_name: str, contract_id: int,
+        supplier_id: int | None, material_id: int | None, document_type: str,
+        product_id: int | None = None, customer_id: int | None = None,
+    ) -> UploadSummary:
         document, _duplicate = self._documents.process(
             content, file_name, contract_id, supplier_id, material_id, document_type,
             document_id=f"LEGACY-{uuid4().hex[:12].upper()}",
+            product_id=product_id, customer_id=customer_id,
         )
         return UploadSummary(
             document.document_id,
@@ -67,6 +74,8 @@ class RagService:
         supplier_id: int | None,
         top_k: int,
         material_id: int | None = None,
+        product_id: int | None = None,
+        customer_id: int | None = None,
     ) -> list[StoredChunkView]:
         if self._vector_store is not None:
             vector_results = self._vector_store.search(
@@ -74,14 +83,23 @@ class RagService:
                 contract_id=contract_id,
                 supplier_id=supplier_id,
                 material_id=material_id,
+                product_id=product_id,
+                customer_id=customer_id,
                 top_k=top_k,
             )
+
+            def optional_int(metadata: dict, key: str) -> int | None:
+                value = metadata.get(key)
+                return int(value) if value is not None else None
+
             return [
                 StoredChunkView(
                     document_id=str(item.metadata["document_id"]),
                     contract_id=int(item.metadata["contract_id"]),
-                    supplier_id=int(item.metadata["supplier_id"]),
-                    material_id=int(item.metadata["material_id"]),
+                    supplier_id=optional_int(item.metadata, "supplier_id"),
+                    material_id=optional_int(item.metadata, "material_id"),
+                    product_id=optional_int(item.metadata, "product_id"),
+                    customer_id=optional_int(item.metadata, "customer_id"),
                     document_type=str(item.metadata["document_type"]),
                     chunk_index=int(item.metadata["chunk_index"]),
                     page_number=int(item.metadata["page_number"]),
@@ -101,19 +119,19 @@ class RagService:
                 continue
             results.extend(
                 StoredChunkView(
-                    document.document_id,
-                    document.contract_id,
-                    document.supplier_id,
-                    document.material_id,
-                    document.document_type,
-                    chunk.chunk_index,
-                    chunk.page_number,
-                    chunk.content_hash,
-                    chunk.content,
-                    document.embedding_type,
-                    document.embedding_version,
-                    document.mock_embedding,
-                    1.0 if query.casefold() in chunk.content.casefold() else 0.0,
+                    document_id=document.document_id,
+                    contract_id=document.contract_id,
+                    supplier_id=document.supplier_id,
+                    material_id=document.material_id,
+                    document_type=document.document_type,
+                    chunk_index=chunk.chunk_index,
+                    page_number=chunk.page_number,
+                    content_hash=chunk.content_hash,
+                    content=chunk.content,
+                    embedding_type=document.embedding_type,
+                    embedding_version=document.embedding_version,
+                    mock_embedding=document.mock_embedding,
+                    similarity_score=1.0 if query.casefold() in chunk.content.casefold() else 0.0,
                 )
                 for chunk in document.chunks
             )

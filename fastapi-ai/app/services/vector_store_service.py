@@ -46,11 +46,12 @@ class ChromaVectorStore:
         "page_number",
         "content",
         "contract_id",
-        "supplier_id",
-        "material_id",
         "document_type",
         "content_hash",
     )
+    # 인바운드(공급사 계약, supplier_id+material_id)와 아웃바운드(고객사 계약, product_id+
+    # customer_id) 문서가 같은 컬렉션을 공유한다 — 둘 다 필수는 아니고 최소 한 쌍은 있어야 한다.
+    _OPTIONAL_ID_FIELDS = ("supplier_id", "material_id", "product_id", "customer_id")
     _HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
     def __init__(
@@ -181,9 +182,11 @@ class ChromaVectorStore:
         contract_id: int | None,
         supplier_id: int | None,
         material_id: int | None = None,
+        product_id: int | None = None,
+        customer_id: int | None = None,
         top_k: int = 5,
     ) -> list[VectorSearchResult]:
-        if contract_id is None and supplier_id is None:
+        if contract_id is None and supplier_id is None and product_id is None:
             raise RagFilterRequired()
         if not query.strip():
             raise VectorStoreFailed("검색어는 비어 있을 수 없습니다.")
@@ -195,6 +198,10 @@ class ChromaVectorStore:
             conditions.append({"supplier_id": supplier_id})
         if material_id is not None:
             conditions.append({"material_id": material_id})
+        if product_id is not None:
+            conditions.append({"product_id": product_id})
+        if customer_id is not None:
+            conditions.append({"customer_id": customer_id})
         where = conditions[0] if len(conditions) == 1 else {"$and": conditions}
 
         try:
@@ -286,15 +293,33 @@ class ChromaVectorStore:
                         f"필수 청크 필드가 없습니다: {field}"
                     ) from exception
 
+        for field in self._OPTIONAL_ID_FIELDS:
+            if isinstance(chunk, Mapping):
+                values[field] = chunk.get(field)
+            else:
+                values[field] = getattr(chunk, field, None)
+
         if not isinstance(values["document_id"], str) or not values["document_id"].strip():
             raise VectorStoreFailed("document_id가 올바르지 않습니다.")
         if not isinstance(values["content"], str) or not values["content"].strip():
             raise VectorStoreFailed("content가 비어 있습니다.")
         if not isinstance(values["document_type"], str) or not values["document_type"].strip():
             raise VectorStoreFailed("document_type이 올바르지 않습니다.")
-        for field in ("contract_id", "supplier_id", "material_id", "page_number"):
+        for field in ("contract_id", "page_number"):
             if not isinstance(values[field], int) or isinstance(values[field], bool) or values[field] <= 0:
                 raise VectorStoreFailed(f"{field}는 양의 정수여야 합니다.")
+        for field in self._OPTIONAL_ID_FIELDS:
+            value = values[field]
+            if value is None:
+                continue
+            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                raise VectorStoreFailed(f"{field}는 양의 정수여야 합니다.")
+        has_inbound = values["supplier_id"] is not None and values["material_id"] is not None
+        has_outbound = values["product_id"] is not None and values["customer_id"] is not None
+        if not (has_inbound or has_outbound):
+            raise VectorStoreFailed(
+                "supplier_id+material_id 또는 product_id+customer_id 중 하나는 필요합니다."
+            )
         if (
             not isinstance(values["chunk_index"], int)
             or isinstance(values["chunk_index"], bool)
@@ -308,11 +333,9 @@ class ChromaVectorStore:
         return values
 
     def _metadata(self, chunk: dict[str, Any]) -> dict[str, Any]:
-        return {
+        metadata = {
             "document_id": chunk["document_id"],
             "contract_id": chunk["contract_id"],
-            "supplier_id": chunk["supplier_id"],
-            "material_id": chunk["material_id"],
             "document_type": chunk["document_type"],
             "chunk_index": chunk["chunk_index"],
             "page_number": chunk["page_number"],
@@ -321,6 +344,11 @@ class ChromaVectorStore:
             "embedding_version": self.embedding_version,
             "mock_embedding": self.mock_embedding,
         }
+        # Chroma 메타데이터는 None 값을 허용하지 않으므로, 값이 있는 optional id 필드만 넣는다.
+        for field in self._OPTIONAL_ID_FIELDS:
+            if chunk.get(field) is not None:
+                metadata[field] = chunk[field]
+        return metadata
 
     @staticmethod
     def _vector_id(chunk: dict[str, Any]) -> str:
