@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
+from pydantic import BaseModel
 
 from app.api.dependencies import get_document_service
 from app.schemas.common import ApiErrorResponse, ApiResponse
@@ -9,6 +10,28 @@ from app.services.document_service import DocumentService
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
 ERRORS = {422: {"model": ApiErrorResponse}, 500: {"model": ApiErrorResponse}}
+
+
+class ExtractTextResult(BaseModel):
+    text: str
+
+
+@router.post(
+    "/extract-text",
+    response_model=ApiResponse[ExtractTextResult],
+    responses=ERRORS,
+)
+async def extract_text(
+    file: Annotated[UploadFile, File(description="PDF 또는 UTF-8 TXT 문서")],
+    service: DocumentService = Depends(get_document_service),
+) -> ApiResponse[ExtractTextResult]:
+    """청킹/임베딩 없이 원문 텍스트만 반환한다.
+
+    Spring의 계약서 업로드 미리보기(정규식 필드 자동추출)가 이 텍스트를 갖고 계약번호/계약명/
+    발효일/만료일을 뽑는다 — ChromaDB에는 아무것도 안 씀, `/process`와 별개 경로.
+    """
+    text = service.extract_text(await file.read(), file.filename or "document")
+    return ApiResponse(data=ExtractTextResult(text=text))
 
 
 @router.post("/process", response_model=ApiResponse[DocumentProcessResult], responses=ERRORS)

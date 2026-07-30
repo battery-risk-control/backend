@@ -93,8 +93,8 @@ services:
       - "${SPRING_PORT:-8080}:8080"
     volumes:
       - battery_spring_uploads:/app/uploads
-      - ./data/ERP_data/spring-csv:/app/erp-seed:ro
-      - ./data/RAG_DATA/erp_aligned:/app/rag-seed:ro
+      - ./data/ERP_data/spring-csv:/app/erp-seed
+      - ./data/RAG_DATA/erp_aligned:/app/rag-seed
 
     depends_on:
       postgres:
