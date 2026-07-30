@@ -89,8 +89,14 @@ public class ContractUploadService {
     }
 
     /**
-     * 2단계: 사용자가 미리보기 모달에서 확인/수정한 값으로 실제 생성한다.
-     * (공급사,자재) 조합에 계약이 이미 있으면 새로 안 만들고 그 계약에 문서만 추가한다.
+     * 2단계: 미리보기에서 확인/수정한 값으로 실제 생성한다. (공급사,자재) 조합에 계약이 이미
+     * 있으면 새로 안 만들고 그 계약에 문서만 추가한다.
+     *
+     * {@code contractNumber}/{@code contractName}/{@code effectiveDate}/{@code expirationDate}는
+     * 전부 선택 파라미터다 — 새 계약인데 이 중 뭔가 비어 있으면, 호출자가 {@code /preview}를
+     * 먼저 안 거쳤더라도 이 메서드가 직접 파일에서 정규식으로 추출해서 채운다({@link
+     * ContractFieldExtractor}). 즉 "공급사+자재+파일만 주면 끝"이 되는 게 기본 경로이고,
+     * {@code /preview}는 저장 전에 추출 결과를 미리 보여주고 싶을 때만 쓰는 선택 단계다.
      */
     public ContractUploadDto.ConfirmResponse confirm(
             MultipartFile file, String erpSupplierId, String erpMaterialId,
@@ -112,8 +118,25 @@ public class ContractUploadService {
             created = false;
         } else {
             if (isBlank(contractNumber) || isBlank(contractName) || effectiveDate == null) {
+                ContractFieldExtractor.ExtractedFields extracted =
+                        ContractFieldExtractor.extract(extractText(file));
+                if (isBlank(contractNumber)) {
+                    contractNumber = extracted.contractNumber();
+                }
+                if (isBlank(contractName)) {
+                    contractName = extracted.contractName();
+                }
+                if (effectiveDate == null) {
+                    effectiveDate = extracted.effectiveDate();
+                }
+                if (expirationDate == null) {
+                    expirationDate = extracted.expirationDate();
+                }
+            }
+            if (isBlank(contractNumber) || isBlank(contractName) || effectiveDate == null) {
                 throw new DocumentUploadException(
-                        "CONTRACT_FIELDS_REQUIRED", "계약번호/계약명/발효일은 필수입니다.");
+                        "CONTRACT_FIELDS_REQUIRED",
+                        "계약번호/계약명/발효일을 파일에서 자동으로 찾지 못했습니다. 직접 입력해주세요.");
             }
             // 미리보기 때 보여준 CTR-XXX는 예상값일 뿐 — 그 사이 다른 업로드가 먼저 확정됐을 수
             // 있으니 확정 시점에 다시 계산한다(계획서의 "채번 경합" 단순화 처리).
@@ -134,12 +157,16 @@ public class ContractUploadService {
                     erpSupplierMaterialId, erpSupplierId, erpMaterialId, erpContractId,
                     BigDecimal.ONE, 30, BigDecimal.ZERO, "APPROVED", 1, false, LocalDate.now(), null));
 
+            OffsetDateTime now = OffsetDateTime.now();
             appendContractsCsvRow(
                     erpContractId, contractNumber, erpSupplierId, erpMaterialId, contractName,
-                    effectiveDate, expirationDate, documentPath);
+                    effectiveDate, expirationDate, documentPath, now);
             appendSupplierMaterialsCsvRow(
                     erpSupplierMaterialId, erpSupplierId, erpMaterialId, erpContractId);
-            reloadKg();
+            syncKgService(
+                    erpContractId, contractNumber, erpSupplierId, erpMaterialId, contractName,
+                    effectiveDate, expirationDate, documentPath, now,
+                    erpSupplierMaterialId);
         }
 
         DocumentDto.UploadResponse uploadResponse =
@@ -198,31 +225,60 @@ public class ContractUploadService {
         return "SM-%03d".formatted(next);
     }
 
-    private void reloadKg() {
+    /**
+     * kg_service(호스트에서 도는 일반 Python 프로세스)에게 같은 계약/공급관계 정보를 보내
+     * 자기 쪽 CSV(ERP_DIR)에도 append하고 그래프를 다시 만들게 한다.
+     *
+     * 이걸 굳이 Spring이 직접 두 번째 파일에 쓰지 않고 kg_service를 거치는 이유: 이 컨테이너는
+     * Docker(WSL2) 안에서 도는데, kg_service의 진짜 소스(빅프로젝트/backend/data/ERP_data/
+     * spring-csv)는 Google Drive 가상 드라이브(G:) 안에 있어서 Docker가 그 경로를 마운트해도
+     * 빈 폴더로 보인다(오늘 직접 확인함) — 반면 kg_service는 일반 Python 파일 I/O라 그 드라이브를
+     * 문제없이 읽고 쓴다. 그래서 "두 번째 CSV에 쓰는 일"은 Spring이 아니라 kg_service가 한다.
+     */
+    private void syncKgService(
+            String erpContractId, String contractNumber, String erpSupplierId, String erpMaterialId,
+            String contractName, LocalDate effectiveDate, LocalDate expirationDate, String documentPath,
+            OffsetDateTime now, String erpSupplierMaterialId) {
+        KgContractFields contract = new KgContractFields(
+                erpContractId, contractNumber, erpSupplierId, erpMaterialId, contractName,
+                "ACTIVE", effectiveDate.toString(), expirationDate == null ? null : expirationDate.toString(),
+                "PENDING_UPLOAD", "USER_UPLOAD", documentPath, "PRIMARY", "APPROVED",
+                now.toString(), now.toString());
+        KgSupplierMaterialFields supplierMaterial = new KgSupplierMaterialFields(
+                erpSupplierMaterialId, erpSupplierId, erpMaterialId,
+                BigDecimal.ONE, 30, BigDecimal.ZERO, "APPROVED", 1, false,
+                LocalDate.now().toString(), null);
         try {
-            kgServiceRestClient.post().uri("/admin/reload").retrieve().toBodilessEntity();
+            kgServiceRestClient.post()
+                    .uri("/admin/append_contract")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new KgAppendContractRequest(contract, supplierMaterial))
+                    .retrieve()
+                    .toBodilessEntity();
         } catch (Exception exception) {
-            // KG 반영은 부가 기능 — 실패해도 계약/문서 생성 자체를 막지 않는다. 다음
-            // 수동 재구축이나 서비스 재시작 시 CSV는 이미 갱신돼 있으니 알아서 반영된다.
-            log.warn("kg_service reload 호출 실패 — CSV는 갱신됐으나 그래프는 아직 이전 상태입니다", exception);
+            // KG 반영은 부가 기능 — 실패해도 계약/문서 생성 자체를 막지 않는다. CSV(로컬 사본)는
+            // 이미 갱신됐으니 나중에 kg_service 쪽에 수동으로 반영할 수 있다.
+            log.warn("kg_service 동기화 실패 — CSV(로컬 사본)는 갱신됐으나 KG 그래프는 아직 이전 상태입니다", exception);
         }
     }
 
     private void appendContractsCsvRow(
             String erpContractId, String contractNumber, String erpSupplierId, String erpMaterialId,
-            String contractName, LocalDate effectiveDate, LocalDate expirationDate, String documentPath) {
+            String contractName, LocalDate effectiveDate, LocalDate expirationDate, String documentPath,
+            OffsetDateTime now) {
         if (erpSeedDirectory == null) {
             log.warn("app.erp.seed.directory 미설정 — 04_contracts.csv 동기화를 건너뜁니다");
             return;
         }
-        String now = OffsetDateTime.now().toString();
+        String nowStr = now.toString();
         String row = String.join(",",
                 erpContractId, csv(contractNumber), erpSupplierId, erpMaterialId, csv(contractName),
                 "ACTIVE", String.valueOf(effectiveDate),
                 expirationDate == null ? "" : expirationDate.toString(),
                 "PENDING_UPLOAD", "USER_UPLOAD", csv(documentPath),
-                "PRIMARY", "APPROVED", now, now);
+                "PRIMARY", "APPROVED", nowStr, nowStr);
         appendLine(erpSeedDirectory.resolve("04_contracts.csv"), row);
+        incrementManifestRowCount("04_contracts.csv");
     }
 
     private void appendSupplierMaterialsCsvRow(
@@ -235,6 +291,37 @@ public class ContractUploadService {
                 "1.0", "30", "0", "APPROVED", "1", "false",
                 LocalDate.now().toString(), "", erpContractId);
         appendLine(erpSeedDirectory.resolve("05_supplier_materials.csv"), row);
+        incrementManifestRowCount("05_supplier_materials.csv");
+    }
+
+    /**
+     * {@code ErpSeedConfig}가 시작할 때 00_manifest.csv의 row_count와 실제 CSV 행 수가 정확히
+     * 일치하는지 검증하고 안 맞으면 기동을 막는다(ErpSeedConfig.readManifest) — CSV에 새 행을
+     * append만 하고 이걸 안 늘리면 다음 재기동 때부터 계속 죽는다(실제로 겪은 버그, 데이터
+     * 자체는 멀쩡한데도 크래시 루프에 빠짐). 그래서 append할 때마다 반드시 같이 갱신한다.
+     */
+    private void incrementManifestRowCount(String targetFileName) {
+        Path manifestPath = erpSeedDirectory.resolve("00_manifest.csv");
+        try {
+            java.util.List<String> lines = Files.readAllLines(manifestPath, StandardCharsets.UTF_8);
+            java.util.List<String> updated = new java.util.ArrayList<>(lines.size());
+            for (String line : lines) {
+                String[] fields = line.split(",", -1);
+                if (fields.length >= 4 && fields[1].equals(targetFileName)) {
+                    int currentCount = Integer.parseInt(fields[3].trim());
+                    fields[3] = String.valueOf(currentCount + 1);
+                    updated.add(String.join(",", fields));
+                } else {
+                    updated.add(line);
+                }
+            }
+            Files.write(manifestPath, updated, StandardCharsets.UTF_8);
+        } catch (IOException | NumberFormatException exception) {
+            log.warn(
+                    "00_manifest.csv의 {} row_count 갱신 실패 — 다음 Spring 재기동 시 "
+                            + "ErpSeedConfig가 row count mismatch로 기동에 실패할 수 있음, 수동 확인 필요",
+                    targetFileName, exception);
+        }
     }
 
     private void appendLine(Path csvPath, String line) {
@@ -269,6 +356,42 @@ public class ContractUploadService {
             boolean success, ExtractTextData data, OffsetDateTime timestamp) {}
 
     private record ExtractTextData(@JsonProperty("text") String text) {}
+
+    // kg_service의 AppendContractRequest/ContractAppendFields/SupplierMaterialAppendFields
+    // (kg_service/main.py)와 필드 이름을 그대로 맞춘 snake_case DTO.
+    private record KgAppendContractRequest(
+            KgContractFields contract,
+            @JsonProperty("supplier_material") KgSupplierMaterialFields supplierMaterial) {}
+
+    private record KgContractFields(
+            @JsonProperty("erp_contract_id") String erpContractId,
+            @JsonProperty("contract_number") String contractNumber,
+            @JsonProperty("erp_supplier_id") String erpSupplierId,
+            @JsonProperty("erp_material_id") String erpMaterialId,
+            @JsonProperty("contract_name") String contractName,
+            @JsonProperty("contract_status") String contractStatus,
+            @JsonProperty("effective_date") String effectiveDate,
+            @JsonProperty("expiration_date") String expirationDate,
+            @JsonProperty("document_id") String documentId,
+            @JsonProperty("document_source") String documentSource,
+            @JsonProperty("document_path") String documentPath,
+            @JsonProperty("contract_role") String contractRole,
+            @JsonProperty("supplier_approval_status") String supplierApprovalStatus,
+            @JsonProperty("indexed_at") String indexedAt,
+            @JsonProperty("updated_at") String updatedAt) {}
+
+    private record KgSupplierMaterialFields(
+            @JsonProperty("erp_supplier_material_id") String erpSupplierMaterialId,
+            @JsonProperty("erp_supplier_id") String erpSupplierId,
+            @JsonProperty("erp_material_id") String erpMaterialId,
+            @JsonProperty("supply_share_ratio") BigDecimal supplyShareRatio,
+            @JsonProperty("lead_time_days") int leadTimeDays,
+            @JsonProperty("minimum_order_quantity") BigDecimal minimumOrderQuantity,
+            @JsonProperty("approved_status") String approvedStatus,
+            @JsonProperty("priority_rank") int priorityRank,
+            @JsonProperty("is_alternative") boolean isAlternative,
+            @JsonProperty("valid_from") String validFrom,
+            @JsonProperty("valid_to") String validTo) {}
 
     private static final class NamedByteArrayResource extends ByteArrayResource {
         private final String fileName;
