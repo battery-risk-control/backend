@@ -9,7 +9,6 @@ class Settings:
     app_version: str = "0.1.0"
     environment: str = "local"
     mock_mode: bool = True
-    model_version: str = "xgboost-impact-domain-v0.1"
     severity_rule_version: str = "severity-rule-v1"
     chunk_size: int = 900
     chunk_overlap: int = 120
@@ -35,7 +34,6 @@ def get_settings() -> Settings:
     return Settings(
         environment=os.getenv("APP_ENV", "local"),
         mock_mode=_as_bool(os.getenv("MOCK_MODE", "true")),
-        model_version=os.getenv("MODEL_VERSION", "xgboost-impact-domain-v0.1"),
         severity_rule_version=os.getenv("SEVERITY_RULE_VERSION", "severity-rule-v1"),
         chunk_size=int(os.getenv("RAG_CHUNK_SIZE", "900")),
         chunk_overlap=int(os.getenv("RAG_CHUNK_OVERLAP", "120")),

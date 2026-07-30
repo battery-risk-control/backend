@@ -35,7 +35,6 @@ def test_rag_search_returns_snake_case_results() -> None:
 def test_internal_mock_endpoints_are_documented_and_callable() -> None:
     cases = [
         ("/api/v1/internal/llm/extract", {"title": "폭우", "content": "생산 차질"}),
-        ("/api/v1/internal/ml/classify", {"features": {}}),
         ("/api/v1/internal/severity/score", {"features": {}}),
         ("/api/v1/internal/briefings", {"risk_id": 101}),
     ]
@@ -49,5 +48,4 @@ def test_internal_mock_endpoints_are_documented_and_callable() -> None:
 def test_openapi_contains_priority_one_endpoints() -> None:
     paths = client.get("/openapi.json").json()["paths"]
     assert "/api/v1/analyze" in paths
-    assert "/api/v1/internal/ml/classify" in paths
     assert "/api/v1/internal/severity/score" in paths

@@ -2,7 +2,6 @@ from app.core.config import get_settings
 import app.services.document_service as document_service_module
 from app.services.document_service import DocumentService
 from app.repositories.erp_repository import InMemoryErpRepository
-from app.services.classification_service import ClassificationService
 from app.services.erp_context_service import ErpContextService
 from app.services.extraction_service import ExtractionService
 from app.services.severity_service import SeverityService
@@ -20,17 +19,15 @@ def test_erp_context_is_served_through_repository_boundary() -> None:
     assert context.contract_ids == [501]
 
 
-def test_classification_and_severity_are_deterministic() -> None:
+def test_severity_is_deterministic() -> None:
     features = FeatureVector(
         goldstein_scale=-7.2, news_count=15,
         rainfall_24h_mm=230.0, gdacs_alert_level=2,
         actor1_type="GOV", actor2_type="COM", stock_volatility_20d=0.041,
     )
-    classification = ClassificationService().classify(features)
     # [surin 병합] /analyze severity는 severity_engine(v0.2-realtime) 단일 인자 호출로 계산한다.
     # ERP는 관여하지 않으며, gdacs>=2 하드게이트가 점수를 CRITICAL_MIN(75)까지 끌어올린다.
     severity = SeverityService().score(features)
-    assert classification.impact_domain == "PRODUCTION"
     assert severity.severity == "CRITICAL"
     assert severity.score == 75.0
 

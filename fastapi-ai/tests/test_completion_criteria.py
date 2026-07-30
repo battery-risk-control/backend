@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.schemas.analyze import FeatureVector
-from app.services.classification_service import ClassificationService
 from app.services.severity_service import SeverityService
 
 client = TestClient(app)
@@ -40,15 +39,6 @@ def _features(**changes) -> FeatureVector:
                   actor2_type="UNKNOWN", stock_volatility_20d=0.0)
     values.update(changes)
     return FeatureVector(**values)
-
-
-def test_classification_mock_supports_multiple_domains() -> None:
-    service = ClassificationService()
-    assert service.classify(_features(rainfall_24h_mm=120)).impact_domain == "PRODUCTION"
-    assert service.classify(_features(actor1_type="LAB")).impact_domain == "LOGISTICS"
-    assert service.classify(_features(actor1_type="POLICY")).impact_domain == "POLICY"
-    assert service.classify(_features(goldstein_scale=-7)).impact_domain == "GEOPOLITICS"
-    assert service.classify(_features()).impact_domain == "MARKET"
 
 
 def test_severity_mock_supports_all_three_levels() -> None:
@@ -134,11 +124,11 @@ def test_invalid_pdf_is_rejected_by_real_parser() -> None:
     assert search.json()["data"]["results"] == []
 
 
-def test_all_seven_apis_have_concrete_openapi_contracts() -> None:
+def test_all_six_apis_have_concrete_openapi_contracts() -> None:
     schema = client.get("/openapi.json").json()
     paths = {
         "/api/v1/analyze", "/api/v1/rag/contracts", "/api/v1/rag/search",
-        "/api/v1/internal/llm/extract", "/api/v1/internal/ml/classify",
+        "/api/v1/internal/llm/extract",
         "/api/v1/internal/severity/score", "/api/v1/internal/briefings",
     }
     assert paths <= schema["paths"].keys()

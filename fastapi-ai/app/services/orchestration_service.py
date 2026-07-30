@@ -7,7 +7,6 @@ from app.schemas.briefing import BriefingGenerationRequest
 from app.schemas.classification import ClassificationResult
 from app.schemas.common import ImpactDomain, ProcessingStatus
 from app.services.briefing_service import BriefingService
-from app.services.classification_service import ClassificationService
 from app.services.erp_context_service import ErpContextService
 from app.services.extraction_service import ExtractionService
 from app.services.feature_service import FeatureService
@@ -20,18 +19,17 @@ class OrchestrationService:
 
     - 골격/선택 스테이지/rich 응답: merge — erp_context·rag·briefing·matched_entities·save_analysis 유지.
     - impact_domain: surin — LLM 추출 draft를 그대로 사용(도메인 전용 XGBoost 없음).
-      merge XGBoost classifier(classification_service)는 삭제하지 않고 /ml/classify(internal)로 보존.
+      merge XGBoost classifier(classification_service)는 사용처가 없어 제거됨.
     - severity: surin — severity_service.score(features) → severity_engine(severity-rule-v0.2-realtime, 4,081건 검증).
     - 추출 tone/relevance 주입 + risk_repository.remember 중복방지: surin.
     """
 
     def __init__(self, extraction: ExtractionService, feature: FeatureService,
-                 classification: ClassificationService, severity: SeverityService,
+                 severity: SeverityService,
                  erp: ErpContextService, briefing: BriefingService, rag: RagService,
                  risk_repository: RiskRepository) -> None:
         self.extraction = extraction
         self.feature = feature
-        self.classification = classification  # /analyze 경로 미사용, /ml/classify로 보존
         self.severity = severity
         self.erp = erp
         self.briefing = briefing
@@ -54,7 +52,7 @@ class OrchestrationService:
         if feature_updates:
             features = features.model_copy(update=feature_updates)
 
-        # impact_domain: LLM 추출 결과 직결(surin 설계). XGBoost classifier는 /ml/classify로 보존.
+        # impact_domain: LLM 추출 결과 직결(surin 설계). XGBoost classifier는 사용처가 없어 제거됨.
         # confidence는 None — 이 경로에는 분류 확률이 존재하지 않는다. 상수 1.0을 넣던 시절에는
         # 비-mock 분석이 전부 "확정" 배지로 나갔다(전역 MOCK_MODE 때문에 드러나지 않았을 뿐).
         classification = ClassificationResult(

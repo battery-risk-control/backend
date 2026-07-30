@@ -183,12 +183,11 @@ ERP 데이터 갱신 API는 `/api/v1/erp/admin` 아래 10개다. 모두 `POST`�
 | POST | `/api/v1/internal/severity/score` | 규칙 기반 위험 등급 계산 |
 | POST | `/api/v1/internal/briefings/compose` | 템플릿 브리핑 조립 (13단계 본선) |
 | POST | `/api/v1/internal/llm/extract` | LLM 정보 추출 (Mock) |
-| POST | `/api/v1/internal/ml/classify` | XGBoost 영향 도메인 분류 (Mock) |
 | POST | `/api/v1/internal/briefings` | 구 Orchestration 호환용 브리핑 (Mock) |
 | POST | `/api/v1/analyze` | 뉴스 이벤트 통합 분석 (Mock, Spring 연동 전 경로) |
 | GET | `/health` | FastAPI·Chroma Health |
 
-마지막 네 개 중 `analyze`·`briefings`·`llm/extract`·`ml/classify`는 초기에 만든 Mock 경로이고, Spring이 실제로 호출하는 것은 `documents/process`·`rag/search`·`severity/score`·`briefings/compose`다.
+마지막 세 개 중 `analyze`·`briefings`·`llm/extract`는 초기에 만든 Mock 경로이고, Spring이 실제로 호출하는 것은 `documents/process`·`rag/search`·`severity/score`·`briefings/compose`다. (XGBoost 기반 `ml/classify`는 사용처가 없어 코드와 함께 제거됨)
 
 ### 3.3 컨트롤러별 집계
 
