@@ -136,6 +136,7 @@ def validateErpRules(
         "supplierDependency",
         "purchaseOrderDelay",
         "alternativeSupplier",
+        "contractProtection",
     ]
 
     missingWeights = [

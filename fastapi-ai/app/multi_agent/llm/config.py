@@ -4,20 +4,21 @@ from functools import lru_cache
 
 
 @dataclass(frozen=True)
-class OpenAISettings:
-    """Response Agent에서 사용하는 OpenAI 설정."""
+class AnthropicSettings:
+    """Response Agent에서 사용하는 Claude(Anthropic) 설정."""
 
     api_key: str
     model: str
     timeout_seconds: float
+    max_tokens: int
 
 
 @lru_cache(maxsize=1)
-def get_openai_settings() -> OpenAISettings:
-    """환경변수에서 OpenAI 설정을 읽는다."""
+def get_anthropic_settings() -> AnthropicSettings:
+    """환경변수에서 Anthropic 설정을 읽는다."""
 
     timeout_text = os.getenv(
-        "OPENAI_TIMEOUT_SECONDS",
+        "ANTHROPIC_TIMEOUT_SECONDS",
         "30",
     )
 
@@ -26,17 +27,31 @@ def get_openai_settings() -> OpenAISettings:
     except ValueError:
         timeout_seconds = 30.0
 
-    return OpenAISettings(
+    max_tokens_text = os.getenv(
+        "ANTHROPIC_MAX_TOKENS",
+        "4096",
+    )
+
+    try:
+        max_tokens = int(max_tokens_text)
+    except ValueError:
+        max_tokens = 4096
+
+    return AnthropicSettings(
         api_key=os.getenv(
-            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
             "",
         ).strip(),
         model=os.getenv(
-            "OPENAI_MODEL",
-            "gpt-4o-mini",
+            "ANTHROPIC_MODEL",
+            "claude-sonnet-5",
         ).strip(),
         timeout_seconds=max(
             1.0,
             timeout_seconds,
+        ),
+        max_tokens=max(
+            1,
+            max_tokens,
         ),
     )

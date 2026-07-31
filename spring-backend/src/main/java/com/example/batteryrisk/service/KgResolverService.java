@@ -72,14 +72,20 @@ public class KgResolverService {
                     && item.inventoryChecks().values().stream()
                             .anyMatch(check -> "SHORTAGE".equals(check.get("status")));
             if (shortage) {
-                return new KgResolveResult(true, suppliers.get(0));
+                List<String> outboundContracts = item.affectedOutboundContracts() == null
+                        ? List.of() : item.affectedOutboundContracts();
+                return new KgResolveResult(true, suppliers.get(0), outboundContracts);
             }
         }
         return KgResolveResult.NOT_MATCHED;
     }
 
-    public record KgResolveResult(boolean shortageConfirmed, String resolvedErpSupplierId) {
-        public static final KgResolveResult NOT_MATCHED = new KgResolveResult(false, null);
+    public record KgResolveResult(
+            boolean shortageConfirmed,
+            String resolvedErpSupplierId,
+            List<String> affectedOutboundContractIds) {
+        public static final KgResolveResult NOT_MATCHED =
+                new KgResolveResult(false, null, List.of());
     }
 
     // kg_service의 /resolve 응답(kg_service/main.py)과 필드 이름을 맞춘 DTO.
@@ -89,5 +95,6 @@ public class KgResolverService {
 
     private record KgResolveResultItem(
             @JsonProperty("affected_suppliers") List<String> affectedSuppliers,
-            @JsonProperty("inventory_checks") Map<String, Map<String, Object>> inventoryChecks) {}
+            @JsonProperty("inventory_checks") Map<String, Map<String, Object>> inventoryChecks,
+            @JsonProperty("affected_outbound_contracts") List<String> affectedOutboundContracts) {}
 }

@@ -41,19 +41,22 @@ public class MultiAgentOrchestrationService {
     private final ErpRepository erpRepository;
     private final AnalysisRepository analysisRepository;
     private final ProcurementRiskRepository procurementRiskRepository;
+    private final KgResolverService kgResolverService;
 
     public MultiAgentOrchestrationService(
         ErpService erpService,
         MultiAgentService multiAgentService,
         ErpRepository erpRepository,
         AnalysisRepository analysisRepository,
-        ProcurementRiskRepository procurementRiskRepository
+        ProcurementRiskRepository procurementRiskRepository,
+        KgResolverService kgResolverService
 ) {
     this.erpService = erpService;
     this.multiAgentService = multiAgentService;
     this.erpRepository = erpRepository;
     this.analysisRepository = analysisRepository;
     this.procurementRiskRepository = procurementRiskRepository;
+    this.kgResolverService = kgResolverService;
 }
 
     /**
@@ -100,6 +103,12 @@ public class MultiAgentOrchestrationService {
                         externalSignal
                 );
 
+        OutboundContractResolution outboundResolution =
+                resolveOutboundContract(
+                        request.country(),
+                        externalSignal.materialCategory()
+                );
+
         MultiAgentDto.Request fastApiRequest =
                 new MultiAgentDto.Request(
                         request.newsId(),
@@ -117,6 +126,9 @@ public class MultiAgentOrchestrationService {
                         erp.primaryContractId(),
                         erp.primarySupplierId(),
                         erp.materialId(),
+                        outboundResolution.outboundContractId(),
+                        outboundResolution.outboundProductId(),
+                        outboundResolution.outboundCustomerId(),
                         request.useLlm()
                 );
 
@@ -235,6 +247,48 @@ public class MultiAgentOrchestrationService {
                 analysis.getMaterialCategory(),
                 analysis.isMock()
         );
+    }
+
+    /** 리졸브된 아웃바운드 계약 내부 PK + 제품/고객사. 실패하면 셋 다 null. */
+    private record OutboundContractResolution(
+            Long outboundContractId, Long outboundProductId, Long outboundCustomerId) {
+        private static final OutboundContractResolution EMPTY =
+                new OutboundContractResolution(null, null, null);
+    }
+
+    /**
+     * KG가 확정한 재고부족 원자재와 연결된 아웃바운드(완성차 고객사) 계약을 내부 PK로 리졸브한다.
+     *
+     * <p>부가 기능이라 실패(매칭 없음/리졸브 안 됨/kg_service 호출 실패)해도 예외를 던지지 않고
+     * 세 값 다 null로 폴백한다 — {@link KgResolverService}와 같은 방침. FastAPI는 이 값들이 없으면
+     * 아웃바운드 배상책임 조회 단계를 건너뛴다.
+     *
+     * <p>materialCategory는 외부신호를 요청 본문으로 직접 넣은 경우 null일 수 있고, 그때는
+     * {@link KgResolverService#resolve}가 곧바로 매칭없음으로 처리한다.
+     */
+    private OutboundContractResolution resolveOutboundContract(
+            String countryCode, String materialCategory
+    ) {
+        KgResolverService.KgResolveResult kgResult =
+                kgResolverService.resolve(countryCode, materialCategory);
+
+        if (!kgResult.shortageConfirmed()
+                || kgResult.affectedOutboundContractIds() == null
+                || kgResult.affectedOutboundContractIds().isEmpty()) {
+            return OutboundContractResolution.EMPTY;
+        }
+
+        String erpOutboundContractId =
+                kgResult.affectedOutboundContractIds().get(0);
+
+        return erpRepository.resolveOutboundContractId(erpOutboundContractId)
+                .flatMap(outboundContractId -> erpRepository
+                        .findOutboundContractProductCustomer(outboundContractId)
+                        .map(productCustomer -> new OutboundContractResolution(
+                                outboundContractId,
+                                productCustomer.productId(),
+                                productCustomer.customerId())))
+                .orElse(OutboundContractResolution.EMPTY);
     }
 
     private static ExternalSignal fromRequestBody(

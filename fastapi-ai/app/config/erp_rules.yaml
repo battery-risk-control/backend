@@ -1,12 +1,21 @@
 ruleVersion: "erp-exposure-v0.1"
 
-# ERP Exposure Score를 구성하는 가중치
+# ERP Exposure Score를 구성하는 가중치.
+#
+# contractProtection(계약보호)은 Contract Agent가 실제로 돌아서 contract_gap_score를
+# 만들어낸 뒤(erp_recheck 협상 라운드)에만 채워진다. 최초 계산 시점엔 아직 없으므로
+# calculateErpExposureScore가 나머지 5개 가중치만으로(합을 1.0으로 재정규화해서) 계산한다.
+# 5개 기존 가중치는 원래 비율(0.35:0.20:0.20:0.15:0.10)을 정확히 유지한 채 0.85로
+# 비례 축소(0.35*0.85=0.2975 등, 반올림하지 않음) — 재정규화(/0.85)했을 때 기존
+# 5개 가중치 계산과 완전히 동일한 값이 나오도록(회귀 테스트 tests/test_erp_csv_regression.py
+# 호환) 반올림을 피했다.
 weights:
-  supplyGap: 0.35
-  safetyStock: 0.20
-  supplierDependency: 0.20
-  purchaseOrderDelay: 0.15
-  alternativeSupplier: 0.10
+  supplyGap: 0.2975
+  safetyStock: 0.17
+  supplierDependency: 0.17
+  purchaseOrderDelay: 0.1275
+  alternativeSupplier: 0.085
+  contractProtection: 0.15
 
 
 # 공급 공백일수에 따른 위험점수

@@ -641,6 +641,15 @@ class ErpRiskComponents(ApiModel):
         le=100,
     )
 
+    # Contract Agent가 아직 안 돌았거나(최초 계산) 협상 라운드에서
+    # 계약 근거를 못 찾은 경우 None — calculateErpExposureScore가 None이면
+    # 나머지 5개 가중치만으로(재정규화해서) 계산한다.
+    contractProtectionRiskScore: float | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
 class ContractQuestion(ApiModel):
     """ERP Agent가 Contract Agent에 전달하는 질문."""
 

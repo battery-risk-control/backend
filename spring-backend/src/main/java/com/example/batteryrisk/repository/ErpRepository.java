@@ -413,6 +413,21 @@ public class ErpRepository {
                 rs.getLong("outbound_contract_id"), rs.getString("erp_outbound_contract_id"))));
     }
 
+    /** outbound_contract_id(내부 PK) → product_id/customer_id. findOutboundContractForProductCustomer의 역방향. */
+    public record OutboundContractProductCustomer(long productId, long customerId) {}
+
+    public Optional<OutboundContractProductCustomer> findOutboundContractProductCustomer(
+            long outboundContractId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("outboundContractId", outboundContractId);
+        return first(jdbc.query("""
+                SELECT product_id, customer_id
+                FROM outbound_contracts
+                WHERE outbound_contract_id = :outboundContractId
+                """, params, (rs, rowNum) -> new OutboundContractProductCustomer(
+                rs.getLong("product_id"), rs.getLong("customer_id"))));
+    }
+
     private Optional<Long> resolveId(String table, String pkColumn, String erpColumn, String erpId) {
         String value = blankToNull(erpId);
         if (value == null) {

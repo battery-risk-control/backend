@@ -81,6 +81,9 @@ class MultiAgentServiceTest {
                         11L,
                         6L,
                         5L,
+                        null,
+                        null,
+                        null,
                         false
                 );
 

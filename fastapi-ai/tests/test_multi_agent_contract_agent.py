@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from app.multi_agent.agents.contract_agent import (
     analyze_contracts_node,
     build_contract_query,
+    compute_contract_gap,
 )
 
 
@@ -25,6 +26,8 @@ class FakeRagService:
         supplier_id: int | None,
         top_k: int,
         material_id: int | None = None,
+        product_id: int | None = None,
+        customer_id: int | None = None,
     ) -> list[FakeSearchResult]:
         return [
             FakeSearchResult(
@@ -59,13 +62,16 @@ def test_contract_agent_returns_real_rag_evidence():
         service=FakeRagService(),
     )
 
+    # 본문에 "지연"/"납기" 키워드가 있어 delivery_delay(보호조항)로 분류되고
+    # similarity_score=0.91 >= 0.7(protectiveHighSimilarity 임계값)이라
+    # contract_gap_score=25/protection_status="protected"가 나온다.
     assert (
         result["contract_assessment"]["contract_gap_score"]
-        == 30
+        == 25
     )
     assert (
         result["contract_assessment"]["protection_status"]
-        == "partial"
+        == "protected"
     )
     assert len(result["contract_findings"]) == 1
     assert result["contract_findings"][0]["contract_id"] == 10
@@ -131,3 +137,91 @@ def test_contract_agent_requires_internal_search_id():
         "내부 계약 ID 또는 공급사 ID"
         in result["questions_for_erp_agent"][0]
     )
+
+
+# ==================================================================
+# compute_contract_gap — contract_rules.yaml의 5개 구간이 clause_type ×
+# similarity_score 조합별로 정확히 나오는지 직접 검증한다. 이전에는
+# 하드코딩 80/80/30 세 값뿐이었다.
+# ==================================================================
+
+
+def test_compute_contract_gap_protective_high_similarity():
+    findings = [
+        {
+            "clause_type": "force_majeure",
+            "similarity_score": 0.85,
+        },
+    ]
+
+    score, status = compute_contract_gap(findings)
+
+    assert score == 25
+    assert status == "protected"
+
+
+def test_compute_contract_gap_protective_low_similarity():
+    findings = [
+        {
+            "clause_type": "volume_commitment",
+            "similarity_score": 0.5,
+        },
+    ]
+
+    score, status = compute_contract_gap(findings)
+
+    assert score == 50
+    assert status == "partial"
+
+
+def test_compute_contract_gap_non_protective_clause():
+    findings = [
+        {
+            "clause_type": "confidentiality",
+            "similarity_score": 0.95,
+        },
+    ]
+
+    score, status = compute_contract_gap(findings)
+
+    assert score == 65
+    assert status == "unprotected"
+
+
+def test_compute_contract_gap_prefers_protective_clause_over_higher_similarity_noise():
+    findings = [
+        {
+            "clause_type": "payment",
+            "similarity_score": 0.99,
+        },
+        {
+            "clause_type": "delivery_delay",
+            "similarity_score": 0.71,
+        },
+    ]
+
+    # 전체 findings 중 최고 유사도는 payment(0.99)지만 무관 조항이다.
+    # 보호조항(delivery_delay, 0.71)이 있으면 그쪽을 우선해야 한다 — 우연히
+    # 유사도가 더 높은 무관 조항이 실제 보호 근거를 가리면 안 된다.
+    score, status = compute_contract_gap(findings)
+
+    assert score == 25
+    assert status == "protected"
+
+
+def test_compute_contract_gap_falls_back_to_non_protective_when_no_protective_candidate():
+    findings = [
+        {
+            "clause_type": "payment",
+            "similarity_score": 0.99,
+        },
+        {
+            "clause_type": "confidentiality",
+            "similarity_score": 0.80,
+        },
+    ]
+
+    score, status = compute_contract_gap(findings)
+
+    assert score == 65
+    assert status == "unprotected"

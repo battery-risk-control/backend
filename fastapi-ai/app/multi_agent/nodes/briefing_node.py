@@ -167,6 +167,24 @@ def generate_briefing_node(
         state.get("contract_findings", []),
     )
 
+    outbound_contract_findings = state.get(
+        "outbound_contract_findings",
+        [],
+    )
+    outbound_section = (
+        (
+            "\n[완성차 고객사 납품 지연 시 배상책임 "
+            "(원자재 공급 차질이 지속될 경우 참고, "
+            "완제품 재고 데이터가 없어 실제 확정 여부는 "
+            "확인 불가)] "
+            + build_contract_evidence_text(
+                outbound_contract_findings,
+            )
+        )
+        if outbound_contract_findings
+        else ""
+    )
+
     kg_evidence_paths = state.get(
         "kg_evidence_paths",
         [],
@@ -205,7 +223,8 @@ def generate_briefing_node(
         f"[위험도 근거] {risk_reason_text}\n"
         f"[KG 근거] {kg_text}\n"
         f"[ERP 분석] {erp_text}\n"
-        f"[계약 근거] {contract_text}\n"
+        f"[계약 근거] {contract_text}"
+        f"{outbound_section}\n"
         f"[권고 조치]\n{action_text}"
     )
 
