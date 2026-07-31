@@ -46,6 +46,9 @@ services:
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
       # [surin F9] FastAPI supplier_recommendation_service가 Spring /api/v1/suppliers/qualified로 콜백. docker 네트워크에선 서비스명 spring 사용(localhost 아님).
       SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
+      # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 host.docker.internal로 접근한다.
+      # (spring 서비스의 KG_SERVICE_BASE_URL과 동일한 값 — .env에서 한 번만 설정)
+      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
       MOCK_MODE: "true"
     ports:

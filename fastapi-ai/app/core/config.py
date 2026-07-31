@@ -23,6 +23,7 @@ class Settings:
     openai_api_key: str = ""
     openai_embedding_model: str = "text-embedding-3-small"
     spring_base_url: str = "http://localhost:8080"  # [surin F9] SupplierRecommendationService의 Spring 조회 URL 조립용
+    kg_service_base_url: str = "http://host.docker.internal:8100"  # kg_service(GET /resolve) 조회 URL 조립용
 
 
 def _as_bool(value: str) -> bool:
@@ -52,4 +53,7 @@ def get_settings() -> Settings:
             "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
         ).strip(),
         spring_base_url=os.getenv("SPRING_BASE_URL", "http://localhost:8080").strip(),
+        kg_service_base_url=os.getenv(
+            "KG_SERVICE_BASE_URL", "http://host.docker.internal:8100"
+        ).strip(),
     )

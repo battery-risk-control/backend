@@ -19,8 +19,20 @@ def build_contract_query(state: BriefingState) -> str:
         "impact_domain_final",
         "unknown",
     )
+    query = f"{title} {impact_domain}".strip()
 
-    return f"{title} {impact_domain}".strip()
+    # KG가 이미 원산지 공급사/재고부족을 확정한 경우, 그 근거 문장을
+    # 검색어에 실어 RAG 의미검색이 같은 사건을 가리키도록 돕는다.
+    # (KG는 외부 문자열 ID 기준이라 rag_contract_id처럼 정확한 필터로는
+    # 못 쓰지만, 검색어 보강에는 그대로 활용할 수 있다.)
+    kg_evidence_paths = state.get(
+        "kg_evidence_paths",
+        [],
+    )
+    if kg_evidence_paths:
+        query = f"{query} {' '.join(kg_evidence_paths)}".strip()
+
+    return query
 
 def analyze_contracts_node(
     state: BriefingState,

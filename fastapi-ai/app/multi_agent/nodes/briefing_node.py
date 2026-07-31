@@ -167,6 +167,16 @@ def generate_briefing_node(
         state.get("contract_findings", []),
     )
 
+    kg_evidence_paths = state.get(
+        "kg_evidence_paths",
+        [],
+    )
+    kg_text = (
+        " ".join(kg_evidence_paths)
+        if kg_evidence_paths
+        else "KG 근거 경로가 없습니다."
+    )
+
     risk_reasons = state.get(
         "risk_reasons",
         [],
@@ -193,6 +203,7 @@ def generate_briefing_node(
         f"[위험 단계] {risk_level}\n"
         f"[위험 점수] {risk_score}\n"
         f"[위험도 근거] {risk_reason_text}\n"
+        f"[KG 근거] {kg_text}\n"
         f"[ERP 분석] {erp_text}\n"
         f"[계약 근거] {contract_text}\n"
         f"[권고 조치]\n{action_text}"

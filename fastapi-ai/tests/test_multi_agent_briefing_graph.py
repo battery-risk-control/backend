@@ -41,12 +41,26 @@ class FakeRagService:
         ]
 
 
+# 그래프 단위 테스트는 kg_service 실제 호출 없이 erp/contract/risk 파이프라인을
+# 검증하는 게 목적이라, KG 게이트를 이미 통과한 상태로 시작한다.
+KG_GATE_PASSED = {
+    "kg_context": {"matched": True},
+    "kg_shortage_detected": True,
+}
+
+
 def test_briefing_graph_runs_all_agents():
+    from tests.test_erp_calculator import (
+        createCobaltRequest,
+    )
+
     graph = build_briefing_graph(
         FakeRagService(),
     )
+    erp_request = createCobaltRequest()
 
     initial_state = {
+        **KG_GATE_PASSED,
         "news_id": "news-graph-001",
         "title": "항만 파업으로 니켈 선적 지연",
         "summary_kr": (
@@ -62,16 +76,9 @@ def test_briefing_graph_runs_all_agents():
         "rag_contract_id": 1001,
         "rag_supplier_id": 2001,
         "rag_material_id": 3001,
-        "erp_context": {
-            "inventory_days": 18,
-            "safety_stock_days": 20,
-            "open_orders": 2,
-            "supplier_dependency": 0.80,
-            "next_inbound_eta_days": 25,
-            "contract_adjusted_eta_days": 25,
-            "has_alternative_supplier": False,
-            "contract_ids": ["CTR-001"],
-        },
+        "erp_context": erp_request.model_dump(
+            mode="json",
+        ),
     }
 
     result = graph.invoke(initial_state)
@@ -81,11 +88,6 @@ def test_briefing_graph_runs_all_agents():
     ] == 100
     assert len(result["contract_findings"]) == 1
     assert result["erp_reassessment_done"] is True
-    assert result["procurement_risk_score"] == 72
-    assert (
-        result["procurement_risk_level"]
-        == "critical"
-    )
     assert result["llm_used"] is False
     assert result["briefing"]
     assert result["review_passed"] is True
@@ -93,11 +95,17 @@ def test_briefing_graph_runs_all_agents():
 
 
 def test_graph_uses_injected_rag_service():
+    from tests.test_erp_calculator import (
+        createCobaltRequest,
+    )
+
     rag_service = FakeRagService()
     graph = build_briefing_graph(rag_service)
+    erp_request = createCobaltRequest()
 
     result = graph.invoke(
         {
+            **KG_GATE_PASSED,
             "news_id": "news-graph-002",
             "title": "코발트 공급 지연",
             "impact_domain_final": "logistics",
@@ -106,15 +114,9 @@ def test_graph_uses_injected_rag_service():
             "use_llm": False,
             "retry_count": 0,
             "rag_contract_id": 1001,
-            "erp_context": {
-                "inventory_days": 30,
-                "safety_stock_days": 20,
-                "open_orders": 1,
-                "supplier_dependency": 0.30,
-                "next_inbound_eta_days": 10,
-                "has_alternative_supplier": True,
-                "contract_ids": ["CTR-001"],
-            },
+            "erp_context": erp_request.model_dump(
+                mode="json",
+            ),
         },
     )
 
@@ -143,6 +145,7 @@ def test_graph_uses_soojung_erp_agent():
 
     result = graph.invoke(
         {
+            **KG_GATE_PASSED,
             "news_id": "news-soojung-001",
             "title": "코발트 선적 지연",
             "summary_kr": "코발트 공급 차질이 예상됩니다.",

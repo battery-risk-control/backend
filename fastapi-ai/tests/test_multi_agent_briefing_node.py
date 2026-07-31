@@ -54,6 +54,34 @@ def test_generates_rule_based_briefing_without_llm():
     assert len(result["recommended_actions"]) == 4
 
 
+def test_rule_based_briefing_includes_kg_evidence():
+    state = {
+        **create_state(),
+        "use_llm": False,
+        "kg_evidence_paths": [
+            "인도네시아 니켈 공급사 재고 부족 확인",
+        ],
+    }
+
+    result = generate_briefing_node(state)
+
+    assert (
+        "[KG 근거] 인도네시아 니켈 공급사 재고 부족 확인"
+        in result["briefing"]
+    )
+
+
+def test_rule_based_briefing_notes_missing_kg_evidence():
+    state = {
+        **create_state(),
+        "use_llm": False,
+    }
+
+    result = generate_briefing_node(state)
+
+    assert "[KG 근거] KG 근거 경로가 없습니다." in result["briefing"]
+
+
 def test_uses_llm_result_when_generation_succeeds(
     monkeypatch,
 ):

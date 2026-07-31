@@ -26,9 +26,39 @@ class BriefingState(TypedDict, total=False):
     # 뉴스에서 추출한 영향 원자재
     affected_materials: list[str]
 
+    # 뉴스에서 추출한 영향 국가(ISO 코드)
+    country: str
+
     # 뉴스와 외부 데이터만 사용한 1차 위험 신호
     external_signal_level: RiskLevel
     external_signal_score: int
+
+    # =========================================================
+    # 1-1. KG 리졸버(kg_service GET /resolve)
+    # =========================================================
+
+    # kg_service /resolve 원본 응답(재현/디버깅용)
+    kg_context: dict | None
+
+    # country+affected_materials가 KG 그래프에서 자재 카테고리로 매칭됐는지
+    kg_matched: bool
+
+    # 매칭된 카테고리 중 재고 부족(SHORTAGE)이 하나라도 있는지
+    # — 이후 erp/contract/risk/response 단계를 태울지 결정하는 게이트
+    kg_shortage_detected: bool
+
+    # KG가 원산지 매칭으로 좁힌 공급사/계약 식별자
+    # (kg_service의 CSV 스냅샷 기준 외부 문자열 ID, ERP DB 내부 숫자 ID와는 다름)
+    kg_affected_suppliers: list[str]
+    kg_affected_contract_ids: list[str]
+    kg_affected_outbound_contract_ids: list[str]
+
+    # KG가 계산한 대체 공급사 후보와 Centrality*Magnitude 영향도 점수
+    kg_alternative_suppliers: list[dict]
+    kg_impact_score: float | None
+
+    # KG가 생성한 한국어 근거 경로 문장(매칭된 카테고리별)
+    kg_evidence_paths: list[str]
 
     # =========================================================
     # 2. ERP Exposure Agent

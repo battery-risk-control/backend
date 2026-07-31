@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from app.multi_agent.agents.contract_agent import (
     analyze_contracts_node,
+    build_contract_query,
 )
 
 
@@ -74,6 +75,37 @@ def test_contract_agent_returns_real_rag_evidence():
         in result["contract_findings"][0]["evidence_text"]
     )
     assert len(result["questions_for_erp_agent"]) == 1
+
+def test_build_contract_query_appends_kg_evidence_when_no_questions():
+    state = {
+        "title": "항만 파업으로 니켈 선적 지연",
+        "impact_domain_final": "logistics",
+        "kg_evidence_paths": [
+            "인도네시아 니켈 공급사 재고 부족 확인",
+        ],
+    }
+
+    query = build_contract_query(state)
+
+    assert "항만 파업으로 니켈 선적 지연" in query
+    assert "인도네시아 니켈 공급사 재고 부족 확인" in query
+
+
+def test_build_contract_query_prefers_explicit_questions_over_kg():
+    state = {
+        "title": "항만 파업으로 니켈 선적 지연",
+        "questions_for_contract_agent": [
+            "납기 지연 시 적용할 수 있는 계약 조항이 있는가?",
+        ],
+        "kg_evidence_paths": [
+            "인도네시아 니켈 공급사 재고 부족 확인",
+        ],
+    }
+
+    query = build_contract_query(state)
+
+    assert query == "납기 지연 시 적용할 수 있는 계약 조항이 있는가?"
+
 
 def test_contract_agent_requires_internal_search_id():
     state = {

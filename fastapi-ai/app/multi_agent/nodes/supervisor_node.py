@@ -31,6 +31,15 @@ def select_next_route(
         if error_owner == "response":
             return "response"
 
+    # KG 리졸버를 가장 먼저 태워 게이트를 판정한다.
+    if state.get("kg_context") is None:
+        return "kg"
+
+    # 매칭 없음 또는 재고 충분 -> erp/contract/risk/response를
+    # 건너뛰고 KG 노드가 이미 채워둔 경량 결과로 바로 종료한다.
+    if state.get("kg_shortage_detected") is False:
+        return "finish"
+
     # 최초 실행 순서
     if not state.get("erp_assessment"):
         return "erp"
