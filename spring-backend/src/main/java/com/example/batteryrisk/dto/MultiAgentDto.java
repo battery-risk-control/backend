@@ -13,11 +13,31 @@ import jakarta.validation.constraints.NotNull;
 public final class MultiAgentDto {
     private MultiAgentDto() {}
 
+    /**
+     * 클라이언트 → Spring 멀티에이전트 브리핑 요청.
+     *
+     * <p>외부신호(가중치 0.35)는 두 경로로 채울 수 있다.
+     * <ul>
+     *   <li>{@code analysisId} 지정 — Spring이 {@code analyses}에서 {@code severity_score}·
+     *       {@code severity}를 읽어 채운다. <b>권장 경로</b>다. F3 분석 결과가 곧 외부신호 점수이므로
+     *       (severity_engine v0.2-realtime) 호출자가 값을 따로 계산할 필요가 없다.</li>
+     *   <li>{@code externalSignalScore}·{@code externalSignalLevel} 직접 지정 — 기존 계약.
+     *       분석을 거치지 않은 임의 이벤트를 넣어볼 때 쓴다.</li>
+     * </ul>
+     *
+     * <p>둘 다 비면 400이다. 예전처럼 조용히 0점으로 넘어가지 않는다 — 0점이 들어가면
+     * FastAPI {@code risk_node}의 가중치 0.35 항목이 통째로 죽어 종합 점수가 최대 35점 낮게 나온다.
+     */
     public record GenerateRequest(
         @JsonProperty("news_id")
         @JsonAlias("newsId")
         @NotBlank
         String newsId,
+
+        /** 외부신호를 끌어올 {@code analyses} 행. 지정하면 external_signal_* 는 무시된다. */
+        @JsonProperty("analysis_id")
+        @JsonAlias("analysisId")
+        java.util.UUID analysisId,
 
         @NotBlank
         String title,
@@ -39,16 +59,18 @@ public final class MultiAgentDto {
         @NotBlank
         String impactDomainFinal,
 
+        // analysisId로 채울 수 있게 되면서 필수 제약을 뗐다. 둘 다 비면
+        // MultiAgentOrchestrationService가 EXTERNAL_SIGNAL_REQUIRED로 막는다.
         @JsonProperty("external_signal_level")
         @JsonAlias("externalSignalLevel")
-        @NotBlank
         String externalSignalLevel,
 
+        // int였으나 "값 없음"과 "0점"을 구분해야 해서 Integer로 바꿨다.
         @JsonProperty("external_signal_score")
         @JsonAlias("externalSignalScore")
         @Min(0)
         @Max(100)
-        int externalSignalScore,
+        Integer externalSignalScore,
 
         @JsonProperty("erp_material_id")
         @JsonAlias("erpMaterialId")
@@ -129,6 +151,15 @@ public final class MultiAgentDto {
      * 현재 통합 단계에서는 Map으로 받습니다.
      */
     public record Response(
+        /**
+         * 저장된 {@code procurement_risk_assessments} 행의 id.
+         *
+         * <p>FastAPI는 이 값을 모른다 — Spring이 저장한 뒤 {@link #withAssessmentId(java.util.UUID)}로
+         * 채워 넣는다. 그래서 FastAPI 응답을 역직렬화한 직후에는 항상 null이다.
+         */
+        @JsonProperty("assessmentId")
+        java.util.UUID assessmentId,
+
         @JsonProperty("newsId")
         String newsId,
 
@@ -171,5 +202,14 @@ public final class MultiAgentDto {
         boolean reviewPassed,
 
         List<String> warnings
-) {}
+) {
+        /** 저장 후 assessmentId만 채운 복사본. 나머지 필드는 FastAPI 응답 그대로다. */
+        public Response withAssessmentId(java.util.UUID assessmentId) {
+            return new Response(
+                    assessmentId, newsId, impactDomainFinal, procurementRiskLevel,
+                    procurementRiskScore, riskReasons, erpAssessment, erpReassessment,
+                    contractAssessment, contractFindings, recommendedActions, briefing,
+                    llmUsed, llmError, reviewPassed, warnings);
+        }
+}
 }
