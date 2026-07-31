@@ -132,9 +132,13 @@ public class AnalysisService {
     private void triggerMultiAgentBriefingSafely(
             Analysis analysis, AnalysisDto.FastApiAnalyzeData data, ErpExposureContext erpContext) {
         try {
+            // FastAPI MultiAgentBriefingRequest의 summary_kr/article_text는 Optional이 아니라
+            // 기본값 ""인 str 필드라, Jackson이 null을 그대로 보내면(explicit null) pydantic이
+            // 422로 거부한다(실제 Docker 검증 중 발견) — 빈 문자열로 채워야 한다.
             MultiAgentDto.GenerateRequest request = new MultiAgentDto.GenerateRequest(
-                    analysis.getAnalysisId().toString(), analysis.getEventTitle(), analysis.getEventContent(),
-                    null, data.classification().impactDomain(), data.classification().impactDomain(),
+                    analysis.getAnalysisId().toString(), analysis.getEventTitle(),
+                    analysis.getEventContent() != null ? analysis.getEventContent() : "", "",
+                    data.classification().impactDomain(), data.classification().impactDomain(),
                     data.severity().severity(), (int) Math.round(data.severity().score()),
                     erpContext.resolvedErpMaterialId(), erpContext.resolvedErpSupplierId(),
                     OffsetDateTime.now(), false);
