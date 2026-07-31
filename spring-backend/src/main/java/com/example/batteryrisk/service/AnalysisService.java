@@ -4,6 +4,7 @@ import com.example.batteryrisk.domain.Analysis;
 import com.example.batteryrisk.domain.AnalysisSupplierRecommendation;
 import com.example.batteryrisk.dto.AnalysisDto;
 import com.example.batteryrisk.dto.ErpExposureDto;
+import com.example.batteryrisk.dto.MultiAgentDto;
 import com.example.batteryrisk.exception.GlobalExceptionHandler.AnalysisNotFoundException;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.AnalysisSupplierRecommendationRepository;
@@ -14,6 +15,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,16 +32,19 @@ public class AnalysisService {
     private final AnalysisSupplierRecommendationRepository supplierRecommendationRepository;
     private final NotificationService notificationService;
     private final ErpExposureRequestService erpExposureRequestService;
+    private final MultiAgentOrchestrationService multiAgentOrchestrationService;
 
     public AnalysisService(
             RestClient fastApiRestClient, AnalysisRepository analysisRepository,
             AnalysisSupplierRecommendationRepository supplierRecommendationRepository,
-            NotificationService notificationService, ErpExposureRequestService erpExposureRequestService) {
+            NotificationService notificationService, ErpExposureRequestService erpExposureRequestService,
+            MultiAgentOrchestrationService multiAgentOrchestrationService) {
         this.fastApiRestClient = fastApiRestClient;
         this.analysisRepository = analysisRepository;
         this.supplierRecommendationRepository = supplierRecommendationRepository;
         this.notificationService = notificationService;
         this.erpExposureRequestService = erpExposureRequestService;
+        this.multiAgentOrchestrationService = multiAgentOrchestrationService;
     }
 
     public AnalysisDto.AnalysisResponse create(AnalysisDto.AnalyzeRequest request) {
@@ -69,6 +74,9 @@ public class AnalysisService {
                 if (recommendation != null) {
                     analysis.attachSupplierRecommendation(materialCategory, recommendation.caveats());
                     persistSupplierRecommendations(analysis.getAnalysisId(), recommendation.recommendations());
+                }
+                if (erpContext.kgShortageConfirmed()) {
+                    triggerMultiAgentBriefingSafely(analysis, data, erpContext);
                 }
             }
 
@@ -115,6 +123,35 @@ public class AnalysisService {
         }
     }
 
+    /**
+     * Chain A -&gt; Chain B 자동 트리거(2026-08-01 신설). KG가 재고부족을 확정한 경우에만
+     * 멀티에이전트(LangGraph) 브리핑 생성을 자동으로 호출한다 — 매칭 없음/재고충분 뉴스까지
+     * 전부 태우면 비싼 LLM 다단계가 낭비되므로, KG 게이트를 통과한 것만 자동화한다.
+     * 실패해도 분석 생성 자체를 막으면 안 되므로 여기서 흡수한다.
+     */
+    private void triggerMultiAgentBriefingSafely(
+            Analysis analysis, AnalysisDto.FastApiAnalyzeData data, ErpExposureContext erpContext) {
+        try {
+            // FastAPI MultiAgentBriefingRequest의 summary_kr/article_text는 Optional이 아니라
+            // 기본값 ""인 str 필드라, Jackson이 null을 그대로 보내면(explicit null) pydantic이
+            // 422로 거부한다(실제 Docker 검증 중 발견) — 빈 문자열로 채워야 한다.
+            // analysisId는 null로 둔다: 이 시점엔 analysis가 아직 COMPLETED로 flush되지 않아
+            // (saveAndFlush는 create()의 이 호출 이후에 일어난다) PR#11의 analysisId 경로를 타면
+            // ANALYSIS_NOT_SCORED로 막힌다. 기존처럼 값을 직접 실어 보낸다.
+            MultiAgentDto.GenerateRequest request = new MultiAgentDto.GenerateRequest(
+                    analysis.getAnalysisId().toString(), null, analysis.getEventTitle(),
+                    analysis.getEventContent() != null ? analysis.getEventContent() : "", "",
+                    data.classification().impactDomain(), data.classification().impactDomain(),
+                    data.severity().severity(), (int) Math.round(data.severity().score()),
+                    erpContext.resolvedErpMaterialId(), erpContext.resolvedErpSupplierId(),
+                    analysis.getCountryCode(), OffsetDateTime.now(), false);
+            multiAgentOrchestrationService.generate(request);
+        } catch (RuntimeException exception) {
+            log.warn("멀티에이전트 브리핑 자동 생성 실패 (analysisId={}): {}",
+                    analysis.getAnalysisId(), exception.getMessage());
+        }
+    }
+
     /** severity가 CRITICAL/WARNING일 때만 호출됩니다. */
     private AnalysisDto.SupplierRecommendationSummary fetchSupplierRecommendation(
             String materialCategory, Double erpAlternativeSupplierRiskScore, Map<String, Double> erpSupplierRiskScores) {
@@ -132,9 +169,15 @@ public class AnalysisService {
         }
     }
 
-    /** ERP Exposure Agent 호출 결과에서 F9가 쓸 위험점수를 담습니다: 자재 단위 점수 하나 + 공급사별(supplierId=supplier_code) 점수 맵. */
-    private record ErpExposureContext(Double materialRiskScore, Map<String, Double> supplierRiskScores) {
-        static final ErpExposureContext EMPTY = new ErpExposureContext(null, Map.of());
+    /**
+     * ERP Exposure Agent 호출 결과에서 F9가 쓸 위험점수(자재 단위 점수 + 공급사별 점수 맵)와,
+     * Chain B 자동 트리거 판단에 쓸 KG 매칭 정보(재고부족 확정 여부·확정 시 공급사/자재 ERP ID)를
+     * 함께 담습니다.
+     */
+    private record ErpExposureContext(
+            Double materialRiskScore, Map<String, Double> supplierRiskScores,
+            boolean kgShortageConfirmed, String resolvedErpSupplierId, String resolvedErpMaterialId) {
+        static final ErpExposureContext EMPTY = new ErpExposureContext(null, Map.of(), false, null, null);
     }
 
     /**
@@ -148,7 +191,9 @@ public class AnalysisService {
                     analysis.getAnalysisId().toString(), analysis.getAnalysisId().toString(), materialCategory,
                     data.classification().impactDomain(), data.severity().score(), data.severity().severity(),
                     analysis.getCountryCode(), analysis.getEventTitle());
-            ErpExposureDto.ExposureResponse response = erpExposureRequestService.analyzeExposure(trigger);
+            ErpExposureRequestService.ErpExposureAnalysisResult outcome =
+                    erpExposureRequestService.analyzeExposure(trigger);
+            ErpExposureDto.ExposureResponse response = outcome.response();
 
             Object riskScore = response.riskComponents() != null
                     ? response.riskComponents().get("alternativeSupplierRiskScore") : null;
@@ -162,7 +207,8 @@ public class AnalysisService {
                     }
                 }
             }
-            return new ErpExposureContext(materialRiskScore, supplierRiskScores);
+            return new ErpExposureContext(materialRiskScore, supplierRiskScores,
+                    outcome.kgShortageConfirmed(), outcome.resolvedErpSupplierId(), outcome.resolvedErpMaterialId());
         } catch (RuntimeException exception) {
             log.warn("ERP Exposure Agent 호출 실패 (material_category={}): {}", materialCategory, exception.getMessage());
             return ErpExposureContext.EMPTY;

@@ -253,7 +253,7 @@ class MultiAgentExternalSignalTest {
                 "NEWS-001", analysisId, "칠레 리튬 광산 파업", "본문", "요약",
                 "production", "production",
                 externalSignalLevel, externalSignalScore,
-                "MAT-LI-CARB", "SUP-CHL-01", AS_OF, false);
+                "MAT-LI-CARB", "SUP-CHL-01", "CL", AS_OF, false);
     }
 
     private static Analysis completedAnalysis(String severity, double score, String reasonCodes) {
