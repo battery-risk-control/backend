@@ -6,12 +6,14 @@ import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.repository.ErpRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -282,7 +284,11 @@ public class ErpAdminService {
                 """, params);
         Long id = single("SELECT inventory_snapshot_id FROM inventory_snapshots"
                 + " WHERE erp_inventory_snapshot_id = :erpId", erpId);
-        syncKgReload();
+        syncKgInventorySnapshot(
+                erpId, request.erpMaterialId(), request.erpWarehouseId(), request.onHandQuantity(),
+                request.reservedQuantity(), request.blockedQuantity(), request.qualityHoldQuantity(),
+                request.safetyStockQuantity(), request.sourceUnit(), request.normalizedUnit(),
+                request.dataQualityFlag());
         return response("inventory_snapshots", erpId, id, true);
     }
 
@@ -316,7 +322,9 @@ public class ErpAdminService {
                 """, params);
         Long id = single("SELECT consumption_id FROM material_consumptions"
                 + " WHERE erp_consumption_id = :erpId", erpId);
-        syncKgReload();
+        syncKgMaterialConsumption(
+                erpId, request.erpMaterialId(), request.plantCode(), request.averageDailyUsage(),
+                request.calculationWindowDays(), request.dataQualityFlag());
         return response("material_consumptions", erpId, id, true);
     }
 
@@ -542,23 +550,75 @@ public class ErpAdminService {
     }
 
     /**
-     * kg_service는 재고/소비량을 자기 쪽 CSV 스냅샷(spring-csv)에서 캐시해 그래프를 만들어 두므로,
-     * 여기서 재고·소비량을 갱신해도 kg_service가 자동으로 알아채지 못한다 — 계약 생성 시
-     * {@code /admin/append_contract}를 부르는 것과 같은 이유로, 여기서도 명시적으로
-     * {@code /admin/reload}를 불러 그래프를 최신 CSV 기준으로 다시 만들게 한다.
+     * kg_service는 재고를 자기 쪽 CSV 스냅샷(spring-csv)에서 캐시해 그래프를 만들어 두므로,
+     * 여기서 재고를 갱신해도 kg_service가 자동으로 알아채지 못한다 — 계약 생성 시
+     * {@code /admin/append_contract}를 부르는 것과 같은 이유로, 여기서도 실제 갱신 값을 담아
+     * {@code /admin/append_inventory_snapshot}을 호출해 kg_service 쪽 CSV에도 새 행을 추가하고
+     * 그래프를 다시 만들게 한다.
+     *
+     * (2026-07-31→08-01 수정) 이전엔 {@code /admin/reload}만 불렀는데, 그건 kg_service가
+     * "똑같은 옛날 CSV를 다시 읽기만" 해서 재고 숫자 자체는 전혀 안 바뀌는 반쪽짜리 동기화였다.
+     * 이 메서드가 실제 데이터를 전달하는 진짜 통로다.
      *
      * KG 반영은 부가 기능이라 실패해도 이 트랜잭션(ERP DB 갱신) 자체는 막지 않는다.
      */
-    private void syncKgReload() {
+    private void syncKgInventorySnapshot(
+            String erpInventorySnapshotId, String erpMaterialId, String erpWarehouseId,
+            BigDecimal onHandQuantity, BigDecimal reservedQuantity, BigDecimal blockedQuantity,
+            BigDecimal qualityHoldQuantity, BigDecimal safetyStockQuantity,
+            String sourceUnit, String normalizedUnit, String dataQualityFlag) {
+        KgInventorySnapshotFields fields = new KgInventorySnapshotFields(
+                erpInventorySnapshotId, erpMaterialId, erpWarehouseId, onHandQuantity,
+                reservedQuantity, blockedQuantity, qualityHoldQuantity, safetyStockQuantity,
+                OffsetDateTime.now().toString(), sourceUnit, normalizedUnit, dataQualityFlag);
         try {
             kgServiceRestClient.post()
-                    .uri("/admin/reload")
+                    .uri("/admin/append_inventory_snapshot")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new KgAppendInventorySnapshotRequest(fields))
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception exception) {
-            log.warn("kg_service 리로드 실패 — ERP 갱신은 반영됐으나 KG 그래프는 아직 이전 상태입니다", exception);
+            log.warn("kg_service 재고 동기화 실패 — ERP 갱신은 반영됐으나 KG 그래프는 아직 이전 상태입니다", exception);
         }
     }
+
+    /** syncKgInventorySnapshot()과 같은 이유·같은 패턴, 소비량(material_consumptions) 전용. */
+    private void syncKgMaterialConsumption(
+            String erpConsumptionId, String erpMaterialId, String plantCode,
+            BigDecimal averageDailyUsage, int calculationWindowDays, String dataQualityFlag) {
+        KgMaterialConsumptionFields fields = new KgMaterialConsumptionFields(
+                erpConsumptionId, erpMaterialId, plantCode, averageDailyUsage,
+                calculationWindowDays, OffsetDateTime.now().toString(), dataQualityFlag);
+        try {
+            kgServiceRestClient.post()
+                    .uri("/admin/append_material_consumption")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new KgAppendMaterialConsumptionRequest(fields))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception exception) {
+            log.warn("kg_service 소비량 동기화 실패 — ERP 갱신은 반영됐으나 KG 그래프는 아직 이전 상태입니다", exception);
+        }
+    }
+
+    // kg_service의 InventorySnapshotAppendFields/AppendInventorySnapshotRequest(kg_service/main.py)와
+    // 필드 이름을 맞춘 DTO. 전역 Jackson 설정이 SNAKE_CASE라 camelCase 필드명이 자동으로
+    // snake_case JSON으로 직렬화된다(예: erpMaterialId -> erp_material_id).
+    private record KgInventorySnapshotFields(
+            String erpInventorySnapshotId, String erpMaterialId, String erpWarehouseId,
+            BigDecimal onHandQuantity, BigDecimal reservedQuantity, BigDecimal blockedQuantity,
+            BigDecimal qualityHoldQuantity, BigDecimal safetyStockQuantity, String snapshotAt,
+            String sourceUnit, String normalizedUnit, String dataQualityFlag) {}
+
+    private record KgAppendInventorySnapshotRequest(KgInventorySnapshotFields inventorySnapshot) {}
+
+    private record KgMaterialConsumptionFields(
+            String erpConsumptionId, String erpMaterialId, String plantCode,
+            BigDecimal averageDailyUsage, int calculationWindowDays, String calculatedAt,
+            String dataQualityFlag) {}
+
+    private record KgAppendMaterialConsumptionRequest(KgMaterialConsumptionFields materialConsumption) {}
 
     private Long resolveSupplierMaterialId(String erpId) {
         return single("SELECT supplier_material_id FROM supplier_materials"
