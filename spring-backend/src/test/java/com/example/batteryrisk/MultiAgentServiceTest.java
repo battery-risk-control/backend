@@ -74,6 +74,7 @@ class MultiAgentServiceTest {
                         "logistics",
                         "logistics",
                         List.of("Cobalt"),
+                        "CD",
                         "warning",
                         70,
                         Map.of("requestId", "ERP-REQ-001"),
