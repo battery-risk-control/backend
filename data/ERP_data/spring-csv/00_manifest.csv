@@ -1,11 +1,11 @@
-﻿load_order,file_name,target_table,row_count,purpose
+load_order,file_name,target_table,row_count,purpose
 1,01_materials.csv,materials,10,PostgreSQL/JPA seed data
-2,02_suppliers.csv,suppliers,18,PostgreSQL/JPA seed data
+2,02_suppliers.csv,suppliers,20,PostgreSQL/JPA seed data
 3,03_warehouses.csv,warehouses,4,PostgreSQL/JPA seed data
-4,04_contracts.csv,contracts,28,PostgreSQL/JPA seed data
-5,05_supplier_materials.csv,supplier_materials,28,PostgreSQL/JPA seed data
+4,04_contracts.csv,contracts,30,PostgreSQL/JPA seed data
+5,05_supplier_materials.csv,supplier_materials,30,PostgreSQL/JPA seed data
 6,06_inventory_snapshots.csv,inventory_snapshots,120,PostgreSQL/JPA seed data
 7,07_material_consumptions.csv,material_consumptions,30,PostgreSQL/JPA seed data
-8,08_purchase_orders.csv,purchase_orders,90,PostgreSQL/JPA seed data
-9,09_purchase_order_items.csv,purchase_order_items,111,PostgreSQL/JPA seed data
+8,08_purchase_orders.csv,purchase_orders,92,PostgreSQL/JPA seed data
+9,09_purchase_order_items.csv,purchase_order_items,113,PostgreSQL/JPA seed data
 10,10_goods_receipts.csv,goods_receipts,84,PostgreSQL/JPA seed data
