@@ -4,6 +4,7 @@ import com.example.batteryrisk.dto.ErpAdminDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.repository.ErpRepository;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -603,22 +604,39 @@ public class ErpAdminService {
     }
 
     // kg_service의 InventorySnapshotAppendFields/AppendInventorySnapshotRequest(kg_service/main.py)와
-    // 필드 이름을 맞춘 DTO. 전역 Jackson 설정이 SNAKE_CASE라 camelCase 필드명이 자동으로
-    // snake_case JSON으로 직렬화된다(예: erpMaterialId -> erp_material_id).
+    // 필드 이름을 맞춘 DTO. kgServiceRestClient는 RestClient.builder()로 직접 만들어져 있어(
+    // KgServiceConfig) Spring Boot가 자동구성한 RestClient.Builder를 안 거치므로, 전역
+    // spring.jackson.property-naming-strategy: SNAKE_CASE 설정이 여기엔 안 먹는다 — 반드시
+    // ContractUploadService의 Kg*Fields와 동일하게 필드마다 @JsonProperty를 명시해야 한다
+    // (이걸 놓쳐서 실제로 kg_service가 422로 거부하는 걸 Docker로 확인함).
     private record KgInventorySnapshotFields(
-            String erpInventorySnapshotId, String erpMaterialId, String erpWarehouseId,
-            BigDecimal onHandQuantity, BigDecimal reservedQuantity, BigDecimal blockedQuantity,
-            BigDecimal qualityHoldQuantity, BigDecimal safetyStockQuantity, String snapshotAt,
-            String sourceUnit, String normalizedUnit, String dataQualityFlag) {}
+            @JsonProperty("erp_inventory_snapshot_id") String erpInventorySnapshotId,
+            @JsonProperty("erp_material_id") String erpMaterialId,
+            @JsonProperty("erp_warehouse_id") String erpWarehouseId,
+            @JsonProperty("on_hand_quantity") BigDecimal onHandQuantity,
+            @JsonProperty("reserved_quantity") BigDecimal reservedQuantity,
+            @JsonProperty("blocked_quantity") BigDecimal blockedQuantity,
+            @JsonProperty("quality_hold_quantity") BigDecimal qualityHoldQuantity,
+            @JsonProperty("safety_stock_quantity") BigDecimal safetyStockQuantity,
+            @JsonProperty("snapshot_at") String snapshotAt,
+            @JsonProperty("source_unit") String sourceUnit,
+            @JsonProperty("normalized_unit") String normalizedUnit,
+            @JsonProperty("data_quality_flag") String dataQualityFlag) {}
 
-    private record KgAppendInventorySnapshotRequest(KgInventorySnapshotFields inventorySnapshot) {}
+    private record KgAppendInventorySnapshotRequest(
+            @JsonProperty("inventory_snapshot") KgInventorySnapshotFields inventorySnapshot) {}
 
     private record KgMaterialConsumptionFields(
-            String erpConsumptionId, String erpMaterialId, String plantCode,
-            BigDecimal averageDailyUsage, int calculationWindowDays, String calculatedAt,
-            String dataQualityFlag) {}
+            @JsonProperty("erp_consumption_id") String erpConsumptionId,
+            @JsonProperty("erp_material_id") String erpMaterialId,
+            @JsonProperty("plant_code") String plantCode,
+            @JsonProperty("average_daily_usage") BigDecimal averageDailyUsage,
+            @JsonProperty("calculation_window_days") int calculationWindowDays,
+            @JsonProperty("calculated_at") String calculatedAt,
+            @JsonProperty("data_quality_flag") String dataQualityFlag) {}
 
-    private record KgAppendMaterialConsumptionRequest(KgMaterialConsumptionFields materialConsumption) {}
+    private record KgAppendMaterialConsumptionRequest(
+            @JsonProperty("material_consumption") KgMaterialConsumptionFields materialConsumption) {}
 
     private Long resolveSupplierMaterialId(String erpId) {
         return single("SELECT supplier_material_id FROM supplier_materials"
