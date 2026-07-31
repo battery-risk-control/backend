@@ -46,6 +46,9 @@ services:
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
       # [surin F9] FastAPI supplier_recommendation_service가 Spring /api/v1/suppliers/qualified로 콜백. docker 네트워크에선 서비스명 spring 사용(localhost 아님).
       SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
+      # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 host.docker.internal로 접근한다.
+      # (spring 서비스의 KG_SERVICE_BASE_URL과 동일한 값 — .env에서 한 번만 설정)
+      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
       MOCK_MODE: "true"
     ports:
@@ -84,6 +87,8 @@ services:
 
       RAG_SEED_ENABLED: ${RAG_SEED_ENABLED:-false}
       RAG_SEED_DIRECTORY: /app/rag-seed
+      OUTBOUND_RAG_SEED_ENABLED: ${OUTBOUND_RAG_SEED_ENABLED:-false}
+      OUTBOUND_RAG_SEED_DIRECTORY: /app/outbound-rag-seed
       AUTH_TEST_SEED_ENABLED: ${AUTH_TEST_SEED_ENABLED:-false}
       # 뉴스 수집(GDELT)은 로컬 XGBoost·공개 파일만 써서 비용이 없지만, 수집된 뉴스마다 도는
       # F3 분석은 OpenAI 추출을 호출한다. 공개 뉴스 속보 패널은 수집 원본만으로 채워지므로
@@ -100,6 +105,7 @@ services:
       - ./data/ERP_data/spring-csv:/app/erp-seed
       - ./data/ERP_data/outbound-mock:/app/outbound-erp-seed
       - ./data/RAG_DATA/erp_aligned:/app/rag-seed
+      - ./data/RAG_DATA/outbound_erp_aligned:/app/outbound-rag-seed
 
     depends_on:
       postgres:

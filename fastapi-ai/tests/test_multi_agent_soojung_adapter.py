@@ -84,3 +84,53 @@ def test_missing_erp_context_routes_to_manual_review():
     ]
     assert result["questions_for_contract_agent"] == []
     assert result["affected_contract_ids"] == []
+
+
+def test_analysis_not_required_does_not_force_manual_review():
+    request = createCobaltRequest().model_copy(
+        update={
+            "erpAnalysisRequired": False,
+        }
+    )
+
+    result = analyze_soojung_erp_node(
+        {
+            "erp_context": request.model_dump(
+                mode="json",
+            ),
+        }
+    )
+
+    assessment = result["erp_assessment"]
+
+    assert assessment["erp_exposure_score"] == 0
+    assert (
+        assessment["manual_review_required"]
+        is False
+    )
+    assert result["questions_for_contract_agent"] == []
+    assert result["affected_contract_ids"] == []
+
+
+def test_invalid_erp_context_routes_to_manual_review():
+    result = analyze_soojung_erp_node(
+        {
+            "erp_context": {
+                "requestId": "ERP-REQ-BAD",
+            },
+        }
+    )
+
+    assessment = result["erp_assessment"]
+
+    assert assessment["erp_exposure_score"] == 0
+    assert (
+        assessment["manual_review_required"]
+        is True
+    )
+    assert (
+        "ERP_REQUEST_INVALID"
+        in assessment["findings"][0]
+    )
+    assert result["questions_for_contract_agent"] == []
+    assert result["affected_contract_ids"] == []

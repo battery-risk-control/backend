@@ -5,13 +5,12 @@ from langgraph.graph import END, START, StateGraph
 from app.multi_agent.agents.contract_agent import (
     analyze_contracts_node,
 )
-from app.multi_agent.agents.erp_agent import (
-    analyze_erp_node,
-    recheck_erp_node,
-)
 from app.multi_agent.erp.soojung_adapter import (
     analyze_soojung_erp_node,
     recheck_soojung_erp_node,
+)
+from app.multi_agent.kg.node import (
+    analyze_kg_context_node,
 )
 from app.multi_agent.graph.state import BriefingState
 from app.multi_agent.nodes.briefing_node import (
@@ -36,19 +35,9 @@ def run_erp_agent(
 ) -> dict:
     """ERP Agent를 실행하고 이후 단계의 기존 결과를 초기화한다."""
 
-    erp_context = state.get(
-        "erp_context",
-        {},
+    result = analyze_soojung_erp_node(
+        state,
     )
-
-    if "requestId" in erp_context:
-        result = analyze_soojung_erp_node(
-            state,
-        )
-    else:
-        result = analyze_erp_node(
-            state,
-        )
 
     return {
         **result,
@@ -103,19 +92,9 @@ def run_erp_recheck(
 ) -> dict:
     """Contract Agent 결과를 반영해 ERP를 재검토한다."""
 
-    erp_context = state.get(
-        "erp_context",
-        {},
+    result = recheck_soojung_erp_node(
+        state,
     )
-
-    if "requestId" in erp_context:
-        result = recheck_soojung_erp_node(
-            state,
-        )
-    else:
-        result = recheck_erp_node(
-            state,
-        )
 
     return {
         **result,
@@ -165,6 +144,10 @@ def build_briefing_graph(
         supervisor_node,
     )
     graph_builder.add_node(
+        "kg",
+        analyze_kg_context_node,
+    )
+    graph_builder.add_node(
         "erp",
         run_erp_agent,
     )
@@ -200,6 +183,7 @@ def build_briefing_graph(
         "supervisor",
         route_from_supervisor,
         {
+            "kg": "kg",
             "erp": "erp",
             "contract": "contract",
             "erp_recheck": "erp_recheck",
@@ -210,6 +194,10 @@ def build_briefing_graph(
         },
     )
 
+    graph_builder.add_edge(
+        "kg",
+        "supervisor",
+    )
     graph_builder.add_edge(
         "erp",
         "supervisor",

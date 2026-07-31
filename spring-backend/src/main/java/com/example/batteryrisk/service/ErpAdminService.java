@@ -4,10 +4,13 @@ import com.example.batteryrisk.dto.ErpAdminDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.repository.ErpRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -16,12 +19,17 @@ import java.util.UUID;
 /** ERP 10개 엔티티를 외부 ERP ID 기준으로 단건 Upsert 합니다. 대시보드의 일일 갱신 입력을 처리합니다. */
 @Service
 public class ErpAdminService {
+    private static final Logger log = LoggerFactory.getLogger(ErpAdminService.class);
+
     private final NamedParameterJdbcTemplate jdbc;
     private final ErpRepository repository;
+    private final RestClient kgServiceRestClient;
 
-    public ErpAdminService(NamedParameterJdbcTemplate jdbc, ErpRepository repository) {
+    public ErpAdminService(
+            NamedParameterJdbcTemplate jdbc, ErpRepository repository, RestClient kgServiceRestClient) {
         this.jdbc = jdbc;
         this.repository = repository;
+        this.kgServiceRestClient = kgServiceRestClient;
     }
 
     @Transactional
@@ -274,6 +282,7 @@ public class ErpAdminService {
                 """, params);
         Long id = single("SELECT inventory_snapshot_id FROM inventory_snapshots"
                 + " WHERE erp_inventory_snapshot_id = :erpId", erpId);
+        syncKgReload();
         return response("inventory_snapshots", erpId, id, true);
     }
 
@@ -307,6 +316,7 @@ public class ErpAdminService {
                 """, params);
         Long id = single("SELECT consumption_id FROM material_consumptions"
                 + " WHERE erp_consumption_id = :erpId", erpId);
+        syncKgReload();
         return response("material_consumptions", erpId, id, true);
     }
 
@@ -529,6 +539,25 @@ public class ErpAdminService {
                 """, params);
         Long id = repository.resolveOutboundContractId(request.erpOutboundContractId()).orElseThrow();
         return response("outbound_contracts", request.erpOutboundContractId(), id, !existed);
+    }
+
+    /**
+     * kg_service는 재고/소비량을 자기 쪽 CSV 스냅샷(spring-csv)에서 캐시해 그래프를 만들어 두므로,
+     * 여기서 재고·소비량을 갱신해도 kg_service가 자동으로 알아채지 못한다 — 계약 생성 시
+     * {@code /admin/append_contract}를 부르는 것과 같은 이유로, 여기서도 명시적으로
+     * {@code /admin/reload}를 불러 그래프를 최신 CSV 기준으로 다시 만들게 한다.
+     *
+     * KG 반영은 부가 기능이라 실패해도 이 트랜잭션(ERP DB 갱신) 자체는 막지 않는다.
+     */
+    private void syncKgReload() {
+        try {
+            kgServiceRestClient.post()
+                    .uri("/admin/reload")
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception exception) {
+            log.warn("kg_service 리로드 실패 — ERP 갱신은 반영됐으나 KG 그래프는 아직 이전 상태입니다", exception);
+        }
     }
 
     private Long resolveSupplierMaterialId(String erpId) {

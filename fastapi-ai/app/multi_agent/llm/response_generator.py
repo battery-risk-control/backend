@@ -109,6 +109,20 @@ def build_response_payload(
             "contract_findings",
             [],
         ),
+        "kg_evidence": {
+            "evidence_paths": state.get(
+                "kg_evidence_paths",
+                [],
+            ),
+            "affected_suppliers": state.get(
+                "kg_affected_suppliers",
+                [],
+            ),
+            "alternative_suppliers": state.get(
+                "kg_alternative_suppliers",
+                [],
+            ),
+        },
     }
 
 

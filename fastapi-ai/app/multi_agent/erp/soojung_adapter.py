@@ -1,5 +1,7 @@
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.adapters.erp_agent_adapter import (
     adaptErpExposureRequest,
 )
@@ -199,9 +201,29 @@ def analyze_soojung_erp_node(
             "affected_contract_ids": [],
         }
 
-    request = ErpExposureRequest.model_validate(
-        raw_erp_context,
-    )
+    try:
+        request = ErpExposureRequest.model_validate(
+            raw_erp_context,
+        )
+    except ValidationError as error:
+        return {
+            "erp_assessment": {
+                "erp_exposure_score": 0,
+                "manual_review_required": True,
+                "findings": [
+                    f"ERP_REQUEST_INVALID: {error}",
+                ],
+            },
+            "erp_findings": {
+                "erp_exposure_score": 0,
+                "manual_review_required": True,
+                "findings": [
+                    f"ERP_REQUEST_INVALID: {error}",
+                ],
+            },
+            "questions_for_contract_agent": [],
+            "affected_contract_ids": [],
+        }
 
     agent_result = runErpExposureAgent(
         {
@@ -215,6 +237,28 @@ def analyze_soojung_erp_node(
     )
 
     if response is None:
+        if agent_result.get("erpAgentStatus") == "NOT_REQUIRED":
+            return {
+                "erp_assessment": {
+                    "erp_exposure_score": 0,
+                    "manual_review_required": False,
+                    "findings": [
+                        "erpAnalysisRequired=false로 "
+                        "ERP 분석이 필요하지 않습니다.",
+                    ],
+                },
+                "erp_findings": {
+                    "erp_exposure_score": 0,
+                    "manual_review_required": False,
+                    "findings": [
+                        "erpAnalysisRequired=false로 "
+                        "ERP 분석이 필요하지 않습니다.",
+                    ],
+                },
+                "questions_for_contract_agent": [],
+                "affected_contract_ids": [],
+            }
+
         errors = agent_result.get(
             "errors",
             [],

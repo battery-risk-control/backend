@@ -4,12 +4,32 @@ from app.multi_agent.nodes.supervisor_node import (
 )
 
 
-def test_routes_to_erp_first():
-    assert select_next_route({}) == "erp"
+KG_PASSED_STATE = {
+    "kg_context": {"matched": True},
+    "kg_shortage_detected": True,
+}
+
+
+def test_routes_to_kg_first():
+    assert select_next_route({}) == "kg"
+
+
+def test_routes_to_finish_when_kg_gate_fails():
+    state = {
+        "kg_context": {"matched": False},
+        "kg_shortage_detected": False,
+    }
+
+    assert select_next_route(state) == "finish"
+
+
+def test_routes_to_erp_after_kg_gate_passes():
+    assert select_next_route(KG_PASSED_STATE) == "erp"
 
 
 def test_routes_to_contract_after_erp():
     state = {
+        **KG_PASSED_STATE,
         "erp_assessment": {
             "erp_exposure_score": 70,
         },
@@ -20,6 +40,7 @@ def test_routes_to_contract_after_erp():
 
 def test_routes_to_erp_recheck_after_contract():
     state = {
+        **KG_PASSED_STATE,
         "erp_assessment": {
             "erp_exposure_score": 70,
         },
@@ -37,6 +58,7 @@ def test_routes_to_erp_recheck_after_contract():
 
 def test_routes_to_risk_after_recheck():
     state = {
+        **KG_PASSED_STATE,
         "erp_assessment": {
             "erp_exposure_score": 70,
         },
@@ -54,6 +76,7 @@ def test_routes_to_risk_after_recheck():
 
 def test_routes_to_response_after_risk():
     state = {
+        **KG_PASSED_STATE,
         "erp_assessment": {
             "erp_exposure_score": 70,
         },
@@ -69,6 +92,7 @@ def test_routes_to_response_after_risk():
 
 def test_routes_to_reviewer_after_response():
     state = {
+        **KG_PASSED_STATE,
         "erp_assessment": {
             "erp_exposure_score": 70,
         },
@@ -116,5 +140,5 @@ def test_supervisor_node_records_next_route():
     result = supervisor_node({})
 
     assert result == {
-        "supervisor_next": "erp",
+        "supervisor_next": "kg",
     }

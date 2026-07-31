@@ -3,6 +3,7 @@ from typing import Literal
 
 # Supervisor가 선택할 수 있는 다음 실행 경로
 SupervisorRoute = Literal[
+    "kg",
     "erp",
     "contract",
     "erp_recheck",

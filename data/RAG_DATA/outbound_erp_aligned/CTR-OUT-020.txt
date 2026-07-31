@@ -1,0 +1,39 @@
+[MOCK CONTRACT — GENERATED FOR RAG DEMO, ALIGNED WITH ERP/KG MASTER DATA]
+
+BATTERY CELL SUPPLY AGREEMENT (OUTBOUND)
+
+Contract ID: CTR-OUT-020
+Contract Language (per ERP metadata): EN
+Product: Cylindrical Battery 2170 (product_id=PROD-005, product_line=Cylindrical)
+
+This Battery Cell Supply Agreement (this "Agreement") is entered into between
+LG Energy Solution, Ltd. ("Seller") and Honda Motor Co. ("Buyer", customer_id=CUST-016,
+country=JP).
+
+ARTICLE 1. PRODUCT AND COMPOSITION
+1.1 The Seller shall manufacture and supply Cylindrical Battery 2170 (the "Products") to the Buyer for
+    use in the Buyer's electric vehicle / energy storage manufacturing.
+1.2 The Products are composed of the following raw material categories, each of which is
+    subject to upstream supply chain risk: COBALT, COPPER, GRAPHITE, LITHIUM, NICKEL.
+
+ARTICLE 2. VOLUME AND PRICING
+2.1 Total Commitment: The Seller shall supply a total capacity of 12 GWh over the
+    term of this Agreement.
+2.2 The base price per kWh shall be USD 97, subject to quarterly adjustments
+    based on the LME (London Metal Exchange) index.
+
+ARTICLE 3. DELIVERY AND PENALTY
+3.1 The Seller must deliver the Products strictly in accordance with the Buyer's delivery
+    schedule, with a standard delivery lead time of 66 days.
+3.2 Late Delivery Penalty: In the event of a delivery delay, the Seller shall pay to the Buyer
+    a penalty of 0.3% of the delayed shipment's value per week of delay.
+3.3 Line-Stop Charge: If the Seller's failure to deliver the Products on time causes a
+    production halt at the Buyer's assembly plant (Line-Stop), the Seller shall be liable for
+    a Line-Stop Charge of USD 2,000,000, in addition to the late delivery penalty.
+
+ARTICLE 4. FORCE MAJEURE
+4.1 Excusable Delay. Neither Party shall be liable for delays caused by geopolitical events, war, terrorism, or export controls imposed by the government.
+4.2 Mitigation. The affected Party must use commercially reasonable efforts to mitigate the
+    effects of the Force Majeure Event and resume performance as soon as possible.
+
+[SIGNATURES OMITTED FOR DEMO]

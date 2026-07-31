@@ -103,6 +103,13 @@ app:
       enabled: ${RAG_SEED_ENABLED:false}
       directory: ${RAG_SEED_DIRECTORY:}
       document-type: ${RAG_SEED_DOCUMENT_TYPE:CONTRACT}
+    # 아웃바운드(LG엔솔→완성차 고객사) 계약서 자동 적재기(OutboundRagSeedConfig).
+    # RagSeedConfig(인바운드)와 완전히 독립된 별도 러너 — outbound_contracts 테이블/
+    # OutboundDocumentService를 쓴다는 점만 다르고 나머지 흐름은 동일.
+    outbound-seed:
+      enabled: ${OUTBOUND_RAG_SEED_ENABLED:false}
+      directory: ${OUTBOUND_RAG_SEED_DIRECTORY:}
+      document-type: ${OUTBOUND_RAG_SEED_DOCUMENT_TYPE:CONTRACT}
   auth:
     # 프론트 e2e용 고정 테스트 계정 시드. 운영에는 끄고, CI/로컬 e2e에서만 true로 켠다.
     test-seed:
