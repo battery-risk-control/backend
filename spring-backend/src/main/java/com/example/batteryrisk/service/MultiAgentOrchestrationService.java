@@ -64,6 +64,7 @@ public class MultiAgentOrchestrationService {
                         request.impactDomainDraft(),
                         request.impactDomainFinal(),
                         List.of(erp.materialName()),
+                        request.country(),
                         request.externalSignalLevel()
                                 .toLowerCase(Locale.ROOT),
                         request.externalSignalScore(),

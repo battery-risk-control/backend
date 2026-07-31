@@ -60,6 +60,12 @@ public final class MultiAgentDto {
         @NotBlank
         String erpSupplierId,
 
+        // KG 게이트(analyze_kg_context_node, FastAPI 쪽)가 country+affected_materials 없이는
+        // 항상 "매칭 없음"으로 조기종료해버려서(2026-08-01 Docker 실증 중 발견 — 이 필드가
+        // 없어서 Chain B가 실제로는 한 번도 본 파이프라인을 안 타고 있었음), 반드시 실어 보내야 한다.
+        @JsonProperty("country")
+        String country,
+
         @JsonProperty("as_of")
         @JsonAlias("asOf")
         @NotNull
@@ -95,6 +101,9 @@ public final class MultiAgentDto {
 
             @JsonProperty("affected_materials")
             List<String> affectedMaterials,
+
+            @JsonProperty("country")
+            String country,
 
             @JsonProperty("external_signal_level")
             String externalSignalLevel,

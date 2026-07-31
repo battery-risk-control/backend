@@ -141,7 +141,7 @@ public class AnalysisService {
                     data.classification().impactDomain(), data.classification().impactDomain(),
                     data.severity().severity(), (int) Math.round(data.severity().score()),
                     erpContext.resolvedErpMaterialId(), erpContext.resolvedErpSupplierId(),
-                    OffsetDateTime.now(), false);
+                    analysis.getCountryCode(), OffsetDateTime.now(), false);
             multiAgentOrchestrationService.generate(request);
         } catch (RuntimeException exception) {
             log.warn("멀티에이전트 브리핑 자동 생성 실패 (analysisId={}): {}",
