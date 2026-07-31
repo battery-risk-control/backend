@@ -82,6 +82,7 @@ def build_no_shortage_briefing(
 
     return {
         "erp_assessment": {},
+        "erp_reassessment": {},
         "contract_assessment": {},
         "contract_findings": [],
         "procurement_risk_score": 0,
@@ -90,7 +91,9 @@ def build_no_shortage_briefing(
         "briefing": f"[정상] {reason}",
         "recommended_actions": ["별도 조치가 필요하지 않습니다."],
         "llm_used": False,
+        "llm_error": None,
         "review_passed": True,
+        "warnings": [],
         "error_owner": None,
     }
 
