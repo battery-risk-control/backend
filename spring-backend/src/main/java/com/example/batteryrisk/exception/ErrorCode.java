@@ -27,7 +27,15 @@ public enum ErrorCode {
     SEVERITY_ASSESSMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "Severity 분석 결과를 찾을 수 없습니다."),
     FASTAPI_BRIEFING_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "FastAPI 브리핑 생성을 사용할 수 없습니다."),
     INVALID_BRIEFING_RESPONSE(HttpStatus.BAD_GATEWAY, "FastAPI 브리핑 응답이 올바르지 않습니다."),
-    BRIEFING_NOT_FOUND(HttpStatus.NOT_FOUND, "브리핑을 찾을 수 없습니다.");
+    BRIEFING_NOT_FOUND(HttpStatus.NOT_FOUND, "브리핑을 찾을 수 없습니다."),
+    ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "분석 결과를 찾을 수 없습니다."),
+    ANALYSIS_NOT_SCORED(HttpStatus.UNPROCESSABLE_ENTITY, "외부신호 점수가 산출되지 않은 분석입니다."),
+    ANALYSIS_NOT_SUPPLY_CHAIN_RELEVANT(
+            HttpStatus.UNPROCESSABLE_ENTITY, "공급망과 무관한 뉴스로 판정된 분석입니다."),
+    EXTERNAL_SIGNAL_REQUIRED(
+            HttpStatus.BAD_REQUEST, "analysis_id 또는 external_signal_score·external_signal_level이 필요합니다."),
+    PROCUREMENT_RISK_ASSESSMENT_NOT_FOUND(
+            HttpStatus.NOT_FOUND, "구매 리스크 점수를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String defaultMessage;

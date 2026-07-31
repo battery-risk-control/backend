@@ -135,8 +135,11 @@ public class AnalysisService {
             // FastAPI MultiAgentBriefingRequest의 summary_kr/article_text는 Optional이 아니라
             // 기본값 ""인 str 필드라, Jackson이 null을 그대로 보내면(explicit null) pydantic이
             // 422로 거부한다(실제 Docker 검증 중 발견) — 빈 문자열로 채워야 한다.
+            // analysisId는 null로 둔다: 이 시점엔 analysis가 아직 COMPLETED로 flush되지 않아
+            // (saveAndFlush는 create()의 이 호출 이후에 일어난다) PR#11의 analysisId 경로를 타면
+            // ANALYSIS_NOT_SCORED로 막힌다. 기존처럼 값을 직접 실어 보낸다.
             MultiAgentDto.GenerateRequest request = new MultiAgentDto.GenerateRequest(
-                    analysis.getAnalysisId().toString(), analysis.getEventTitle(),
+                    analysis.getAnalysisId().toString(), null, analysis.getEventTitle(),
                     analysis.getEventContent() != null ? analysis.getEventContent() : "", "",
                     data.classification().impactDomain(), data.classification().impactDomain(),
                     data.severity().severity(), (int) Math.round(data.severity().score()),
