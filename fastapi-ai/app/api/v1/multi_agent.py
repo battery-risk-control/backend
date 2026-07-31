@@ -58,9 +58,10 @@ def create_multi_agent_briefing(
     )
 
     response_fields = {
-        field_name: result.get(field_name)
+        field_name: result[field_name]
         for field_name
         in MultiAgentBriefingResponse.model_fields
+        if field_name in result
     }
 
     response_data = (

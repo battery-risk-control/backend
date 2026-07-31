@@ -52,6 +52,10 @@ class MultiAgentBriefingRequest(
         default_factory=list,
     )
 
+    # 뉴스에서 추출한 영향 국가(ISO 코드). KG 리졸버(GET /resolve) 조회에 사용 —
+    # 없으면 KG 게이트를 못 태우고 매칭 없음으로 처리된다.
+    country: str | None = None
+
     # 외부 뉴스·재난·시장 신호 점수
     external_signal_level: RiskLevel = "normal"
     external_signal_score: int = Field(
@@ -76,6 +80,18 @@ class MultiAgentBriefingResponse(
 ):
     news_id: str
     impact_domain_final: str
+
+    kg_matched: bool = False
+    kg_shortage_detected: bool = False
+    kg_affected_suppliers: list[str] = Field(
+        default_factory=list,
+    )
+    kg_affected_contract_ids: list[str] = Field(
+        default_factory=list,
+    )
+    kg_evidence_paths: list[str] = Field(
+        default_factory=list,
+    )
 
     procurement_risk_level: RiskLevel
     procurement_risk_score: int
