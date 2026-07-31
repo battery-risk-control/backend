@@ -81,6 +81,34 @@ public class ProcurementRiskRepository {
                 """, params);
     }
 
+    /**
+     * 아직 구매 리스크 점수가 없는 분석 id를 최신순으로 가져온다. 스케줄러 대상 선정용이다.
+     *
+     * <p>{@code NOT EXISTS}가 멱등성을 만든다 — 같은 분석을 두 번 돌려 중복 행을 쌓지 않는다.
+     * 이 테이블은 append-only라 유니크 제약이 없으므로 중복 방지는 여기가 유일한 방어선이다.
+     *
+     * <p>{@code NOT_RELEVANT} 걸러내기는 여기서 한 번 좁히고, 실제 차단은
+     * {@code resolveExternalSignal}이 CSV를 split해서 정확히 판정한다 — LIKE는 대상 축소용이다.
+     */
+    public List<UUID> findUnscoredAnalysisIds(int limit) {
+        return jdbc.query("""
+                SELECT a.analysis_id
+                FROM analyses a
+                WHERE a.status = 'COMPLETED'
+                  AND a.severity_score IS NOT NULL
+                  AND a.severity IS NOT NULL
+                  AND a.material_category IS NOT NULL
+                  AND (a.reason_codes IS NULL OR a.reason_codes NOT LIKE '%NOT_RELEVANT%')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM procurement_risk_assessments p
+                      WHERE p.analysis_id = a.analysis_id
+                  )
+                ORDER BY a.created_at DESC
+                LIMIT :limit
+                """, new MapSqlParameterSource("limit", limit),
+                (rs, rowNumber) -> rs.getObject("analysis_id", UUID.class));
+    }
+
     public Optional<ProcurementRiskDto.Assessment> findById(UUID assessmentId) {
         List<ProcurementRiskDto.Assessment> values = jdbc.query("""
                 SELECT *

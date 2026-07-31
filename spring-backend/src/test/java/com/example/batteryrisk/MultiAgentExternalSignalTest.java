@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.ExpectedCount.once;
@@ -91,6 +92,7 @@ class MultiAgentExternalSignalTest {
     private MultiAgentService multiAgentService;
     private AnalysisRepository analysisRepository;
     private ProcurementRiskRepository procurementRiskRepository;
+    private ErpRepository erpRepository;
     private MultiAgentOrchestrationService service;
 
     @BeforeEach
@@ -99,8 +101,9 @@ class MultiAgentExternalSignalTest {
         multiAgentService = mock(MultiAgentService.class);
         analysisRepository = mock(AnalysisRepository.class);
         procurementRiskRepository = mock(ProcurementRiskRepository.class);
+        erpRepository = mock(ErpRepository.class);
         service = new MultiAgentOrchestrationService(
-                erpService, multiAgentService, mock(ErpRepository.class),
+                erpService, multiAgentService, erpRepository,
                 analysisRepository, procurementRiskRepository);
         when(erpService.buildContext(any())).thenReturn(erpContext());
         when(multiAgentService.generate(any())).thenReturn(stubResponse());
@@ -238,6 +241,63 @@ class MultiAgentExternalSignalTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.ANALYSIS_NOT_SCORED));
+    }
+
+    /**
+     * 스케줄러가 분석 한 건을 ERP 자재 여러 개로 펼치는지 확인한다.
+     *
+     * <p>{@code analyses}에는 대분류(LITHIUM)만 있고 {@code material_id}는 비어 있다(실데이터에서
+     * 전부 NULL). LITHIUM은 ERP 자재가 2개(탄산/수산화)이므로 분석 1건이 호출 2건이 되어야 한다.
+     */
+    @Test
+    void schedulerExpandsOneAnalysisIntoEveryMaterialOfItsCategory() {
+        Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
+        when(procurementRiskRepository.findUnscoredAnalysisIds(10))
+                .thenReturn(List.of(analysis.getAnalysisId()));
+        when(analysisRepository.findAllById(any())).thenReturn(List.of(analysis));
+        // generate()가 resolveExternalSignal에서 분석을 한 번 더 조회한다.
+        when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
+        when(erpRepository.findActiveErpMaterialIds("LITHIUM"))
+                .thenReturn(List.of("MAT-LI-CARB", "MAT-LI-OH"));
+
+        int saved = service.scoreNewAnalyses(10);
+
+        assertThat(saved).isEqualTo(2);
+        verify(procurementRiskRepository, times(2)).save(any());
+    }
+
+    /**
+     * 한 건이 실패해도 배치가 멈추지 않아야 한다. ERP Context가 없는 자재나 FastAPI 일시 장애로
+     * 한 건이 막히는 건 흔한데, 그것 때문에 나머지를 못 돌리면 손해가 크다.
+     */
+    @Test
+    void schedulerKeepsGoingWhenOneMaterialFails() {
+        Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
+        when(procurementRiskRepository.findUnscoredAnalysisIds(10))
+                .thenReturn(List.of(analysis.getAnalysisId()));
+        when(analysisRepository.findAllById(any())).thenReturn(List.of(analysis));
+        // generate()가 resolveExternalSignal에서 분석을 한 번 더 조회한다.
+        when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
+        when(erpRepository.findActiveErpMaterialIds("LITHIUM"))
+                .thenReturn(List.of("MAT-LI-CARB", "MAT-LI-OH"));
+        // 첫 자재는 ERP Context 구성 실패, 두 번째는 정상.
+        when(erpService.buildContext(any()))
+                .thenThrow(new BusinessException(ErrorCode.ERP_CONTEXT_NOT_FOUND))
+                .thenReturn(erpContext());
+
+        int saved = service.scoreNewAnalyses(10);
+
+        assertThat(saved).isEqualTo(1);
+        verify(procurementRiskRepository, times(1)).save(any());
+    }
+
+    /** 대상이 없으면 FastAPI를 부르지 않는다 — 빈 배치에 LLM 비용을 쓰지 않는다. */
+    @Test
+    void schedulerDoesNothingWhenNoUnscoredAnalyses() {
+        when(procurementRiskRepository.findUnscoredAnalysisIds(10)).thenReturn(List.of());
+
+        assertThat(service.scoreNewAnalyses(10)).isZero();
+        verify(multiAgentService, never()).generate(any());
     }
 
     private MultiAgentDto.Request captureFastApiRequest() {

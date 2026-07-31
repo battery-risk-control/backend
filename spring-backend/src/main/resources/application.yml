@@ -120,6 +120,16 @@ app:
   notification:
     # [surin F10] 알림 발신자 이메일 주소. 미설정 시 이메일 발송 비활성.
     mail-from: ${NOTIFICATION_MAIL_FROM:}
+  risk-scoring:
+    # 멀티에이전트 구매 리스크 자동 점수화. 비로그인 대시보드는 페이지를 열 때마다 LangGraph를
+    # 돌릴 수 없으므로 미리 채워둔다. 기본 false — 수집 스케줄러와 같은 이유로, 켜는 걸 깜빡하면
+    # 점수가 안 쌓일 뿐이지만 끄는 걸 깜빡하면 LLM 비용이 실제로 나가고 되돌릴 수 없다.
+    enabled: ${RISK_SCORING_ENABLED:false}
+    # 수집 주기(15분)보다 길게 둔다 — 분석이 쌓이는 속도보다 빨리 돌 이유가 없다.
+    interval-ms: ${RISK_SCORING_INTERVAL_MS:1800000}
+    initial-delay-ms: ${RISK_SCORING_INITIAL_DELAY_MS:120000}
+    # 1회 실행당 분석 수 상한. LITHIUM·GRAPHITE는 ERP 자재가 2개라 분석 1건이 호출 2건이 된다.
+    batch-size: ${RISK_SCORING_BATCH_SIZE:10}
   collection:
     # [surin F4] 자동 수집 스케줄러(GDELT 자체 갱신 주기에 맞춰 15분). 기본 false — 무인 반복 실행으로
     # 인한 OpenAI 추출 비용 사고 방지. 자동 수집이 필요할 때만 COLLECTION_SCHEDULER_ENABLED=true 로 켠다.

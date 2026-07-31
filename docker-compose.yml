@@ -97,6 +97,9 @@ services:
       # 이 플래그와 무관하게 항상 동작하므로, 기본 off로 두어도 분석 테스트 경로는 막히지 않는다.
       COLLECTION_SCHEDULER_ENABLED: ${COLLECTION_SCHEDULER_ENABLED:-false}
       COLLECTION_ANALYSIS_ENABLED: ${COLLECTION_ANALYSIS_ENABLED:-false}
+      # 멀티에이전트 구매 리스크 자동 점수화. 위 두 개와 같은 이유로 기본 off —
+      # 분석 한 건마다 LangGraph 노드들이 돌아 LLM 비용이 나간다.
+      RISK_SCORING_ENABLED: ${RISK_SCORING_ENABLED:-false}
       TZ: Asia/Seoul
     ports:
       - "${SPRING_PORT:-8080}:8080"

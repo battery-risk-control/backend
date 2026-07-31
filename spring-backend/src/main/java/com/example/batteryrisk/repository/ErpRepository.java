@@ -282,6 +282,23 @@ public class ErpRepository {
         return result == null ? BigDecimal.ZERO : result;
     }
 
+    /**
+     * 자재 대분류에 속한 활성 ERP 자재 목록.
+     *
+     * <p>{@code analyses}는 대분류({@code material_category})만 채우고 {@code material_id}는 비워두므로
+     * (실데이터에서 전부 NULL), 스케줄러가 분석 한 건을 실제 ERP 자재로 펼칠 때 이 조회가 필요하다.
+     * 대분류당 1~2개다 — LITHIUM(탄산/수산화)과 GRAPHITE(천연/인조)만 2개.
+     */
+    public List<String> findActiveErpMaterialIds(String materialCategory) {
+        return jdbc.query("""
+                SELECT erp_material_id
+                FROM materials
+                WHERE material_category = :materialCategory AND active = TRUE
+                ORDER BY erp_material_id
+                """, new MapSqlParameterSource("materialCategory", materialCategory),
+                (rs, rowNumber) -> rs.getString("erp_material_id"));
+    }
+
     public Optional<Long> resolveMaterialId(String erpMaterialId) {
         return resolveId("materials", "material_id", "erp_material_id", erpMaterialId);
     }

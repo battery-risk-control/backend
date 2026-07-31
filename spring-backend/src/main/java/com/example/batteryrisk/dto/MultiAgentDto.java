@@ -77,9 +77,10 @@ public final class MultiAgentDto {
         @NotBlank
         String erpMaterialId,
 
+        // 비우면 ErpRepository.findSupply가 priority_rank 순으로 주 공급사를 고른다.
+        // 스케줄러는 analyses에 supplier_id가 없어(실데이터에서 전부 NULL) 항상 비운 채로 부른다.
         @JsonProperty("erp_supplier_id")
         @JsonAlias("erpSupplierId")
-        @NotBlank
         String erpSupplierId,
 
         @JsonProperty("as_of")

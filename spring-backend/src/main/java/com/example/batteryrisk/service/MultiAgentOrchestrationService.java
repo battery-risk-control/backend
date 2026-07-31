@@ -6,6 +6,10 @@ import com.example.batteryrisk.dto.MultiAgentDto;
 import com.example.batteryrisk.dto.ProcurementRiskDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -35,6 +39,20 @@ public class MultiAgentOrchestrationService {
      * 계산된 점수가 같은 버전으로 섞여 과거 점수를 해석할 수 없게 된다.
      */
     private static final String WEIGHT_VERSION = "procurement-risk-v1";
+
+    private static final Logger log =
+            LoggerFactory.getLogger(MultiAgentOrchestrationService.class);
+
+    /**
+     * 구매 리스크 자동 점수화 스위치. <b>기본 false</b>이며 @Value·application.yml·docker-compose
+     * 세 곳이 모두 false여야 한다 — 이전에 F4에서 이 세 곳이 어긋나 자동 분석이 의도치 않게 돌았다.
+     */
+    @Value("${app.risk-scoring.enabled:false}")
+    private boolean riskScoringEnabled;
+
+    /** 1회 실행당 처리할 분석 수 상한. 자재가 2개인 대분류는 분석 1건이 호출 2건이 된다. */
+    @Value("${app.risk-scoring.batch-size:10}")
+    private int riskScoringBatchSize;
 
     private final ErpService erpService;
     private final MultiAgentService multiAgentService;
@@ -124,6 +142,91 @@ public class MultiAgentOrchestrationService {
 
         return persist(
                 request, erp, impactDomain, externalSignal, response);
+    }
+
+    /**
+     * 아직 점수가 없는 분석을 찾아 구매 리스크 점수를 채운다.
+     *
+     * <p>비로그인 대시보드는 아무 때나 열리는데 페이지를 열 때마다 LangGraph(supervisor + 노드들,
+     * LLM 다중 호출)를 돌릴 수는 없다 — 느리고, 비싸고, 매번 값이 달라진다. 미리 채워두는 것이
+     * 이 스케줄러의 목적이다.
+     *
+     * <p>기본 off다. 수집 스케줄러와 같은 이유로 — 켜는 걸 깜빡하면 점수가 안 쌓일 뿐 다시 돌리면
+     * 되지만, 끄는 걸 깜빡하면 LLM 비용이 실제로 나가고 되돌릴 수 없다. 대가가 비대칭이다.
+     */
+    @Scheduled(
+            fixedRateString = "${app.risk-scoring.interval-ms:1800000}",
+            initialDelayString = "${app.risk-scoring.initial-delay-ms:120000}")
+    public void scoreNewAnalysesOnSchedule() {
+        if (!riskScoringEnabled) {
+            log.debug("구매 리스크 자동 점수화 비활성(app.risk-scoring.enabled=false) — 건너뜀");
+            return;
+        }
+        scoreNewAnalyses(riskScoringBatchSize);
+    }
+
+    /**
+     * 점수가 없는 분석 최대 {@code limit}건을 처리하고 저장한 건수를 반환한다.
+     *
+     * <p>분석 한 건이 자재 여러 개로 펼쳐질 수 있다 — {@code analyses}에는 대분류만 있고
+     * LITHIUM·GRAPHITE는 ERP 자재가 2개씩이라, 그 경우 두 자재 모두 점수를 낸다.
+     * 화면은 대분류 단위로 접으므로 두 행이 같은 카드로 합쳐진다.
+     *
+     * <p>한 건이 실패해도 배치 전체를 멈추지 않는다. ERP Context가 없는 자재(재고 스냅샷 부재 등)나
+     * FastAPI 일시 장애로 한 건이 막히는 건 흔한데, 그것 때문에 나머지를 못 돌리면 손해가 크다.
+     */
+    public int scoreNewAnalyses(int limit) {
+        List<UUID> analysisIds = procurementRiskRepository.findUnscoredAnalysisIds(limit);
+        if (analysisIds.isEmpty()) {
+            log.debug("구매 리스크 점수화 대상 없음");
+            return 0;
+        }
+        int saved = 0;
+        int failed = 0;
+        for (Analysis analysis : analysisRepository.findAllById(analysisIds)) {
+            for (String erpMaterialId
+                    : erpRepository.findActiveErpMaterialIds(analysis.getMaterialCategory())) {
+                try {
+                    generate(scheduledRequest(analysis, erpMaterialId));
+                    saved++;
+                } catch (Exception exception) {
+                    failed++;
+                    log.warn("구매 리스크 점수화 실패 analysisId={} erpMaterialId={} — 나머지는 계속 진행합니다",
+                            analysis.getAnalysisId(), erpMaterialId, exception);
+                }
+            }
+        }
+        log.info("구매 리스크 점수화 완료 — 대상 분석 {}건, 저장 {}건, 실패 {}건",
+                analysisIds.size(), saved, failed);
+        return saved;
+    }
+
+    /**
+     * 저장된 분석으로 브리핑 요청을 조립한다.
+     *
+     * <p>외부신호는 {@code analysisId}로 채워지므로 external_signal_* 는 비운다.
+     * 공급사도 비운다 — {@code ErpRepository.findSupply}가 supplier가 null이면
+     * {@code priority_rank} 순으로 주 공급사를 고른다.
+     *
+     * <p>{@code useLlm}은 false다. 스케줄러는 무인 반복 실행이라 LLM 브리핑 문구까지 매번 생성하면
+     * 비용이 통제되지 않는다. 점수 산출에는 LLM이 필요 없다.
+     */
+    private static MultiAgentDto.GenerateRequest scheduledRequest(
+            Analysis analysis, String erpMaterialId
+    ) {
+        return new MultiAgentDto.GenerateRequest(
+                "ANALYSIS-" + analysis.getAnalysisId(),
+                analysis.getAnalysisId(),
+                analysis.getEventTitle(),
+                analysis.getEventContent(),
+                analysis.getEventTitle(),
+                analysis.getImpactDomain(),
+                analysis.getImpactDomain(),
+                null, null,
+                erpMaterialId,
+                null,
+                OffsetDateTime.now(),
+                false);
     }
 
     /** 저장된 구매 리스크 점수를 다시 꺼낸다. 재조회·감사추적용. */
