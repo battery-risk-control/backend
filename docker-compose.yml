@@ -87,6 +87,8 @@ services:
 
       RAG_SEED_ENABLED: ${RAG_SEED_ENABLED:-false}
       RAG_SEED_DIRECTORY: /app/rag-seed
+      OUTBOUND_RAG_SEED_ENABLED: ${OUTBOUND_RAG_SEED_ENABLED:-false}
+      OUTBOUND_RAG_SEED_DIRECTORY: /app/outbound-rag-seed
       AUTH_TEST_SEED_ENABLED: ${AUTH_TEST_SEED_ENABLED:-false}
       # 뉴스 수집(GDELT)은 로컬 XGBoost·공개 파일만 써서 비용이 없지만, 수집된 뉴스마다 도는
       # F3 분석은 OpenAI 추출을 호출한다. 공개 뉴스 속보 패널은 수집 원본만으로 채워지므로
@@ -103,6 +105,7 @@ services:
       - ./data/ERP_data/spring-csv:/app/erp-seed
       - ./data/ERP_data/outbound-mock:/app/outbound-erp-seed
       - ./data/RAG_DATA/erp_aligned:/app/rag-seed
+      - ./data/RAG_DATA/outbound_erp_aligned:/app/outbound-rag-seed
 
     depends_on:
       postgres:
