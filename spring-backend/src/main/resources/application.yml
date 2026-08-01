@@ -181,3 +181,18 @@ app:
     #
     # 수동 트리거(POST /collection/translate)는 이 플래그와 무관하게 항상 동작한다.
     translation-enabled: ${COLLECTION_TRANSLATION_ENABLED:false}
+  risk-scoring:
+    # 구매 리스크 점수 자동 축적 스케줄러(F5, 비로그인 대시보드용). 기본 false — 수집 스케줄러(F4)와
+    # 같은 이유로, 켜는 걸 깜빡하면 점수가 안 쌓일 뿐이지만 끄는 걸 깜빡하면 LLM 비용이 실제로 나가고
+    # 되돌릴 수 없다. 대가가 비대칭이라 안전한 쪽(off)이 기본이다. 수동 트리거
+    # (POST /api/v1/multi-agent/risk-scoring/run)는 이 플래그와 무관하게 항상 가능.
+    #
+    # 환경변수는 이 줄이 있어야 바인딩된다 — RISK_SCORING_ENABLED만 넣고 여기를 빠뜨리면
+    # MultiAgentOrchestrationService의 @Value 기본값으로 떨어져 조용히 무시된다(F4에서 겪은 문제
+    # 재발 방지, @Value 기본값도 여기와 같은 false로 맞춰 뒀다).
+    enabled: ${RISK_SCORING_ENABLED:false}
+    # 1회 실행당 처리할 분석 수 상한(자재 2개인 대분류는 호출 2건이 됨).
+    batch-size: ${RISK_SCORING_BATCH_SIZE:10}
+    # 수집(15분)보다 길게 — 30분.
+    interval-ms: ${RISK_SCORING_INTERVAL_MS:1800000}
+    initial-delay-ms: ${RISK_SCORING_INITIAL_DELAY_MS:120000}

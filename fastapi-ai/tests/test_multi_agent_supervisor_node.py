@@ -144,7 +144,9 @@ def test_routes_to_outbound_contract_when_stockout_and_id_present():
             "contract_gap_score": 30,
         },
         "procurement_risk_level": "warning",
-        "outbound_contract_id": 501,
+        "outbound_contracts": [
+            {"contract_id": 501, "product_id": 601, "customer_id": 701},
+        ],
         "outbound_contract_checked": False,
     }
 
@@ -162,7 +164,7 @@ def test_skips_outbound_contract_without_outbound_id():
             "contract_gap_score": 30,
         },
         "procurement_risk_level": "warning",
-        "outbound_contract_id": None,
+        "outbound_contracts": [],
     }
 
     assert select_next_route(state) == "response"
@@ -179,7 +181,9 @@ def test_skips_outbound_contract_without_stockout():
             "contract_gap_score": 30,
         },
         "procurement_risk_level": "warning",
-        "outbound_contract_id": 501,
+        "outbound_contracts": [
+            {"contract_id": 501, "product_id": 601, "customer_id": 701},
+        ],
     }
 
     assert select_next_route(state) == "response"
@@ -196,7 +200,9 @@ def test_skips_outbound_contract_when_already_checked():
             "contract_gap_score": 30,
         },
         "procurement_risk_level": "warning",
-        "outbound_contract_id": 501,
+        "outbound_contracts": [
+            {"contract_id": 501, "product_id": 601, "customer_id": 701},
+        ],
         "outbound_contract_checked": True,
     }
 

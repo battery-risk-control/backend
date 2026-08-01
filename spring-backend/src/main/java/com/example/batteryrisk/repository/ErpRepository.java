@@ -153,7 +153,8 @@ public class ErpRepository {
                     s.feoc_status,
                     s.iatf_16949_certified,
                     s.ppap_approved,
-                    sm.lead_time_days
+                    sm.lead_time_days,
+                    sm.available_capacity_quantity
                 FROM supplier_materials sm
                 JOIN suppliers s ON s.supplier_id = sm.supplier_id
                 WHERE sm.material_id = :materialId
@@ -172,7 +173,8 @@ public class ErpRepository {
                 rs.getString("feoc_status"),
                 rs.getBoolean("iatf_16949_certified"),
                 rs.getBoolean("ppap_approved"),
-                nullableInt(rs, "lead_time_days")));
+                nullableInt(rs, "lead_time_days"),
+                rs.getBigDecimal("available_capacity_quantity")));
     }
 
     public List<PurchaseOrderRow> findOpenPurchaseOrders(
@@ -280,6 +282,24 @@ public class ErpRepository {
                   AND poi.ordered_quantity > poi.received_quantity
                 """, params, BigDecimal.class);
         return result == null ? BigDecimal.ZERO : result;
+    }
+
+    /**
+     * 자재 대분류에 속한 활성 ERP 자재 목록.
+     *
+     * <p>{@code analyses}는 대분류({@code material_category})만 채우고 {@code material_id}는
+     * 비워두므로(실데이터에서 전부 NULL — GDELT 기사에 우리 자재 코드가 없음, LLM이 "리튬"까지는
+     * 뽑아도 탄산리튬인지 수산화리튬인지는 기사에 없다), 스케줄러가 분석 한 건을 실제 ERP 자재로
+     * 펼칠 때 이 조회가 필요하다. 대분류당 1~2개다 — LITHIUM(탄산/수산화)과 GRAPHITE(천연/인조)만 2개.
+     */
+    public List<String> findActiveErpMaterialIds(String materialCategory) {
+        return jdbc.query("""
+                SELECT erp_material_id
+                FROM materials
+                WHERE material_category = :materialCategory AND active = TRUE
+                ORDER BY erp_material_id
+                """, new MapSqlParameterSource("materialCategory", materialCategory),
+                (rs, rowNumber) -> rs.getString("erp_material_id"));
     }
 
     public Optional<Long> resolveMaterialId(String erpMaterialId) {
@@ -428,19 +448,37 @@ public class ErpRepository {
                 rs.getLong("outbound_contract_id"), rs.getString("erp_outbound_contract_id"))));
     }
 
-    /** outbound_contract_id(내부 PK) → product_id/customer_id. findOutboundContractForProductCustomer의 역방향. */
-    public record OutboundContractProductCustomer(long productId, long customerId) {}
+    /** 재무 노출도 순위를 매긴 아웃바운드 계약 1건(내부 PK + product/customer). */
+    public record RankedOutboundContract(long outboundContractId, long productId, long customerId) {}
 
-    public Optional<OutboundContractProductCustomer> findOutboundContractProductCustomer(
-            long outboundContractId) {
+    /**
+     * KG가 재고부족 확정 시 돌려주는 아웃바운드 계약 외부ID 목록(수십 건일 수 있음) 중,
+     * "이 계약이 실제로 얼마짜리 배상 리스크인지"를 근사하는 재무 노출도 상위 {@code limit}건만
+     * 골라 내부 PK로 리졸브한다. 전부 검색·브리핑에 실으면 비용·가독성이 감당 안 돼서
+     * (2026-07-31 실측: 콩고+코발트 21건) 상위 N건만 상세 취급하는 정책(사용자 확정).
+     *
+     * <p>노출점수 = 계약가치(quantity_gwh × 1,000,000 × unit_price_usd_kwh) × (penalty_pct/100)
+     * + COALESCE(line_stop_charge_usd, 0). "지연 위약금 명목가치 + Line-Stop Charge 고정액"의
+     * 근사치로, 절대적인 예측이 아니라 여러 계약 중 상세 검색 우선순위를 매기는 상대적 지표다.
+     */
+    public List<RankedOutboundContract> findTopOutboundContractsByExposure(
+            List<String> erpOutboundContractIds, int limit) {
+        if (erpOutboundContractIds == null || erpOutboundContractIds.isEmpty()) {
+            return List.of();
+        }
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("outboundContractId", outboundContractId);
-        return first(jdbc.query("""
-                SELECT product_id, customer_id
+                .addValue("erpIds", erpOutboundContractIds)
+                .addValue("limit", limit);
+        return jdbc.query("""
+                SELECT outbound_contract_id, product_id, customer_id
                 FROM outbound_contracts
-                WHERE outbound_contract_id = :outboundContractId
-                """, params, (rs, rowNum) -> new OutboundContractProductCustomer(
-                rs.getLong("product_id"), rs.getLong("customer_id"))));
+                WHERE erp_outbound_contract_id IN (:erpIds)
+                ORDER BY
+                    (quantity_gwh * 1000000 * unit_price_usd_kwh * (penalty_pct / 100.0))
+                    + COALESCE(line_stop_charge_usd, 0) DESC
+                LIMIT :limit
+                """, params, (rs, rowNum) -> new RankedOutboundContract(
+                rs.getLong("outbound_contract_id"), rs.getLong("product_id"), rs.getLong("customer_id")));
     }
 
     private Optional<Long> resolveId(String table, String pkColumn, String erpColumn, String erpId) {
@@ -567,7 +605,8 @@ public class ErpRepository {
             String feocStatus,
             boolean iatf16949Certified,
             boolean ppapApproved,
-            Integer leadTimeDays
+            Integer leadTimeDays,
+            java.math.BigDecimal availableCapacityQuantity
     ) {}
 
     public record PurchaseOrderRow(

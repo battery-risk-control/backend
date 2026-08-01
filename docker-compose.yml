@@ -121,6 +121,13 @@ services:
       # USD 경유로 계산한다. 키 불필요하지만 화면에 "Rates By Exchange Rate API" 표기가 필요하다.
       EXCHANGE_RATE_CROSS_ENABLED: ${EXCHANGE_RATE_CROSS_ENABLED:-true}
       EXCHANGE_RATE_CROSS_CURRENCIES: ${EXCHANGE_RATE_CROSS_CURRENCIES:-CLP,ARS,CDF,ZAR,BRL,PHP}
+      # 구매 리스크 점수 자동 축적 스케줄러(F5, 비로그인 대시보드용). 켜는 걸 깜빡하면 점수가
+      # 안 쌓일 뿐이지만 끄는 걸 깜빡하면 LLM 비용이 실제로 나가고 되돌릴 수 없다 — 기본 off.
+      # 수동 트리거(POST /api/v1/multi-agent/risk-scoring/run)는 이 플래그와 무관하게 항상 가능.
+      RISK_SCORING_ENABLED: ${RISK_SCORING_ENABLED:-false}
+      RISK_SCORING_BATCH_SIZE: ${RISK_SCORING_BATCH_SIZE:-10}
+      RISK_SCORING_INTERVAL_MS: ${RISK_SCORING_INTERVAL_MS:-1800000}
+      RISK_SCORING_INITIAL_DELAY_MS: ${RISK_SCORING_INITIAL_DELAY_MS:-120000}
       TZ: Asia/Seoul
     ports:
       - "${SPRING_PORT:-8080}:8080"

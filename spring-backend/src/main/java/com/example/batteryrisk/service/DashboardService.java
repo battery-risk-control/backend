@@ -31,6 +31,10 @@ public class DashboardService {
         return repository.loadSummary();
     }
 
+    public DashboardDto.ProcurementRiskSummary procurementRiskSummary() {
+        return repository.loadProcurementRiskSummary();
+    }
+
     public List<DashboardDto.MaterialRiskItem> materialRisks(String severity, int limit) {
         String normalized = normalize(severity);
         if (normalized != null && !LEVELS.contains(normalized)) {

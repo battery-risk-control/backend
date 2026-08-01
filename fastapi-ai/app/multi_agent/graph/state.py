@@ -117,12 +117,15 @@ class BriefingState(TypedDict, total=False):
     # 3-1. Outbound Contract Agent (완성차 고객사 배상책임)
     # =========================================================
 
-    # KG가 확정한 재고부족 원자재와 연결된 아웃바운드 계약의 PostgreSQL 내부 숫자 ID.
-    # Spring이 kg_service /resolve로 미리 리졸브해서 실어 보낸다 — 리졸브 실패(아웃바운드
-    # 계약 없음/매칭 안 됨) 시 None이고, 이땐 아웃바운드 조회 자체를 건너뛴다.
-    outbound_contract_id: int | None
-    outbound_product_id: int | None
-    outbound_customer_id: int | None
+    # KG가 확정한 재고부족 원자재와 연결된 아웃바운드 계약들(PostgreSQL 내부 숫자 ID,
+    # 재무 노출도 상위 N건). Spring이 kg_service /resolve로 미리 리졸브해서 실어 보낸다 —
+    # 리졸브 실패(아웃바운드 계약 없음/매칭 안 됨) 시 빈 리스트이고, 이땐 아웃바운드
+    # 조회 자체를 건너뛴다. 각 원소는 {"contract_id", "product_id", "customer_id"}.
+    outbound_contracts: list[dict]
+
+    # kg_service가 원래 돌려준 전체 매칭 건수(상세 검색 대상인 outbound_contracts보다
+    # 클 수 있음) — 브리핑에서 "이 외 N건 더" 요약에 쓴다.
+    outbound_contracts_total_matched: int
 
     # 검색된 아웃바운드 계약 조항(배상책임/지체상금 등)과 출처 근거.
     # contract_findings와 같은 형태지만 완성차 고객사 계약이라 별도로 둔다.

@@ -67,9 +67,9 @@ def test_outbound_contract_id_missing_skips_search():
 def test_outbound_contract_search_uses_product_and_customer_id():
     service = FakeOutboundRagService()
     state = {
-        "outbound_contract_id": 501,
-        "outbound_product_id": 601,
-        "outbound_customer_id": 701,
+        "outbound_contracts": [
+            {"contract_id": 501, "product_id": 601, "customer_id": 701},
+        ],
     }
 
     result = analyze_outbound_contract_node(
@@ -90,3 +90,28 @@ def test_outbound_contract_search_uses_product_and_customer_id():
     assert service.last_call["customer_id"] == 701
     assert service.last_call["supplier_id"] is None
     assert service.last_call["material_id"] is None
+
+
+def test_outbound_contract_search_covers_every_contract_in_list():
+    """상위 N건으로 추린 아웃바운드 계약이 여러 건이면 전부 검색해서 findings를 합쳐야 한다."""
+
+    service = FakeOutboundRagService()
+    state = {
+        "outbound_contracts": [
+            {"contract_id": 501, "product_id": 601, "customer_id": 701},
+            {"contract_id": 502, "product_id": 602, "customer_id": 702},
+            {"contract_id": 503, "product_id": 603, "customer_id": 703},
+        ],
+    }
+
+    result = analyze_outbound_contract_node(
+        state,
+        service=service,
+    )
+
+    assert result["outbound_contract_checked"] is True
+    found_contract_ids = {
+        finding["contract_id"]
+        for finding in result["outbound_contract_findings"]
+    }
+    assert found_contract_ids == {501, 502, 503}

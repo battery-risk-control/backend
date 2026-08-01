@@ -50,15 +50,19 @@ def create_recommended_actions(
 def build_contract_evidence_text(
     contract_findings: list[dict],
 ) -> str:
-    """검색된 계약 근거를 사람이 읽을 수 있는 문장으로 만든다."""
+    """검색된 계약 근거를 훑어보기 쉬운 불릿 목록으로 만든다.
+
+    예전엔 공백으로 이어붙인 한 문장이라(특히 고객사 여러 건일 때) 어디서 한 조항이
+    끝나고 다음이 시작되는지 눈에 안 들어왔다 — 조항 하나당 한 줄로 쪼갠다.
+    """
 
     if not contract_findings:
         return (
-            "현재 검색된 계약 근거에서 관련 조항을 "
+            "- 현재 검색된 계약 근거에서 관련 조항을 "
             "확인하지 못했습니다. 계약서 추가 확인이 필요합니다."
         )
 
-    evidence_items = []
+    evidence_lines = []
 
     for finding in contract_findings:
         contract_id = finding.get(
@@ -78,12 +82,12 @@ def build_contract_evidence_text(
             finding.get("content", "근거 내용 없음"),
         )
 
-        evidence_items.append(
-            f"[계약 ID: {contract_id}, 페이지: {page}] "
+        evidence_lines.append(
+            f"- (계약ID: {contract_id}, p.{page}) "
             f"{clause_name}: {evidence_text}"
         )
 
-    return " ".join(evidence_items)
+    return "\n".join(evidence_lines)
 
 
 def generate_briefing_node(
@@ -158,9 +162,9 @@ def generate_briefing_node(
         [],
     )
     erp_text = (
-        " ".join(erp_findings)
+        "\n".join(f"- {finding}" for finding in erp_findings)
         if erp_findings
-        else "ERP 분석 근거가 없습니다."
+        else "- ERP 분석 근거가 없습니다."
     )
 
     contract_text = build_contract_evidence_text(
@@ -171,15 +175,31 @@ def generate_briefing_node(
         "outbound_contract_findings",
         [],
     )
+    outbound_detailed_count = len(
+        state.get("outbound_contracts", []) or [],
+    )
+    outbound_total_matched = state.get(
+        "outbound_contracts_total_matched",
+        0,
+    )
+    outbound_remainder_note = (
+        (
+            f" (이 외 총 {outbound_total_matched}건의 계약이 "
+            "동일 원자재 공급에 영향받으며, 재무 노출도 상위 "
+            f"{outbound_detailed_count}건만 상세 표기)"
+        )
+        if outbound_total_matched > outbound_detailed_count
+        else ""
+    )
     outbound_section = (
         (
-            "\n[완성차 고객사 납품 지연 시 배상책임 "
+            "\n\n[완성차 고객사 납품 지연 시 배상책임]\n"
             "(원자재 공급 차질이 지속될 경우 참고, "
-            "완제품 재고 데이터가 없어 실제 확정 여부는 "
-            "확인 불가)] "
+            "완제품 재고 데이터가 없어 실제 확정 여부는 확인 불가)\n"
             + build_contract_evidence_text(
                 outbound_contract_findings,
             )
+            + outbound_remainder_note
         )
         if outbound_contract_findings
         else ""
@@ -190,9 +210,9 @@ def generate_briefing_node(
         [],
     )
     kg_text = (
-        " ".join(kg_evidence_paths)
+        "\n".join(f"- {path}" for path in kg_evidence_paths)
         if kg_evidence_paths
-        else "KG 근거 경로가 없습니다."
+        else "- KG 근거 경로가 없습니다."
     )
 
     risk_reasons = state.get(
@@ -200,9 +220,12 @@ def generate_briefing_node(
         [],
     )
     risk_reason_text = (
-        " ".join(risk_reasons)
+        "\n".join(f"- {reason}" for reason in risk_reasons)
         if risk_reasons
-        else "상세 위험도 결정 근거가 없습니다."
+        else "- 상세 위험도 결정 근거가 없습니다."
+    )
+    tldr_fact = (
+        risk_reasons[0] if risk_reasons else "ERP·계약 근거 확인 필요"
     )
 
     recommended_actions = create_recommended_actions(
@@ -214,17 +237,18 @@ def generate_briefing_node(
     )
 
     briefing = (
-        f"[뉴스 ID] {news_id}\n"
-        f"[제목] {title}\n"
-        f"[영향 원자재] {material_text}\n"
-        f"[영향 영역] {impact_domain}\n"
-        f"[위험 단계] {risk_level}\n"
-        f"[위험 점수] {risk_score}\n"
-        f"[위험도 근거] {risk_reason_text}\n"
-        f"[KG 근거] {kg_text}\n"
-        f"[ERP 분석] {erp_text}\n"
-        f"[계약 근거] {contract_text}"
-        f"{outbound_section}\n"
+        f"[요약] {risk_level} {risk_score}점 — {tldr_fact}\n\n"
+        f"[사건] {title} (뉴스 ID: {news_id})\n"
+        f"- 영향 원자재: {material_text}\n"
+        f"- 영향 영역: {impact_domain}\n\n"
+        f"[최종 위험 단계와 점수]\n"
+        f"- 등급: {risk_level}\n"
+        f"- 점수: {risk_score}\n"
+        f"{risk_reason_text}\n\n"
+        f"[KG 근거]\n{kg_text}\n\n"
+        f"[ERP 분석]\n{erp_text}\n\n"
+        f"[계약 근거]\n{contract_text}"
+        f"{outbound_section}\n\n"
         f"[권고 조치]\n{action_text}"
     )
 

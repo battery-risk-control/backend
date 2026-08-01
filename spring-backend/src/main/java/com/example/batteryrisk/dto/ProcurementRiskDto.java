@@ -57,6 +57,27 @@ public final class ProcurementRiskDto {
             Boolean reviewPassed,
             boolean llmUsed,
             boolean mock,
-            OffsetDateTime createdAt
+            OffsetDateTime createdAt,
+
+            @Schema(description = "구매팀 브리핑 본문. use_llm=false면 템플릿 조립본, true면 LLM 생성본")
+            String briefing,
+            List<String> recommendedActions,
+            @Schema(description = "브리핑이 인용한 계약 조항 — 감사추적의 핵심")
+            List<Map<String, Object>> contractFindings,
+            List<String> warnings
+    ) {}
+
+    /**
+     * 구매 리스크 평가 "완료 처리" 응답.
+     *
+     * <p>{@code alreadyAcknowledged}는 {@code ON CONFLICT DO NOTHING}으로 실제로는 아무 행도
+     * 새로 생기지 않았을 때(이미 누가 처리해둔 경우) true — 클라이언트가 "방금 내가 처리함"과
+     * "이미 처리돼 있었음"을 구분할 수 있게 한다.
+     */
+    public record AcknowledgeResponse(
+            UUID assessmentId,
+            Long acknowledgedBy,
+            OffsetDateTime acknowledgedAt,
+            boolean alreadyAcknowledged
     ) {}
 }

@@ -222,9 +222,10 @@ def test_graph_visits_outbound_contract_when_stockout_and_outbound_id_present():
             "rag_contract_id": 1001,
             "rag_supplier_id": 2001,
             "rag_material_id": 3001,
-            "outbound_contract_id": 501,
-            "outbound_product_id": 601,
-            "outbound_customer_id": 701,
+            "outbound_contracts": [
+                {"contract_id": 501, "product_id": 601, "customer_id": 701},
+            ],
+            "outbound_contracts_total_matched": 1,
             "erp_context": erp_request.model_dump(
                 mode="json",
             ),
