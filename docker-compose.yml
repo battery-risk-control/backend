@@ -39,9 +39,12 @@ services:
       CHROMA_PORT: 8000
       CHROMA_SSL: "false"
       CHROMA_COLLECTION_PREFIX: ${CHROMA_COLLECTION_PREFIX:-contract_documents}
-      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      # 기본값 openai(2026-07-31부터, 팀 전체 OPENAI_API_KEY 공유됨). mock 해싱 임베딩은
+      # 한국어 질의↔영어 계약서 사이 교차언어 검색을 전혀 못 해 실제 조항을 못 찾는 문제를
+      # 실증으로 확인했다 — .env에 OPENAI_API_KEY 없이 이 기본값 그대로 두면 임베딩 호출이
+      # 401로 실패하니, 로컬에서 키 없이 돌리려면 .env에 EMBEDDING_PROVIDER=mock을 명시할 것.
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-3072}
-      # 실제 임베딩을 쓰려면 EMBEDDING_PROVIDER=openai + OPENAI_API_KEY를 .env에 설정.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
       # 브리핑 생성 LLM(claude-sonnet-5). 없으면 use_llm=true여도 LLM 호출이 실패한다.
