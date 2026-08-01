@@ -21,10 +21,36 @@ public final class MarketPriceDto {
             @Schema(example = "103.4", description = "구간 첫 거래일=100 기준 지수") double priceIndex
     ) {}
 
+    /**
+     * 자재 한 종의 시계열.
+     *
+     * <p>{@code baseDate}는 지수 100의 기준이 된 거래일이다 — 조회 구간에 따라 달라지므로
+     * ({@code days=7}이면 7일 전, {@code days=30}이면 30일 전) 화면이 "무엇 대비 몇 %"인지
+     * 표기하려면 이 값이 필요하다. 구간에 데이터가 없으면 null이다.
+     *
+     * <p>단위 문자열에 날짜를 섞지 않고 필드를 나눈 이유: 화면마다 날짜 표기가 다르고
+     * (목업은 {@code 07/25}, 상세는 {@code 2026-07-25}), 단위와 기준일은 서로 다른 정보다.
+     */
     public record PriceSeries(
             @Schema(example = "리튬") String material,
             @Schema(example = "지수(기준일=100)") String unit,
+            @Schema(example = "2026-07-25", description = "지수 100의 기준 거래일") String baseDate,
+            @Schema(description = "이 자재를 조달하는 국가 목록. 화면의 '국가·지역' 필터가 쓴다.")
+            List<SourcingCountry> countries,
             List<PricePoint> points
+    ) {}
+
+    /**
+     * 자재를 조달하는 국가. 가격 자체는 국가별로 나뉘지 않는다 — 자재당 시계열이 하나뿐이고
+     * 그 값도 대표 기업 주가 프록시라 채굴국과 연결되지 않는다(글렌코어는 스위스 기업이지만
+     * 코발트는 콩고에서 캔다). 그래서 이 목록은 <b>"국가를 고르면 어느 자재 선을 남길지"</b>를
+     * 정하는 용도이지, 국가별 가격을 뜻하지 않는다.
+     *
+     * <p>공급사명·금액·비중은 담지 않는다. 공개 화면이라 조달국까지만 노출한다.
+     */
+    public record SourcingCountry(
+            @Schema(example = "CL") String countryCode,
+            @Schema(example = "칠레") String countryName
     ) {}
 
     /**

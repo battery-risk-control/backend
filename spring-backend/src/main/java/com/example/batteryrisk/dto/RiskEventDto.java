@@ -2,6 +2,7 @@ package com.example.batteryrisk.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -104,11 +105,22 @@ public final class RiskEventDto {
     public record NewsFeedItem(
             String riskEventId,
             @Schema(example = "2026-07-29", description = "수집일(Asia/Seoul)") String date,
+            @Schema(description = "수집 시각(UTC). 마퀴의 \"3분 전\" 표기용 — date는 일 단위라 부족하다.")
+            Instant collectedAt,
             String material,
             @Schema(example = "심각", description = "심각/주의/정상. 분석이 붙지 않은 뉴스는 null")
             String grade,
             @Schema(example = "GDELT") String source,
+            @Schema(description = "화면 표시용 헤드라인. 번역본이 있으면 한국어, 없으면 원문이 그대로 들어온다.")
             String headline,
-            String confidenceLabel
+            @Schema(description = "항상 원문 헤드라인. 번역 여부와 무관하게 원문을 확인할 수 있게 한다.")
+            String headlineOriginal,
+            @Schema(description = "headline이 번역본인지. 번역 파이프라인 도입 전에는 항상 false다.")
+            boolean translated,
+            String confidenceLabel,
+            @Schema(example = "ID", description = "ISO 3166-1 alpha-2. 지도 마커 클릭 시 국가 필터에 쓴다.")
+            String countryCode,
+            @Schema(description = "기사 원문 링크. 수집 원본에 없으면 null")
+            String url
     ) {}
 }

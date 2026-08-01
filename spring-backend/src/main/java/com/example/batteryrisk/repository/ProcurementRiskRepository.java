@@ -11,10 +11,12 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 멀티에이전트 구매 리스크 점수를 PostgreSQL에 저장·조회한다.
@@ -87,6 +89,58 @@ public class ProcurementRiskRepository {
                 FROM procurement_risk_assessments
                 WHERE assessment_id = :assessmentId
                 """, new MapSqlParameterSource("assessmentId", assessmentId),
+                (rs, rowNumber) -> mapAssessment(rs));
+        return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
+    }
+
+    /**
+     * 목록 화면용 경량 조회 — {@code analysis_id}별 <b>최신 종합</b> 등급만 뽑는다.
+     *
+     * <p>한 줄에 필요한 건 등급 하나뿐인데 {@link #findById}처럼 전체 Assessment(JSONB 4개 포함)를
+     * 읽으면 목록 20건에 대해 불필요한 파싱이 반복된다. 그래서 두 컬럼만 가져온다.
+     *
+     * <p>같은 뉴스가 여러 번 평가될 수 있어(append-only 이력) {@code DISTINCT ON}으로 최신 1건만 남긴다.
+     *
+     * <p><b>{@code erp_exposure_score IS NOT NULL} 조건이 핵심이다.</b> LangGraph는 KG 게이트에서
+     * 매칭이 없거나 재고가 충분하면 ERP·계약 노드를 건너뛰고 조기 종료하는데, 그때도 행은 남고
+     * 점수 0 · 등급 NORMAL로 기록된다. 이 조건이 없으면 <b>평가하지 못한 뉴스가 "종합 판정 결과
+     * 정상(확정)"으로 화면에 뜬다</b> — 실제로 kg_service가 떠 있지 않으면 모든 실행이 이 경로다.
+     * 조기 종료 경로는 {@code erp_assessment}를 빈 dict로 두므로 이 컬럼이 반드시 비어 있다.
+     *
+     * <p>조기 종료가 더 최신이어도 과거의 종합 판정을 살린다 — 둘 중 실제로 ERP·계약을 본 것은
+     * 그쪽뿐이라, 아무 판정 없음보다 낫다.
+     */
+    public Map<UUID, String> findLatestRiskLevelsByAnalysisIds(Collection<UUID> analysisIds) {
+        if (analysisIds == null || analysisIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Map.Entry<UUID, String>> rows = jdbc.query("""
+                SELECT DISTINCT ON (analysis_id) analysis_id, procurement_risk_level
+                FROM procurement_risk_assessments
+                WHERE analysis_id IN (:analysisIds)
+                  AND erp_exposure_score IS NOT NULL
+                ORDER BY analysis_id, created_at DESC
+                """, new MapSqlParameterSource("analysisIds", analysisIds),
+                (rs, rowNumber) -> Map.entry(
+                        rs.getObject("analysis_id", UUID.class),
+                        rs.getString("procurement_risk_level")));
+        return rows.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    /**
+     * 분석 1건의 <b>최신</b> 종합 평가 전체. 리스크 모니터링 상세가 세부 점수 3개와 판단 근거를
+     * 함께 보여줘야 해서, 등급만 뽑는 {@link #findLatestRiskLevelsByAnalysisIds}와 달리 전체를 읽는다.
+     *
+     * <p>append-only 이력이라 같은 분석에 여러 행이 쌓인다 — 가장 최근 것이 화면이 보여줄 값이다.
+     */
+    public Optional<ProcurementRiskDto.Assessment> findLatestByAnalysisId(UUID analysisId) {
+        List<ProcurementRiskDto.Assessment> values = jdbc.query("""
+                SELECT *
+                FROM procurement_risk_assessments
+                WHERE analysis_id = :analysisId
+                ORDER BY created_at DESC
+                LIMIT 1
+                """, new MapSqlParameterSource("analysisId", analysisId),
                 (rs, rowNumber) -> mapAssessment(rs));
         return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
     }

@@ -2,6 +2,7 @@ package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.domain.MaterialPricePoint;
 import com.example.batteryrisk.dto.MarketPriceDto;
+import com.example.batteryrisk.repository.ErpRepository;
 import com.example.batteryrisk.repository.MaterialPriceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,8 +41,14 @@ public class MarketPriceService {
     /** 한 번에 다시 받아오는 구간. 넉넉히 잡아야 스케줄러가 쉰 기간이 자동으로 메워진다. */
     private static final int REFRESH_DAYS = 180;
 
-    /** 화면에 그리는 구간. 프론트 기본 선택 탭("1개월")에 맞춘다. */
-    private static final int TREND_DAYS = 30;
+    /** 조회 구간 기본값. 프론트 기본 선택 탭("1개월")에 맞춘다. */
+    private static final int DEFAULT_TREND_DAYS = 30;
+
+    /**
+     * 조회 구간 상한. {@link #REFRESH_DAYS}보다 길게 요청해봐야 저장된 데이터가 없어 빈 구간만
+     * 늘어나므로 수집 구간에 맞춰 자른다.
+     */
+    private static final int MAX_TREND_DAYS = REFRESH_DAYS;
 
     /** 연율화 계수(연간 거래일 √252). 일간 변동성을 연율화 변동성(%)으로 바꿔 리스크 지수로 쓴다. */
     private static final double ANNUALIZATION = Math.sqrt(252);
@@ -53,14 +60,19 @@ public class MarketPriceService {
 
     private final RestClient fastApiRestClient;
     private final MaterialPriceRepository priceRepository;
+    private final ErpRepository erpRepository;
 
     /** 자동 갱신 on/off. 비용이 없어 기본 true지만, 오프라인 시연 등에서 끌 수 있게 열어둔다. */
     @Value("${app.market-price.scheduler-enabled:true}")
     private boolean schedulerEnabled;
 
-    public MarketPriceService(RestClient fastApiRestClient, MaterialPriceRepository priceRepository) {
+    public MarketPriceService(
+            RestClient fastApiRestClient,
+            MaterialPriceRepository priceRepository,
+            ErpRepository erpRepository) {
         this.fastApiRestClient = fastApiRestClient;
         this.priceRepository = priceRepository;
+        this.erpRepository = erpRepository;
     }
 
     /** 매일 07:00(KST). 미국 증시 마감 이후라 전 거래일 종가가 확정돼 있다. */
@@ -124,16 +136,44 @@ public class MarketPriceService {
     }
 
     /**
-     * 공개 가격 추이. 자재별로 구간 첫 거래일을 100으로 둔 지수를 만든다 — 종목마다 주가 절대값이
-     * 달라(예: BHP 60달러대, ALB 130달러대) 원값 그대로는 한 차트에 겹쳐 그릴 수 없기 때문이다.
+     * 공개 가격 추이. 자재별로 <b>조회 구간 첫 거래일</b>을 100으로 둔 지수를 만든다 — 종목마다
+     * 주가 절대값이 달라(예: BHP 60달러대, ALB 130달러대) 원값 그대로는 한 차트에 겹쳐 그릴 수 없다.
+     *
+     * <p><b>기준일은 구간에 종속된다.</b> 저장된 값은 프록시 종목의 주가(달러/주)이지 자재의
+     * 톤당 가격이 아니라서, 절대값 자체에는 의미가 없고 "구간 시작 대비 몇 %"만 뜻이 있다.
+     * 그래서 구간을 바꾸면 기준일도 같이 옮겨 100에서 다시 시작해야 한다 — 고정 기준일을 쓰면
+     * 7일 차트가 105에서 시작해 "기준일=100" 표기와 화면이 어긋난다.
+     *
+     * @param days 조회 구간(일). 1~{@value #MAX_TREND_DAYS}로 자른다.
      */
-    public List<MarketPriceDto.PriceSeries> priceTrends() {
-        return groupByMaterial().entrySet().stream()
+    public List<MarketPriceDto.PriceSeries> priceTrends(int days) {
+        Map<String, List<MarketPriceDto.SourcingCountry>> sourcing = sourcingCountriesByMaterial();
+        return groupByMaterial(days).entrySet().stream()
                 .map(entry -> new MarketPriceDto.PriceSeries(
                         RiskEventService.MATERIAL_NAME_KO.getOrDefault(entry.getKey(), entry.getKey()),
                         "지수(기준일=100)",
+                        entry.getValue().get(0).getPriceDate().toString(),
+                        sourcing.getOrDefault(entry.getKey(), List.of()),
                         toIndexedPoints(entry.getValue())))
                 .toList();
+    }
+
+    /**
+     * 자재 대분류 → 조달국 목록. 국가 목록을 응답에 실어 보내면 프론트가 필터를 클라이언트에서
+     * 처리할 수 있어 탭 전환마다 재조회할 필요가 없고, 드롭다운 항목도 응답에서 자동 생성된다
+     * (지금 프론트는 5개국이 하드코딩돼 있어 실제 조달국 15개국과 어긋나 있다).
+     *
+     * <p>자재가 8종뿐이라 매 요청 조회해도 부담이 없다 — 조달 관계는 자주 바뀌지 않지만,
+     * 캐시를 두면 계약 업로드로 공급사가 늘었을 때 화면이 낡은 목록을 계속 보여준다.
+     */
+    private Map<String, List<MarketPriceDto.SourcingCountry>> sourcingCountriesByMaterial() {
+        Map<String, List<MarketPriceDto.SourcingCountry>> grouped = new LinkedHashMap<>();
+        for (ErpRepository.MaterialCountryRow row : erpRepository.findMaterialSourcingCountries()) {
+            grouped.computeIfAbsent(row.materialCategory(), key -> new ArrayList<>())
+                    .add(new MarketPriceDto.SourcingCountry(
+                            row.countryCode(), RiskEventService.countryNameKo(row.countryCode())));
+        }
+        return grouped;
     }
 
     /**
@@ -142,8 +182,8 @@ public class MarketPriceService {
      * <p>risk_score는 연율화 변동성(일간 변동성 × √252)을 백분율로 환산해 0~100으로 자른 값이다.
      * 자재별 리스크 판정을 별도로 정의하기 전까지의 대용이며, 임의 수치가 아니라 표준 지표를 쓴다.
      */
-    public List<MarketPriceDto.PriceSummary> priceSummaries() {
-        return groupByMaterial().entrySet().stream()
+    public List<MarketPriceDto.PriceSummary> priceSummaries(int days) {
+        return groupByMaterial(days).entrySet().stream()
                 .map(entry -> {
                     List<MaterialPricePoint> points = entry.getValue();
                     int riskScore = riskScore(points);
@@ -155,14 +195,22 @@ public class MarketPriceService {
     }
 
     /** 조회 구간의 가격을 자재별로 묶는다(리포지토리가 자재·날짜 오름차순으로 반환). */
-    private Map<String, List<MaterialPricePoint>> groupByMaterial() {
-        LocalDate from = LocalDate.now(SERVICE_ZONE).minusDays(TREND_DAYS);
+    private Map<String, List<MaterialPricePoint>> groupByMaterial(int days) {
+        LocalDate from = LocalDate.now(SERVICE_ZONE).minusDays(clampDays(days));
         Map<String, List<MaterialPricePoint>> grouped = new LinkedHashMap<>();
         for (MaterialPricePoint point :
                 priceRepository.findByPriceDateGreaterThanEqualOrderByMaterialCategoryAscPriceDateAsc(from)) {
             grouped.computeIfAbsent(point.getMaterialCategory(), key -> new ArrayList<>()).add(point);
         }
         return grouped;
+    }
+
+    /**
+     * 구간을 유효 범위로 자른다. 잘못된 값에 400을 던지지 않고 조용히 맞추는 것은 뉴스 속보의
+     * limit 처리와 같은 방침이다 — 공개 화면이라 파라미터 하나 때문에 패널이 통째로 비면 안 된다.
+     */
+    private static int clampDays(int days) {
+        return Math.max(1, Math.min(days, MAX_TREND_DAYS));
     }
 
     private static List<MarketPriceDto.PricePoint> toIndexedPoints(List<MaterialPricePoint> points) {

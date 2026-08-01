@@ -188,6 +188,20 @@ XGBoost → PRODUCTION / LOGISTICS / POLICY / MARKET / GEOPOLITICS 분류
 Severity Rule Engine → NORMAL / WARNING / CRITICAL 계산
 ```
 
+> **구현 현황 (2026-07-30)** — 위 "역할 고정"의 앞줄은 아직 설계대로 구현되지 않았다.
+>
+> - **Impact Domain은 XGBoost가 아니라 LLM이 판정한다.** `/analyze`는 LLM 추출 결과의
+>   `impact_domain_draft`를 최종값으로 그대로 채택한다(`orchestration_service.py`).
+>   분류 확률이 존재하지 않는 경로이므로 `confidence`는 `null`로 반환한다.
+> - 자리만 지키던 규칙 기반 mock 분류기(`classifier.py`·`inference.py`·`classification_service.py`와
+>   `/internal/ml/classify`)는 **2026-07-30에 제거**했다. XGBoost가 아니었고 호출자도 없었다.
+>   응답 스키마 `ClassificationResult`는 `/analyze`가 계속 쓰므로 유지된다.
+> - **학습된 XGBoost가 실제로 도는 곳은 F4의 트리아지 필터 하나뿐이다**
+>   (`app/models/triage_filter.json`, threshold 0.38). Impact Domain 분류가 아니라
+>   "이 GDELT 이벤트를 크롤링할 가치가 있는가"를 판단한다.
+>
+> Severity Rule Engine(뒷줄)은 설계대로 구현돼 있다.
+
 ## F4. 멀티스피드 외부 데이터 모니터링
 
 ### Fast Track
@@ -534,10 +548,11 @@ POST /api/v1/rag/search
 
 ```
 POST /api/v1/internal/llm/extract
-POST /api/v1/internal/ml/classify
 POST /api/v1/internal/severity/score
 POST /api/v1/internal/briefings
 ```
+
+> `POST /api/v1/internal/ml/classify`는 2026-07-30에 폐지됐다 — 규칙 기반 mock이었고 호출자가 없었다.
 
 ## 완료 기준
 
@@ -744,10 +759,11 @@ POST /api/v1/rag/search
 
 ```
 POST /api/v1/internal/llm/extract
-POST /api/v1/internal/ml/classify
 POST /api/v1/internal/severity/score
 POST /api/v1/internal/briefings
 ```
+
+> `POST /api/v1/internal/ml/classify`는 2026-07-30에 폐지됐다 — 규칙 기반 mock이었고 호출자가 없었다.
 
 ## 구현 원칙
 

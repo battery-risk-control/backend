@@ -8,7 +8,9 @@ from app.api.v1.internal import router as internal_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.supplier import router as supplier_router
 from app.api.v1.realtime_pipeline import router as realtime_pipeline_router
+from app.api.v1.translation import router as translation_router
 from app.api.v1.market import router as market_router
+from app.api.v1.contract_rag import router as contract_rag_router
 from app.api.routes.erp import (
     erpRouter,
 )
@@ -38,8 +40,12 @@ app.include_router(erpRouter)
 # [surin] F9 적격 공급사 추천 · F4 실시간 파이프라인 라우터
 app.include_router(supplier_router)
 app.include_router(realtime_pipeline_router)
+app.include_router(translation_router)
 # 원자재 가격 프록시 수집(yfinance). Spring 스케줄러가 호출해 결과를 DB에 저장한다.
 app.include_router(market_router)
+# 1계층 구매팀 계약·RAG 화면의 조항 검색(필터 없이 전체 계약 검색 가능).
+# 멀티에이전트가 쓰는 rag_router와 별개 경로다 — 기존 검색 규칙은 그대로 둔다.
+app.include_router(contract_rag_router)
 
 
 

@@ -64,6 +64,7 @@ public class AnalysisService {
                     data.severity().severity(), data.severity().score(),
                     String.join(",", data.severity().reasonCodes()), data.severity().ruleVersion(),
                     data.mock());
+            applySignalDetail(analysis, data);
 
             if (RISKY_SEVERITIES.contains(data.severity().severity())
                     && data.affectedMaterials() != null && !data.affectedMaterials().isEmpty()) {
@@ -90,6 +91,30 @@ public class AnalysisService {
         analysisRepository.saveAndFlush(analysis);
 
         return toResponse(analysis);
+    }
+
+    /**
+     * 점수의 입력값(외부신호 상세)과 한국어 요약을 분석 행에 남긴다 — 리스크 모니터링 상세 화면이
+     * "왜 이 점수인가"를 보여주려면 점수와 입력값이 같은 행에 있어야 한다.
+     *
+     * <p>tone은 {@code features}(=severity가 실제로 먹은 값)에서 가져오고 {@code extraction}은 폴백이다.
+     * 둘은 다를 수 있다 — orchestration_service가 feature_overrides에 tone이 없을 때만 추출 tone으로
+     * 덮어쓰므로, 화면에는 점수를 만든 쪽을 보여주는 편이 맞다.
+     */
+    private static void applySignalDetail(Analysis analysis, AnalysisDto.FastApiAnalyzeData data) {
+        AnalysisDto.ExtractionOverride extraction = data.extraction();
+        AnalysisDto.FastApiFeatureVector features = data.features();
+        if (extraction == null && features == null) {
+            return;
+        }
+        Double toneScore = features != null && features.toneScore() != null
+                ? features.toneScore()
+                : (extraction == null ? null : extraction.toneScore());
+        analysis.applySignalDetail(
+                extraction == null ? null : extraction.summaryKr(),
+                toneScore,
+                features == null ? null : features.newsCount(),
+                features == null ? null : features.goldsteinScale());
     }
 
     private void persistSupplierRecommendations(

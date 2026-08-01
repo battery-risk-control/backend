@@ -14,6 +14,7 @@ import com.example.batteryrisk.dto.RiskEventDto.RiskBoardItem;
 import com.example.batteryrisk.dto.RiskEventDto.RiskEvent;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.AnalysisSupplierRecommendationRepository;
+import com.example.batteryrisk.repository.ProcurementRiskRepository;
 import com.example.batteryrisk.repository.RawEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -58,8 +60,14 @@ public class RiskEventService {
     /** 중복 제거 전에 훑을 최신 분석 건수. 같은 뉴스가 반복 분석되므로 마커 상한보다 넉넉히 잡는다. */
     private static final int RISK_BOARD_SCAN_SIZE = 200;
 
-    /** 이 값 미만이면 근거가 약하다고 보고 confidence_label을 "경고"로 표시한다. */
-    private static final double CONFIDENCE_CONFIRMED_MIN = 0.7;
+    /**
+     * 뉴스 속보의 "경고" 판정 기준이 되는 외부신호(severity) 점수.
+     *
+     * <p>FastAPI {@code severity_engine.WARNING_MIN}과 같은 값이다 — 그쪽이 이 점수로 WARNING 등급을
+     * 매기므로, 화면에서 "주의할 만하다"고 표시하는 기준도 같아야 한다. 그쪽 값을 바꾸면 여기도 바꾼다
+     * (실측 4,081건의 70th 퍼센타일로 캘리브레이션된 값이라 임의로 조정할 성질이 아니다).
+     */
+    private static final double EXTERNAL_SIGNAL_WARNING_MIN = 67.0;
 
     /**
      * severity → 프론트 RiskGrade("심각/주의/정상"). 프론트 타입에 없는 등급(UNKNOWN 등)은 매핑하지 않고
@@ -69,6 +77,23 @@ public class RiskEventService {
             "CRITICAL", "심각",
             "WARNING", "주의",
             "NORMAL", "정상");
+
+    /**
+     * severity(외부신호) 또는 procurement_risk_level(멀티에이전트 종합) → 화면 등급.
+     *
+     * <p>두 축이 같은 어휘(CRITICAL/WARNING/NORMAL)를 쓰므로 변환도 하나만 둔다 — 표를 두 벌로
+     * 나누면 같은 뉴스가 지도·속보·모니터링 화면에서 서로 다른 등급으로 보이게 된다.
+     * 매핑에 없는 값(UNKNOWN 등)은 null이며, 호출부가 "판정 불능"으로 다룬다.
+     */
+    static String gradeOf(String severityOrRiskLevel) {
+        return severityOrRiskLevel == null ? null : GRADE_BY_SEVERITY.get(severityOrRiskLevel);
+    }
+
+    /** 국가 기준점 좌표(수도). 국가 미상이거나 좌표 표에 없으면 null — 화면이 좌표 블록을 숨긴다. */
+    static Coordinates coordinatesOf(String countryCode) {
+        CountryRef ref = countryCode == null ? null : COUNTRIES.get(countryCode);
+        return ref == null ? null : new Coordinates(ref.lat(), ref.lng());
+    }
 
     /**
      * 자재 대분류 → 화면 표기명. 키는 FastAPI {@code extraction_inference.MaterialCategory}(8종) 및
@@ -87,6 +112,23 @@ public class RiskEventService {
             "COPPER", "구리",
             "ALUMINUM", "알루미늄",
             "RARE_EARTH", "희토류");
+
+    /**
+     * 국가코드 → 한글 국가명. 좌표 표({@link #COUNTRIES})가 이미 93개국의 한글명을 갖고 있어
+     * 별도 표를 만들지 않는다 — 두 벌이 되면 지도와 다른 패널이 같은 나라를 다르게 부르게 된다.
+     *
+     * <p>표에 없는 코드는 코드 자체를 돌려준다(빈 문자열보다 낫다 — 화면에 무엇이라도 남는다).
+     * {@link MarketPriceService}의 가격 추이 "국가·지역" 필터가 쓴다.
+     */
+    static String countryNameKo(String countryCode) {
+        // 수집 원본에는 국가를 특정하지 못한 기사가 흔하다(country_code IS NULL).
+        // COUNTRIES는 Map.of라 get(null)이 NPE를 던지므로 여기서 먼저 막는다.
+        if (countryCode == null) {
+            return null;
+        }
+        CountryRef ref = COUNTRIES.get(countryCode);
+        return ref == null ? countryCode : ref.name();
+    }
 
     /** 지도 마커용 국가 기준점(수도 좌표). analyses에는 country_code만 있어 좌표를 여기서 보충한다. */
     private record CountryRef(String name, double lat, double lng) {}
@@ -261,8 +303,14 @@ public class RiskEventService {
             "주의", "대체 조달처 사전 확보 권고",
             "정상", "정기 모니터링 유지");
 
-    /** 공개 뉴스 속보에 올릴 최대 건수. */
+    /** 공개 뉴스 속보에 올릴 기본 건수. 호출자가 limit을 주지 않으면 이 값을 쓴다. */
     private static final int NEWS_FEED_LIMIT = 20;
+
+    /**
+     * limit 상한. 마퀴는 한 자릿수, 목록은 수십 건이면 충분한데 상한이 없으면 스캔 구간 전체가
+     * 그대로 나가버린다 — 공개 API라 호출자를 신뢰할 수 없으므로 서버에서 자른다.
+     */
+    private static final int NEWS_FEED_MAX_LIMIT = 100;
 
     /** 중복 제거·자재 필터 전에 훑을 최신 뉴스 건수. 노출 상한보다 넉넉히 잡는다. */
     private static final int NEWS_FEED_SCAN_SIZE = 200;
@@ -271,35 +319,49 @@ public class RiskEventService {
     private static final ZoneId DISPLAY_ZONE = ZoneId.of("Asia/Seoul");
 
     /**
-     * 분석이 붙지 않은 뉴스의 자재를 제목에서 추정하기 위한 키워드.
-     * FastAPI {@code extraction_inference._MATERIAL_KEYWORDS}를 화면 표기용으로 옮긴 것이며,
-     * <b>표시 목적에만 쓴다</b> — F9 매칭·ERP 조인 같은 판단에는 쓰지 않으므로 두 곳이 다소 어긋나도
-     * 기능이 깨지지 않는다. 자재를 추가할 때 이쪽을 잊어도 "기타"로 떨어질 뿐이다.
+     * 분석이 붙지 않은 뉴스의 자재를 제목·본문에서 추정하기 위한 키워드.
+     * FastAPI {@code extraction_inference._MATERIAL_KEYWORDS}를 옮긴 것이며 키는 자재 대분류
+     * ({@code materials.material_category})와 같은 값이다.
+     *
+     * <p>주 용도는 <b>화면 표기</b>다 — 자재를 추가할 때 이쪽을 잊어도 "기타"로 떨어질 뿐이다.
+     * 다만 리스크 모니터링의 "ERP·계약 영향 분석"은 분석에 {@code material_category}가 없을 때
+     * 이 추정값으로 ERP 자재를 고르므로(F3가 NORMAL 뉴스에는 카테고리를 붙이지 않는다),
+     * 키를 한글 표기명이 아니라 대분류 코드로 둔다.
      */
-    private static final Map<String, List<String>> MATERIAL_KEYWORDS = Map.of(
-            "니켈", List.of("nickel", "니켈"),
-            "코발트", List.of("cobalt", "코발트"),
-            "리튬", List.of("lithium", "리튬"),
-            "흑연", List.of("graphite", "흑연"),
-            "망간", List.of("manganese", "망간"),
-            "구리", List.of("copper", "구리"),
-            "알루미늄", List.of("aluminum", "aluminium", "알루미늄"),
-            "희토류", List.of("rare earth", "rare-earth", "희토류"));
+    static final Map<String, List<String>> MATERIAL_KEYWORDS = Map.of(
+            "NICKEL", List.of("nickel", "니켈"),
+            "COBALT", List.of("cobalt", "코발트"),
+            "LITHIUM", List.of("lithium", "리튬"),
+            "GRAPHITE", List.of("graphite", "흑연"),
+            "MANGANESE", List.of("manganese", "망간"),
+            "COPPER", List.of("copper", "구리"),
+            "ALUMINUM", List.of("aluminum", "aluminium", "알루미늄"),
+            "RARE_EARTH", List.of("rare earth", "rare-earth", "희토류"));
 
     /** 키워드로도 자재를 못 정한 뉴스의 표기. 화면에서 빈 칸이 보이지 않게 한다. */
-    private static final String UNCLASSIFIED_MATERIAL = "기타";
+    static final String UNCLASSIFIED_MATERIAL = "기타";
+
+    /** 자재 대분류 → 화면 표기명. 대분류가 없으면 "기타", 표에 없으면 원본 값을 그대로 쓴다. */
+    static String materialNameKo(String materialCategory) {
+        return materialCategory == null
+                ? UNCLASSIFIED_MATERIAL
+                : MATERIAL_NAME_KO.getOrDefault(materialCategory, materialCategory);
+    }
 
     private final AnalysisRepository analysisRepository;
     private final AnalysisSupplierRecommendationRepository supplierRecommendationRepository;
     private final RawEventRepository rawEventRepository;
+    private final ProcurementRiskRepository procurementRiskRepository;
 
     public RiskEventService(
             AnalysisRepository analysisRepository,
             AnalysisSupplierRecommendationRepository supplierRecommendationRepository,
-            RawEventRepository rawEventRepository) {
+            RawEventRepository rawEventRepository,
+            ProcurementRiskRepository procurementRiskRepository) {
         this.analysisRepository = analysisRepository;
         this.supplierRecommendationRepository = supplierRecommendationRepository;
         this.rawEventRepository = rawEventRepository;
+        this.procurementRiskRepository = procurementRiskRepository;
     }
 
     /**
@@ -331,9 +393,24 @@ public class RiskEventService {
         List<Analysis> candidates =
                 analysisRepository.findRiskBoardCandidates(PageRequest.of(0, RISK_BOARD_SCAN_SIZE));
 
+        // 뉴스 속보와 같은 두 축을 붙인다 — 지도와 속보가 같은 뉴스를 다른 등급·다른 신뢰도로
+        // 부르면 화면끼리 모순된다.
+        Map<UUID, String> riskLevelsByAnalysisId = procurementRiskRepository
+                .findLatestRiskLevelsByAnalysisIds(
+                        candidates.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()));
+        Map<UUID, String> koreanTitles = loadKoreanTitles(candidates);
+
         Map<String, RiskBoardItem> markers = new LinkedHashMap<>();
         for (Analysis analysis : candidates) {
-            String grade = GRADE_BY_SEVERITY.get(analysis.getSeverity());
+            // 자재 미상 분석은 findRiskBoardCandidates가 이미 걸러준다(materialCategory IS NOT NULL).
+            // 이 필터가 없으면 GDELT 트리아지가 생산국 기준으로 통과시킨 공급망 무관 기사가 마커로
+            // 올라온다 — 실측에서 국가가 붙은 19건 중 13건이 자재 미상이었고 그중 11건은
+            // NOT_RELEVANT("Colonel Sanders' bow tie" 같은 기사)였다.
+            String riskLevel = riskLevelsByAnalysisId.get(analysis.getAnalysisId());
+            // 마커는 색이 있어야 그려지므로 등급이 반드시 필요하다. 멀티에이전트 종합 등급이
+            // 있으면 그것을, 아직 없으면 외부신호(severity) 등급을 쓴다. "어디까지 검증된 값인가"는
+            // 등급이 아니라 신뢰도 배지(확정/경고/참고)가 말해준다.
+            String grade = gradeOf(riskLevel != null ? riskLevel : analysis.getSeverity());
             if (grade == null) {
                 continue;
             }
@@ -345,7 +422,10 @@ public class RiskEventService {
                 log.debug("공개 리스크 보드 마커 상한({})에 도달해 이후 후보를 생략합니다.", RISK_BOARD_MAX_MARKERS);
                 break;
             }
-            markers.put(key, toBoardItem(analysis, grade));
+            markers.put(key, toBoardItem(
+                    analysis, grade,
+                    newsConfidenceLabel(analysis, riskLevel),
+                    koreanTitles.get(analysis.getAnalysisId())));
         }
 
         if (markers.isEmpty()) {
@@ -418,18 +498,37 @@ public class RiskEventService {
      *
      * <p>자재·신뢰도는 분석이 붙은 뉴스면 분석 결과에서, 아니면 제목 키워드에서 파생한다.
      * 수집된 뉴스가 0건이면 placeholder로 폴백한다(지도·권고 리스트와 같은 방침).
+     *
+     * <p>같은 응답이 <b>마퀴(한 줄 속보)와 뉴스 목록 양쪽</b>을 채운다 — 같은 자료를 두 API로 나누면
+     * 두 화면이 서로 다른 기사를 가리키게 되므로, 노출 건수만 {@code limit}으로 조절한다.
+     *
+     * @param countryCode 지도 마커 클릭 시 그 국가로 좁힌다. null/공백이면 전체.
+     * @param limit       노출 건수. 1..{@value #NEWS_FEED_MAX_LIMIT}로 잘린다.
      */
-    public List<NewsFeedItem> newsFeed() {
-        List<RawEvent> events = rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(
-                "NEWS", PageRequest.of(0, NEWS_FEED_SCAN_SIZE));
+    public List<NewsFeedItem> newsFeed(String countryCode, int limit) {
+        int cappedLimit = Math.max(1, Math.min(limit, NEWS_FEED_MAX_LIMIT));
+        String country = countryCode == null || countryCode.isBlank()
+                ? null
+                : countryCode.trim().toUpperCase(Locale.ROOT);
+
+        PageRequest scanWindow = PageRequest.of(0, NEWS_FEED_SCAN_SIZE);
+        List<RawEvent> events = country == null
+                ? rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc("NEWS", scanWindow)
+                : rawEventRepository.findByDataTypeAndCountryCodeAndTitleIsNotNullOrderByCollectedAtDesc(
+                        "NEWS", country, scanWindow);
         Map<UUID, Analysis> analysesById = loadAnalyses(events);
+        // 멀티에이전트(ERP·계약)까지 통과해 종합 위험도가 나온 뉴스만 등급 배지를 받는다.
+        Map<UUID, String> riskLevelsByAnalysisId =
+                procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(analysesById.keySet());
 
         // 같은 기사가 GDELT GlobalEventID만 다른 채로 여러 번 들어오므로 제목 기준으로 한 번만 남긴다.
         Map<String, NewsFeedItem> unique = new LinkedHashMap<>();
         for (RawEvent event : events) {
-            unique.putIfAbsent(
-                    event.getTitle().trim(),
-                    toNewsFeedItem(event, analysesById.get(event.getTriggeredAnalysisId())));
+            Analysis analysis = analysisOf(analysesById, event);
+            String riskLevel = analysis == null
+                    ? null
+                    : riskLevelsByAnalysisId.get(analysis.getAnalysisId());
+            unique.putIfAbsent(event.getTitle().trim(), toNewsFeedItem(event, analysis, riskLevel));
         }
 
         // 자재가 특정된 뉴스만 노출한다. GDELT 트리아지는 생산국 이벤트를 폭넓게 통과시켜서 공급망과
@@ -437,16 +536,40 @@ public class RiskEventService {
         // 올리면 화면이 오히려 망가진다 — 실측에서 19건 중 자재 매칭 0건이 나온 적이 있다.
         List<NewsFeedItem> supplyChainNews = unique.values().stream()
                 .filter(item -> !UNCLASSIFIED_MATERIAL.equals(item.material()))
-                .limit(NEWS_FEED_LIMIT)
+                .limit(cappedLimit)
                 .toList();
+
+        // 국가로 좁힌 요청은 폴백하지 않는다. placeholder는 인도네시아·칠레 등 특정 국가 기사라서,
+        // 칠레를 클릭했는데 인도네시아 placeholder가 뜨면 지도와 패널이 다른 나라를 가리키게 된다.
+        // 해당 국가 뉴스가 없다는 사실을 빈 배열로 그대로 전달하는 편이 정확하다.
+        if (supplyChainNews.isEmpty() && country != null) {
+            log.info("국가 {}에 해당하는 공급망 뉴스가 없습니다. (스캔 {}건)", country, unique.size());
+            return List.of();
+        }
 
         // 한 건도 없으면 무관한 기사를 채우는 대신 placeholder로 폴백한다(지도·권고 리스트와 같은 방침).
         // 공급망 뉴스가 수집되는 즉시 자동으로 실데이터로 전환된다.
         if (supplyChainNews.isEmpty()) {
             log.info("자재가 특정된 뉴스가 없어 공개 뉴스 속보를 placeholder로 폴백합니다. (수집 뉴스 {}건)", unique.size());
-            return PLACEHOLDER_EVENTS.stream().map(RiskEventService::toNewsFeedItem).toList();
+            return PLACEHOLDER_EVENTS.stream()
+                    .map(RiskEventService::toNewsFeedItem)
+                    .limit(cappedLimit)
+                    .toList();
         }
         return supplyChainNews;
+    }
+
+    /**
+     * 뉴스에 붙은 분석. 분석이 안 붙은 뉴스는 null이다.
+     *
+     * <p>{@code map.get(event.getTriggeredAnalysisId())}로 바로 부르면 안 된다 — 스캔 구간의 모든
+     * 뉴스에 분석이 없으면 {@link #loadAnalyses}가 {@code Map.of()}(불변 맵)를 돌려주는데, 거기에
+     * null 키로 get을 하면 NPE가 난다. 그 조합은 예외 상황이 아니라 <b>기본 운영 모드</b>다
+     * ({@code app.collection.analysis-enabled=false}면 수집만 하고 분석은 돌지 않는다).
+     */
+    private static Analysis analysisOf(Map<UUID, Analysis> analysesById, RawEvent event) {
+        UUID analysisId = event.getTriggeredAnalysisId();
+        return analysisId == null ? null : analysesById.get(analysisId);
     }
 
     /** 뉴스에 붙은 분석을 한 번에 조회한다(분석이 없는 뉴스만 있으면 쿼리를 생략). */
@@ -462,46 +585,117 @@ public class RiskEventService {
                 .collect(Collectors.toMap(Analysis::getAnalysisId, analysis -> analysis));
     }
 
-    private static NewsFeedItem toNewsFeedItem(RawEvent event, Analysis analysis) {
+    /**
+     * 수집 원본 + 분석 결과 → 속보 1건.
+     *
+     * <p><b>등급(grade)과 신뢰도(confidence_label)는 파이프라인의 "어디까지 갔는가"를 나타낸다.</b>
+     * 값의 크기가 아니라 도달 단계다:
+     *
+     * <ul>
+     *   <li><b>확정</b> — 멀티에이전트(ERP·계약)까지 통과해 종합 위험도가 나온 뉴스.
+     *       이때만 심각/주의/정상 배지를 붙인다.</li>
+     *   <li><b>경고</b> — 외부신호(severity) 점수는 나왔지만 멀티에이전트를 아직 안 거친 뉴스 중,
+     *       점수가 {@link #EXTERNAL_SIGNAL_WARNING_MIN} 이상인 것. 근거가 한 축뿐이라 등급은 붙이지 않는다.</li>
+     *   <li><b>참고</b> — 분석이 없거나 점수가 기준 미만인 뉴스. 수집만 된 상태.</li>
+     * </ul>
+     *
+     * <p>판정하지 않은 기사를 "정상"으로 보이게 하면 안 되므로, 확정이 아닌 건 grade를 null로 두고
+     * 프론트가 배지를 생략한다.
+     *
+     * @param riskLevel 멀티에이전트 종합 등급(NORMAL/WARNING/CRITICAL). 없으면 null.
+     */
+    private static NewsFeedItem toNewsFeedItem(RawEvent event, Analysis analysis, String riskLevel) {
         String material = analysis != null && analysis.getMaterialCategory() != null
                 ? MATERIAL_NAME_KO.getOrDefault(analysis.getMaterialCategory(), analysis.getMaterialCategory())
                 : guessMaterial(event.getTitle(), event.getContent());
+        String original = event.getTitle();
+        // 번역본이 있으면 그걸 표시하고, 없으면 원문을 그대로 쓴다. 번역은 별도 스케줄러가
+        // 뒤늦게 채우므로 미번역 기사도 화면에는 정상 노출된다 — 번역이 화면을 막지 않는다.
+        String translatedTitle = event.getTitleKo();
+        boolean translated = translatedTitle != null && !translatedTitle.isBlank();
         return new NewsFeedItem(
                 analysis != null ? analysis.getAnalysisId().toString() : "RAW-" + event.getId(),
                 LocalDate.ofInstant(event.getCollectedAt(), DISPLAY_ZONE).toString(),
+                event.getCollectedAt(),
                 material,
-                // 등급은 분석 결과이므로 분석이 붙은 뉴스에만 있다. 수집만 된 뉴스는 null로 두고
-                // 프론트가 배지를 생략한다 — 판정하지 않은 기사를 "정상"으로 보이게 하면 안 된다.
-                analysis != null ? GRADE_BY_SEVERITY.get(analysis.getSeverity()) : null,
+                gradeOf(riskLevel),
                 event.getSource(),
-                event.getTitle(),
-                analysis != null ? confidenceLabel(analysis) : "참고");
+                translated ? translatedTitle : original,
+                original,
+                translated,
+                newsConfidenceLabel(analysis, riskLevel),
+                event.getCountryCode(),
+                linkableUrl(event.getSourceUrl()));
     }
 
     /**
-     * 분석이 없는 뉴스의 자재 추정. FastAPI {@code MockExtractionInference}와 같이 <b>제목+본문</b>을 본다 —
-     * 제목만 보면 놓치는 기사가 많다(실측: 수집 150건 중 제목 매칭 0건, 본문 매칭 4건).
-     * 여러 자재가 걸리면 먼저 매칭된 하나만 표기한다(속보 한 줄 표기용).
+     * 화면에서 클릭 가능한 링크만 통과시킨다. 절대 http(s) URL이 아니면 null로 만든다.
+     *
+     * <p>{@code POST /collection/test-news}로 넣은 검증 데이터에 Swagger 기본값 {@code "string"}이
+     * 그대로 저장된 적이 있는데, 프론트가 그걸 href에 넣으니 상대 경로로 해석돼
+     * {@code localhost:4173/string}으로 이동했다. 크롤러가 상대 경로나 빈 값을 줄 수도 있다.
+     *
+     * <p>소비하는 화면마다 검사하게 두면 한 곳을 빠뜨렸을 때 같은 증상이 되살아나므로 여기서 막는다.
+     * null이면 프론트가 링크 대신 텍스트로 렌더한다.
      */
-    private static String guessMaterial(String title, String content) {
+    static String linkableUrl(String sourceUrl) {
+        if (sourceUrl == null) {
+            return null;
+        }
+        String trimmed = sourceUrl.trim();
+        return trimmed.startsWith("http://") || trimmed.startsWith("https://") ? trimmed : null;
+    }
+
+    /** 확정/경고/참고 판정. 규칙은 {@link #toNewsFeedItem(RawEvent, Analysis, String)} 참고. */
+    static String newsConfidenceLabel(Analysis analysis, String riskLevel) {
+        if (riskLevel != null) {
+            return "확정";
+        }
+        Double externalScore = analysis == null ? null : analysis.getSeverityScore();
+        if (externalScore != null && externalScore >= EXTERNAL_SIGNAL_WARNING_MIN) {
+            return "경고";
+        }
+        return "참고";
+    }
+
+    /**
+     * 분석이 없는 뉴스의 자재 대분류 추정. FastAPI {@code MockExtractionInference}와 같이
+     * <b>제목+본문</b>을 본다 — 제목만 보면 놓치는 기사가 많다(실측: 수집 150건 중 제목 매칭 0건,
+     * 본문 매칭 4건). 여러 자재가 걸리면 먼저 매칭된 하나만 쓴다. 아무것도 안 걸리면 null.
+     */
+    static String guessMaterialCategory(String title, String content) {
         String text = ((title == null ? "" : title) + " " + (content == null ? "" : content)).toLowerCase();
         return MATERIAL_KEYWORDS.entrySet().stream()
                 .filter(entry -> entry.getValue().stream().anyMatch(text::contains))
                 .map(Map.Entry::getKey)
                 .findFirst()
-                .orElse(UNCLASSIFIED_MATERIAL);
+                .orElse(null);
+    }
+
+    /** 자재 추정 결과를 화면 표기명으로. 못 정하면 "기타". */
+    private static String guessMaterial(String title, String content) {
+        return materialNameKo(guessMaterialCategory(title, content));
     }
 
     /** placeholder RiskEvent → 뉴스 속보 변환(수집 뉴스 0건 폴백 전용). */
     private static NewsFeedItem toNewsFeedItem(RiskEvent event) {
+        String date = parsePlaceholderDate(event.riskEventId());
+        String summary = event.marketContext().eventSummary();
         return new NewsFeedItem(
                 event.riskEventId(),
-                parsePlaceholderDate(event.riskEventId()),
+                date,
+                LocalDate.parse(date).atStartOfDay(DISPLAY_ZONE).toInstant(),
                 event.marketContext().material(),
                 event.grade(),
                 event.marketContext().source(),
-                event.marketContext().eventSummary(),
-                event.confidenceLabel());
+                // placeholder 문구는 처음부터 한국어라 원문·표시용이 같고 번역 대상이 아니다.
+                summary,
+                summary,
+                false,
+                event.confidenceLabel(),
+                event.marketContext().countryCode(),
+                // placeholder는 실제 기사가 아니므로 원문 링크가 없다. 프론트가 "원문" 버튼을 숨긴다.
+                null);
     }
 
     /** placeholder id 형식 "RISK-yyyy-MMdd-nnn"에서 날짜를 뽑는다. 형식이 다르면 오늘 날짜로 둔다. */
@@ -513,50 +707,43 @@ public class RiskEventService {
         return LocalDate.now(DISPLAY_ZONE).toString();
     }
 
-    private static RiskBoardItem toBoardItem(Analysis analysis, String grade) {
+    /**
+     * 분석 → 지도 마커.
+     *
+     * @param confidenceLabel 파이프라인 도달 단계(확정/경고/참고). 뉴스 속보와 같은 규칙을 쓴다.
+     * @param koreanTitle     번역된 제목. 없으면 원문(영문)을 그대로 쓴다.
+     */
+    private static RiskBoardItem toBoardItem(
+            Analysis analysis, String grade, String confidenceLabel, String koreanTitle) {
         CountryRef country = COUNTRIES.get(analysis.getCountryCode());
         String category = analysis.getMaterialCategory();
         return new RiskBoardItem(
                 analysis.getAnalysisId().toString(),
                 MATERIAL_NAME_KO.getOrDefault(category, category),
                 grade,
-                confidenceLabel(analysis),
+                confidenceLabel,
                 // summary_kr은 FastAPI 추출 결과라 analyses에 저장되지 않는다. 요약을 노출하려면
                 // analyses에 summary 컬럼 추가가 선행되어야 하므로, 지금은 뉴스 제목을 쓴다.
-                analysis.getEventTitle(),
+                // 번역본이 있으면 그걸 쓴다 — 없으면 지도만 영문 제목이 떠 속보와 어긋난다.
+                koreanTitle != null && !koreanTitle.isBlank() ? koreanTitle : analysis.getEventTitle(),
                 analysis.getCountryCode(),
                 country != null ? country.name() : null,
                 country != null ? new Coordinates(country.lat(), country.lng()) : null);
     }
 
-    /**
-     * 프론트 ConfidenceLabel("확정/경고/참고") 판정. analyses에 대응 컬럼이 없어 여기서 규칙으로 파생한다.
-     *
-     * <ul>
-     *   <li>mock=true — 모델 결과를 확정으로 제시할 수 없으므로 "참고"</li>
-     *   <li>confidence 미상 또는 0.7 미만 — 근거가 약하므로 "경고"</li>
-     *   <li>그 외 — "확정"</li>
-     * </ul>
-     *
-     * <p><b>현재 실제로 나오는 값은 "참고"와 "경고" 두 가지다.</b> {@code analyses.mock}은 이제 전역
-     * {@code MOCK_MODE}가 아니라 분석 단위 추출 여부({@code extraction.mock})를 저장하므로, 실제 GPT
-     * 추출이 돌면 mock=false가 되어 "참고"를 벗어난다. 다만 그 경로의 {@code impact_domain}은 XGBoost가
-     * 아니라 LLM 추출 결과 직결이라 <b>분류 확률 자체가 없어 confidence가 null</b>이고, 따라서 "경고"에
-     * 머문다.
-     *
-     * <p>"확정"이 나오려면 실제 신뢰도 지표가 선행되어야 한다 — 추출이 confidence를 산출하도록 확장하거나,
-     * impact_domain을 XGBoost 예측 확률 경로로 되돌리는 것. 근거 없는 상수를 채워 임계값을 넘기지 말 것:
-     * 공개 화면이라 등급 과대 표기의 대가가 크다.
-     */
-    private static String confidenceLabel(Analysis analysis) {
-        if (analysis.isMock()) {
-            return "참고";
+    /** 분석 id → 번역된 뉴스 제목. 번역 스케줄러가 아직 안 돈 기사는 빠진다(원문으로 폴백). */
+    private Map<UUID, String> loadKoreanTitles(List<Analysis> analyses) {
+        if (analyses.isEmpty()) {
+            return Map.of();
         }
-        Double confidence = analysis.getConfidence();
-        if (confidence == null || confidence < CONFIDENCE_CONFIRMED_MIN) {
-            return "경고";
+        Map<UUID, String> titles = new LinkedHashMap<>();
+        for (RawEvent event : rawEventRepository.findByTriggeredAnalysisIdIn(
+                analyses.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()))) {
+            if (event.getTitleKo() != null && !event.getTitleKo().isBlank()) {
+                titles.putIfAbsent(event.getTriggeredAnalysisId(), event.getTitleKo());
+            }
         }
-        return "확정";
+        return titles;
     }
 
     /** placeholder RiskEvent → 공개 subset 변환(실데이터 0건 폴백 전용). */

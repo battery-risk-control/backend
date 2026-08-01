@@ -436,6 +436,69 @@ public class ErpRepository {
         return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
     }
 
+    /**
+     * 자재 대분류별 조달국 목록. 공개 대시보드 가격 추이의 "국가·지역" 필터가 쓴다.
+     *
+     * <p>공급사 상태(ACTIVE/UNDER_REVIEW)로 거르지 않는다 — 심사 중인 공급사도 조달 관계는 이미
+     * 성립해 있어서, 상태로 걸러내면 인도네시아 니켈·중국 흑연처럼 실제 조달하는 국가가 필터
+     * 목록에서 사라진다. 여기서 정책을 만들지 않고 등록된 관계를 그대로 반영한다.
+     *
+     * <p>공급사명·금액·비중은 포함하지 않는다. 공개 화면이라 "어느 나라에서 조달하는가"까지만
+     * 나가고 조달 구조의 세부(누구에게서 얼마나)는 노출하지 않는다.
+     */
+    public List<MaterialCountryRow> findMaterialSourcingCountries() {
+        return jdbc.query("""
+                SELECT DISTINCT m.material_category, s.country_code
+                FROM supplier_materials sm
+                JOIN suppliers s ON s.supplier_id = sm.supplier_id
+                JOIN materials m ON m.material_id = sm.material_id
+                WHERE s.country_code IS NOT NULL
+                ORDER BY m.material_category, s.country_code
+                """, new MapSqlParameterSource(),
+                (rs, rowNum) -> new MaterialCountryRow(
+                        rs.getString("material_category"), rs.getString("country_code")));
+    }
+
+    public record MaterialCountryRow(String materialCategory, String countryCode) {}
+
+    /**
+     * 공급사 국적·결제통화별 발주 금액 합계. 공개 대시보드 "수입 의존도" 도넛의 원천이다.
+     *
+     * <p>통화별로 나눠서 반환하는 이유: {@code purchase_orders.currency}가 주문마다 USD/EUR/KRW로
+     * 달라, 여기서 합쳐버리면 서로 다른 통화를 더한 값이 나온다. 원화 환산은 환율을 아는
+     * 서비스 계층에서 한다.
+     *
+     * <p>{@code order_date} 구간으로 자르지 않는다 — 시드 발주가 5개월치뿐이라 기간을 좁히면
+     * 표본이 급격히 줄어든다. 기간 필터가 필요해지면 파라미터로 받는다.
+     */
+    public List<CountryPurchaseAmountRow> aggregatePurchaseAmountsByCountry() {
+        return jdbc.query("""
+                SELECT s.country_code,
+                       po.currency,
+                       SUM(poi.ordered_quantity * poi.unit_price) AS amount,
+                       MIN(po.order_date) AS first_order_date,
+                       MAX(po.order_date) AS last_order_date
+                FROM purchase_order_items poi
+                JOIN purchase_orders po ON po.purchase_order_id = poi.purchase_order_id
+                JOIN suppliers s ON s.supplier_id = po.supplier_id
+                WHERE s.country_code IS NOT NULL
+                GROUP BY s.country_code, po.currency
+                """, new MapSqlParameterSource(),
+                (rs, rowNum) -> new CountryPurchaseAmountRow(
+                        rs.getString("country_code"),
+                        rs.getString("currency"),
+                        rs.getBigDecimal("amount"),
+                        rs.getDate("first_order_date").toLocalDate(),
+                        rs.getDate("last_order_date").toLocalDate()));
+    }
+
+    public record CountryPurchaseAmountRow(
+            String countryCode,
+            String currency,
+            BigDecimal amount,
+            LocalDate firstOrderDate,
+            LocalDate lastOrderDate) {}
+
     public record MaterialRow(long materialId, String erpMaterialId, String materialName, String unit) {}
 
     public record InventoryRow(

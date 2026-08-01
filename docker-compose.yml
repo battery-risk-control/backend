@@ -50,7 +50,11 @@ services:
       # (spring 서비스의 KG_SERVICE_BASE_URL과 동일한 값 — .env에서 한 번만 설정)
       KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
-      MOCK_MODE: "true"
+      # LLM 추출을 mock으로 대체할지. 기본 true — 켜면 /analyze 한 건마다 실제 OpenAI 추출이
+      # 나가므로, COLLECTION_ANALYSIS_ENABLED·RISK_SCORING_ENABLED와 같은 방침으로 기본 off다.
+      # 실제 추출을 검증할 때만 MOCK_MODE=false로 덮어쓴다.
+      # ("true" 하드코딩이었으나 셸에서 덮어쓸 수 없어 변수 형태로 바꿨다.)
+      MOCK_MODE: ${MOCK_MODE:-true}
     ports:
       - "${FASTAPI_PORT:-8000}:8000"
     depends_on:
@@ -97,6 +101,18 @@ services:
       # 이 플래그와 무관하게 항상 동작하므로, 기본 off로 두어도 분석 테스트 경로는 막히지 않는다.
       COLLECTION_SCHEDULER_ENABLED: ${COLLECTION_SCHEDULER_ENABLED:-false}
       COLLECTION_ANALYSIS_ENABLED: ${COLLECTION_ANALYSIS_ENABLED:-false}
+      # 제목 한국어 번역(5분 주기). 분석과 독립이며 훨씬 싸다 — 제목만 번역하므로 기사당 약 $0.00004.
+      # 기본 off인 이유는 analysis-enabled와 같다: LLM 호출이라 켠 걸 깜빡하면 비용이 계속 나간다.
+      COLLECTION_TRANSLATION_ENABLED: ${COLLECTION_TRANSLATION_ENABLED:-false}
+      # 환율(공개 대시보드 ② 밴드). 한국수출입은행 무료 공개 API라 비용이 없어 스케줄러는 기본 on이지만,
+      # 인증키가 없으면 수집을 조용히 건너뛰므로 키 미설정 상태로 띄워도 부팅에는 문제가 없다.
+      KOREAEXIM_API_KEY: ${KOREAEXIM_API_KEY:-}
+      EXCHANGE_RATE_SCHEDULER_ENABLED: ${EXCHANGE_RATE_SCHEDULER_ENABLED:-true}
+      EXCHANGE_RATE_CURRENCIES: ${EXCHANGE_RATE_CURRENCIES:-USD,EUR,CNH,CLP,AUD,IDR,CDF,ARS,ZAR,BRL,PHP,JPY,CAD,MYR}
+      # 수출입은행이 고시하지 않는 조달국 통화(칠레·아르헨티나·콩고·남아공·브라질·필리핀)를
+      # USD 경유로 계산한다. 키 불필요하지만 화면에 "Rates By Exchange Rate API" 표기가 필요하다.
+      EXCHANGE_RATE_CROSS_ENABLED: ${EXCHANGE_RATE_CROSS_ENABLED:-true}
+      EXCHANGE_RATE_CROSS_CURRENCIES: ${EXCHANGE_RATE_CROSS_CURRENCIES:-CLP,ARS,CDF,ZAR,BRL,PHP}
       TZ: Asia/Seoul
     ports:
       - "${SPRING_PORT:-8080}:8080"
