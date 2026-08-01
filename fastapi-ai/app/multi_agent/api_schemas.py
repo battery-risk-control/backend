@@ -36,6 +36,14 @@ class MultiAgentApiModel(BaseModel):
     )
 
 
+class OutboundContractRef(BaseModel):
+    """Spring이 내부 PK로 리졸브해서 실어 보내는 아웃바운드 계약 1건."""
+
+    contract_id: int
+    product_id: int
+    customer_id: int
+
+
 class MultiAgentBriefingRequest(
     MultiAgentApiModel,
 ):
@@ -71,12 +79,16 @@ class MultiAgentBriefingRequest(
     rag_supplier_id: int | None = None
     rag_material_id: int | None = None
 
-    # KG가 확정한 재고부족 원자재와 연결된 아웃바운드(완성차 고객사) 계약.
-    # Spring이 kg_service /resolve로 외부ID를 미리 내부 PK로 리졸브해서 실어 보낸다 —
-    # 리졸브 실패(아웃바운드 계약 없음/매칭 안 됨) 시 셋 다 None.
-    outbound_contract_id: int | None = None
-    outbound_product_id: int | None = None
-    outbound_customer_id: int | None = None
+    # KG가 확정한 재고부족 원자재와 연결된 아웃바운드(완성차 고객사) 계약들.
+    # Spring이 kg_service /resolve로 외부ID를 미리 내부 PK로 리졸브하고, 재무 노출도
+    # (계약가치×penalty_pct + line_stop_charge)순으로 상위 N건만 추려서 실어 보낸다 —
+    # 리졸브 실패/매칭 없음 시 빈 리스트. kg_service가 돌려준 전체 매칭 건수는
+    # outbound_contracts_total_matched로 별도 전달(상세 검색 대상이 아닌 나머지는
+    # 브리핑에서 개수만 언급하기 위함).
+    outbound_contracts: list[OutboundContractRef] = Field(
+        default_factory=list,
+    )
+    outbound_contracts_total_matched: int = 0
 
     # Response Agent의 Claude 사용 여부
     use_llm: bool = False

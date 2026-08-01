@@ -118,7 +118,17 @@ public class Analysis {
         completedAt = Instant.now();
     }
 
-    /** severity가 CRITICAL/WARNING이라 F9 대체 공급사 추천이 자동 계산됐을 때만 호출됩니다. */
+    /**
+     * LLM이 뽑은 자재 대분류를 등급과 무관하게 저장합니다(사실). 이전에는
+     * {@link #attachSupplierRecommendation}에서만 채워져 NORMAL 등급 뉴스는 자재 정보 자체가
+     * 사라졌습니다 — 사실(자재)이 조치(추천)에 묶여 있던 문제입니다. 추가 LLM 비용은 없습니다,
+     * 이미 추출된 값을 저장만 합니다.
+     */
+    public void attachMaterialCategory(String materialCategory) {
+        this.materialCategory = materialCategory;
+    }
+
+    /** severity가 CRITICAL/WARNING이라 F9 대체 공급사 추천이 자동 계산됐을 때만 호출됩니다(조치). */
     public void attachSupplierRecommendation(String materialCategory, List<String> caveats) {
         this.materialCategory = materialCategory;
         this.recommendationCaveats = String.join("\n", caveats);

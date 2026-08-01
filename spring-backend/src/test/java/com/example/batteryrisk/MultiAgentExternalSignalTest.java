@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
@@ -178,11 +179,9 @@ class MultiAgentExternalSignalTest {
         when(kgResolverService.resolve(eq("CL"), eq("LITHIUM")))
                 .thenReturn(new KgResolverService.KgResolveResult(
                         true, "SUP-CHL-01", List.of("CTR-OUT-005")));
-        when(erpRepository.resolveOutboundContractId("CTR-OUT-005"))
-                .thenReturn(Optional.of(501L));
-        when(erpRepository.findOutboundContractProductCustomer(501L))
-                .thenReturn(Optional.of(
-                        new ErpRepository.OutboundContractProductCustomer(601L, 701L)));
+        when(erpRepository.findTopOutboundContractsByExposure(List.of("CTR-OUT-005"), 5))
+                .thenReturn(List.of(
+                        new ErpRepository.RankedOutboundContract(501L, 601L, 701L)));
 
         Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
         when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
@@ -190,9 +189,39 @@ class MultiAgentExternalSignalTest {
         service.generate(request(analysis.getAnalysisId(), null, null));
 
         MultiAgentDto.Request sent = captureFastApiRequest();
-        assertThat(sent.outboundContractId()).isEqualTo(501L);
-        assertThat(sent.outboundProductId()).isEqualTo(601L);
-        assertThat(sent.outboundCustomerId()).isEqualTo(701L);
+        assertThat(sent.outboundContracts())
+                .containsExactly(new MultiAgentDto.OutboundContractRef(501L, 601L, 701L));
+        assertThat(sent.outboundContractsTotalMatched()).isEqualTo(1);
+    }
+
+    /**
+     * kg_service가 재무 노출도 상위 5건보다 많은 아웃바운드 계약을 돌려주면(2026-07-31 실측
+     * 콩고+코발트 21건), 상위 5건만 FastAPI 요청에 싣고 원래 전체 매칭 건수는 별도로
+     * totalMatched에 남긴다.
+     */
+    @Test
+    void resolvesTopFiveOutboundContractsByExposureWhenManyMatch() {
+        List<String> erpIds = java.util.stream.IntStream.rangeClosed(1, 21)
+                .mapToObj(i -> "CTR-OUT-%03d".formatted(i))
+                .toList();
+        when(kgResolverService.resolve(eq("CL"), eq("LITHIUM")))
+                .thenReturn(new KgResolverService.KgResolveResult(true, "SUP-CHL-01", erpIds));
+        List<ErpRepository.RankedOutboundContract> top5 = List.of(
+                new ErpRepository.RankedOutboundContract(1L, 11L, 21L),
+                new ErpRepository.RankedOutboundContract(2L, 12L, 22L),
+                new ErpRepository.RankedOutboundContract(3L, 13L, 23L),
+                new ErpRepository.RankedOutboundContract(4L, 14L, 24L),
+                new ErpRepository.RankedOutboundContract(5L, 15L, 25L));
+        when(erpRepository.findTopOutboundContractsByExposure(erpIds, 5)).thenReturn(top5);
+
+        Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
+        when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
+
+        service.generate(request(analysis.getAnalysisId(), null, null));
+
+        MultiAgentDto.Request sent = captureFastApiRequest();
+        assertThat(sent.outboundContracts()).hasSize(5);
+        assertThat(sent.outboundContractsTotalMatched()).isEqualTo(21);
     }
 
     /**
@@ -201,29 +230,29 @@ class MultiAgentExternalSignalTest {
      * 나가야 한다(기존처럼 아웃바운드 없이).
      */
     @Test
-    void outboundFieldsStayNullWhenKgDoesNotConfirmShortage() {
+    void outboundContractsEmptyWhenKgDoesNotConfirmShortage() {
         Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
         when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
 
         service.generate(request(analysis.getAnalysisId(), null, null));
 
         MultiAgentDto.Request sent = captureFastApiRequest();
-        assertThat(sent.outboundContractId()).isNull();
-        assertThat(sent.outboundProductId()).isNull();
-        assertThat(sent.outboundCustomerId()).isNull();
+        assertThat(sent.outboundContracts()).isEmpty();
+        assertThat(sent.outboundContractsTotalMatched()).isZero();
     }
 
     /**
      * 외부ID→내부PK 리졸브가 실패해도(아직 안 올라온 계약 등) 나머지 요청은 정상 진행돼야 한다 —
-     * KgResolverService와 같은 "부가 기능은 실패해도 흡수" 방침.
+     * KgResolverService와 같은 "부가 기능은 실패해도 흡수" 방침. kg_service는 매칭됐다고 했으므로
+     * totalMatched는 그대로 남지만, 리졸브된 계약이 없어 outboundContracts는 비어야 한다.
      */
     @Test
-    void outboundFieldsStayNullWhenResolveFails() {
+    void outboundContractsEmptyWhenResolveFails() {
         when(kgResolverService.resolve(eq("CL"), eq("LITHIUM")))
                 .thenReturn(new KgResolverService.KgResolveResult(
                         true, "SUP-CHL-01", List.of("CTR-OUT-999")));
-        when(erpRepository.resolveOutboundContractId("CTR-OUT-999"))
-                .thenReturn(Optional.empty());
+        when(erpRepository.findTopOutboundContractsByExposure(List.of("CTR-OUT-999"), 5))
+                .thenReturn(List.of());
 
         Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
         when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
@@ -231,9 +260,8 @@ class MultiAgentExternalSignalTest {
         service.generate(request(analysis.getAnalysisId(), null, null));
 
         MultiAgentDto.Request sent = captureFastApiRequest();
-        assertThat(sent.outboundContractId()).isNull();
-        assertThat(sent.outboundProductId()).isNull();
-        assertThat(sent.outboundCustomerId()).isNull();
+        assertThat(sent.outboundContracts()).isEmpty();
+        assertThat(sent.outboundContractsTotalMatched()).isEqualTo(1);
     }
 
     @Test
@@ -277,6 +305,13 @@ class MultiAgentExternalSignalTest {
         assertThat(saved.analysisId()).isEqualTo(analysis.getAnalysisId());
         assertThat(saved.materialCategory()).isEqualTo("LITHIUM");
 
+        // 조원 인계문서 A — 브리핑 산출물이 응답으로만 나가고 사라지던 문제. use_llm=false에서도
+        // 템플릿 조립본이 그대로 저장돼야 한다.
+        assertThat(saved.briefing()).isEqualTo("구매팀 브리핑입니다.");
+        assertThat(saved.recommendedActions()).isEmpty();
+        assertThat(saved.contractFindings()).isEmpty();
+        assertThat(saved.warnings()).isEmpty();
+
         // 호출자가 나중에 다시 꺼내볼 수 있도록 응답에 id가 실려 나가야 한다.
         assertThat(response.assessmentId()).isEqualTo(saved.assessmentId());
     }
@@ -314,6 +349,62 @@ class MultiAgentExternalSignalTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.ANALYSIS_NOT_SCORED));
+    }
+
+    /**
+     * 조원 인계문서(C) — 구매 리스크 자동 축적 스케줄러. analyses는 대분류(material_category)만
+     * 채우고 material_id는 비워두므로, 스케줄러가 대분류를 활성 ERP 자재로 펼쳐야 한다.
+     * LITHIUM은 자재가 2개(탄산/수산화)라 분석 1건이 호출 2건이 된다.
+     */
+    @Test
+    void scoreNewAnalysesExpandsMaterialCategoryToMultipleErpMaterials() {
+        Analysis analysis = completedAnalysis("WARNING", 70.0, "BASE_SCORE_ONLY");
+        when(procurementRiskRepository.findUnscoredAnalysisIds(10))
+                .thenReturn(List.of(analysis.getAnalysisId()));
+        when(analysisRepository.findAllById(List.of(analysis.getAnalysisId())))
+                .thenReturn(List.of(analysis));
+        // generate()가 analysisId 경로로 외부신호를 읽으므로 findById도 배선해야 한다.
+        when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
+        when(erpRepository.findActiveErpMaterialIds("LITHIUM"))
+                .thenReturn(List.of("MAT-LI-CARB", "MAT-LI-OH"));
+
+        int saved = service.scoreNewAnalyses(10);
+
+        assertThat(saved).isEqualTo(2);
+        verify(multiAgentService, org.mockito.Mockito.times(2)).generate(any());
+        verify(procurementRiskRepository, org.mockito.Mockito.times(2)).save(any());
+    }
+
+    /** 자재 단위 try/catch — 한 건이 실패해도 나머지 자재는 계속 처리돼야 한다. */
+    @Test
+    void scoreNewAnalysesIsolatesPartialFailure() {
+        Analysis analysis = completedAnalysis("WARNING", 70.0, "BASE_SCORE_ONLY");
+        when(procurementRiskRepository.findUnscoredAnalysisIds(10))
+                .thenReturn(List.of(analysis.getAnalysisId()));
+        when(analysisRepository.findAllById(List.of(analysis.getAnalysisId())))
+                .thenReturn(List.of(analysis));
+        when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
+        when(erpRepository.findActiveErpMaterialIds("LITHIUM"))
+                .thenReturn(List.of("MAT-LI-CARB", "MAT-LI-OH"));
+        when(erpService.buildContext(any()))
+                .thenThrow(new RuntimeException("ERP Context 없음(MAT-LI-CARB)"))
+                .thenReturn(erpContext());
+
+        int saved = service.scoreNewAnalyses(10);
+
+        assertThat(saved).isEqualTo(1);
+        verify(procurementRiskRepository, org.mockito.Mockito.times(1)).save(any());
+    }
+
+    /** 대상이 0건일 때 FastAPI를 호출하지 않아야 한다(비용 통제). */
+    @Test
+    void scoreNewAnalysesSkipsFastApiWhenNoTargets() {
+        when(procurementRiskRepository.findUnscoredAnalysisIds(10)).thenReturn(List.of());
+
+        int saved = service.scoreNewAnalyses(10);
+
+        assertThat(saved).isZero();
+        verifyNoInteractions(multiAgentService);
     }
 
     private MultiAgentDto.Request captureFastApiRequest() {
