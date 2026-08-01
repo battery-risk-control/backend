@@ -82,7 +82,7 @@ def select_next_route(
     if (
         not state.get("outbound_contract_checked")
         and erp_assessment.get("stockout_before_eta") is True
-        and state.get("outbound_contract_id") is not None
+        and bool(state.get("outbound_contracts"))
     ):
         return "outbound_contract"
 

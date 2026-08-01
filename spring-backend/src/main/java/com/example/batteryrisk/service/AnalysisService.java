@@ -65,9 +65,19 @@ public class AnalysisService {
                     String.join(",", data.severity().reasonCodes()), data.severity().ruleVersion(),
                     data.mock());
 
-            if (RISKY_SEVERITIES.contains(data.severity().severity())
-                    && data.affectedMaterials() != null && !data.affectedMaterials().isEmpty()) {
-                String materialCategory = data.affectedMaterials().get(0);
+            boolean hasMaterial = data.affectedMaterials() != null && !data.affectedMaterials().isEmpty();
+            String materialCategory = hasMaterial ? data.affectedMaterials().get(0) : null;
+
+            // 사실: 등급과 무관하게 저장한다. LLM은 모든 기사에서 자재를 뽑아주는데, 예전엔
+            // 이 값이 attachSupplierRecommendation(조치, RISKY_SEVERITIES 게이트 안쪽)에서만
+            // 채워져서 NORMAL 등급 뉴스는 자재 정보 자체가 사라졌다.
+            if (materialCategory != null) {
+                analysis.attachMaterialCategory(materialCategory);
+            }
+
+            // 조치: 위험 등급일 때만 (기존 조건 유지) — 공급사 추천 호출·Chain B 자동 트리거는
+            // 비용이 드는 부가 작업이라 여기 계속 좁혀둔다.
+            if (RISKY_SEVERITIES.contains(data.severity().severity()) && materialCategory != null) {
                 ErpExposureContext erpContext = fetchErpExposureContext(analysis, data, materialCategory);
                 AnalysisDto.SupplierRecommendationSummary recommendation = fetchSupplierRecommendation(
                         materialCategory, erpContext.materialRiskScore(), erpContext.supplierRiskScores());

@@ -45,6 +45,15 @@ public class DashboardController {
     }
 
     @Operation(
+            summary = "구매 리스크 KPI 요약(멀티에이전트)",
+            description = "자재 대분류(8종)별 최신 구매 리스크 평가 1건을 기준으로 등급별 건수, "
+                    + "ERP노출도·외부신호 평균 점수, 검증 통과 브리핑 건수를 반환합니다.")
+    @GetMapping("/dashboard/procurement-risk-summary")
+    public ApiResponse<DashboardDto.ProcurementRiskSummary> procurementRiskSummary() {
+        return ApiResponse.ok(dashboardService.procurementRiskSummary());
+    }
+
+    @Operation(
             summary = "자재별 현재 리스크 목록",
             description = "자재별 최신 Severity를 심각도 순으로 반환합니다. 리스크 게이지·스코어 카드용입니다.")
     @GetMapping("/dashboard/materials")

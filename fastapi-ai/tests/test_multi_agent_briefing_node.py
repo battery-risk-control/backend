@@ -47,10 +47,11 @@ def test_generates_rule_based_briefing_without_llm():
 
     assert result["llm_used"] is False
     assert result["llm_error"] is None
-    assert "[위험 단계] critical" in result["briefing"]
-    assert "[위험 점수] 72" in result["briefing"]
-    assert "계약 ID: 1001" in result["briefing"]
-    assert "페이지: 1" in result["briefing"]
+    assert "[요약] critical 72점" in result["briefing"]
+    assert "- 등급: critical" in result["briefing"]
+    assert "- 점수: 72" in result["briefing"]
+    assert "계약ID: 1001" in result["briefing"]
+    assert "p.1" in result["briefing"]
     assert len(result["recommended_actions"]) == 4
 
 
@@ -71,7 +72,7 @@ def test_rule_based_briefing_includes_outbound_findings_when_present():
     result = generate_briefing_node(state)
 
     assert "완성차 고객사 납품 지연" in result["briefing"]
-    assert "계약 ID: 501" in result["briefing"]
+    assert "계약ID: 501" in result["briefing"]
     assert "ARTICLE 3. DELIVERY AND PENALTY" in result["briefing"]
 
 
@@ -99,7 +100,7 @@ def test_rule_based_briefing_includes_kg_evidence():
     result = generate_briefing_node(state)
 
     assert (
-        "[KG 근거] 인도네시아 니켈 공급사 재고 부족 확인"
+        "- 인도네시아 니켈 공급사 재고 부족 확인"
         in result["briefing"]
     )
 
@@ -112,7 +113,7 @@ def test_rule_based_briefing_notes_missing_kg_evidence():
 
     result = generate_briefing_node(state)
 
-    assert "[KG 근거] KG 근거 경로가 없습니다." in result["briefing"]
+    assert "- KG 근거 경로가 없습니다." in result["briefing"]
 
 
 def test_uses_llm_result_when_generation_succeeds(
@@ -168,7 +169,7 @@ def test_falls_back_when_llm_generation_fails(
         "TimeoutError: "
         "LLM 브리핑 생성에 실패했습니다."
     )
-    assert "[뉴스 ID] news-001" in result["briefing"]
+    assert "뉴스 ID: news-001" in result["briefing"]
 
 
 def test_contract_evidence_does_not_claim_absence():
@@ -190,6 +191,6 @@ def test_contract_evidence_accepts_rag_adapter_fields():
 
     result = build_contract_evidence_text(findings)
 
-    assert "계약 ID: 2001" in result
-    assert "페이지: 3" in result
+    assert "계약ID: 2001" in result
+    assert "p.3" in result
     assert "납기 변경 시 서면 통보한다." in result

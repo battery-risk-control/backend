@@ -28,6 +28,43 @@ public class DashboardRepository {
             )
             """;
 
+    /**
+     * 자재 대분류(8종)별 최신 구매 리스크 평가(멀티에이전트) 1건만 남기는 CTE + 최근
+     * 24시간 raw 활동량 CTE.
+     *
+     * <p>{@code latest}는 {@code erp_material_id}가 아니라 {@code material_category}로
+     * 접는다 — V18 마이그레이션이 "화면 카드가 이 단위라 접기 인덱스도 여기에 건다"고
+     * 명시했고, {@code erp_material_id}는 분석에 ERP 연결이 없으면 NULL이라 이 용도에
+     * 부적합하다. {@code idx_pra_category_created (material_category, created_at DESC)}
+     * 인덱스가 이미 이 조회를 뒷받침한다. {@code procurement_risk_acknowledgements}(V20)에
+     * "완료 처리"된 assessment_id는 제외한다 — 그 평가가 그 카테고리의 최신이었다면 카테고리
+     * 자체가 자연스럽게 집계에서 빠지고, 새 평가(새 assessment_id)가 들어오면 로그에 없으므로
+     * 자동으로 다시 잡힌다.
+     *
+     * <p>{@code recent_24h}는 시간 윈도우만 걸고 카테고리로 접지 않은 별개 모집단이다 —
+     * "오늘 무슨 일이 있었나"를 보여주는 용도라 완료 처리 여부와 무관하게 원본 행 전체를 본다.
+     */
+    private static final String LATEST_PROCUREMENT_ASSESSMENT_CTE = """
+            WITH latest AS (
+                SELECT DISTINCT ON (p.material_category)
+                    p.material_category, p.procurement_risk_level, p.erp_exposure_score,
+                    p.external_signal_score, p.review_passed, p.assessed_at, p.created_at
+                FROM procurement_risk_assessments p
+                WHERE p.material_category IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM procurement_risk_acknowledgements a
+                      WHERE a.assessment_id = p.assessment_id
+                  )
+                ORDER BY p.material_category, p.created_at DESC
+            ),
+            recent_24h AS (
+                SELECT procurement_risk_level, erp_exposure_score, external_signal_score
+                FROM procurement_risk_assessments
+                WHERE material_category IS NOT NULL
+                  AND created_at >= NOW() - INTERVAL '24 hours'
+            )
+            """;
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public DashboardRepository(NamedParameterJdbcTemplate jdbc) {
@@ -60,6 +97,37 @@ public class DashboardRepository {
                 rs.getLong("contract_count"),
                 rs.getLong("document_count"),
                 rs.getObject("latest_assessed_at", OffsetDateTime.class),
+                true));
+    }
+
+    public DashboardDto.ProcurementRiskSummary loadProcurementRiskSummary() {
+        return jdbc.queryForObject(LATEST_PROCUREMENT_ASSESSMENT_CTE + """
+                SELECT
+                    (SELECT COUNT(*) FROM latest) AS assessed_category_count,
+                    (SELECT COUNT(*) FROM latest WHERE procurement_risk_level = 'CRITICAL') AS critical_count,
+                    (SELECT COUNT(*) FROM latest WHERE procurement_risk_level = 'WARNING') AS warning_count,
+                    (SELECT COUNT(*) FROM latest WHERE procurement_risk_level = 'NORMAL') AS normal_count,
+                    (SELECT AVG(erp_exposure_score) FROM latest) AS erp_exposure_score_avg,
+                    (SELECT AVG(external_signal_score) FROM latest) AS external_signal_score_avg,
+                    (SELECT COUNT(*) FROM latest WHERE review_passed = TRUE) AS verified_briefing_count,
+                    (SELECT MAX(assessed_at) FROM latest) AS latest_assessed_at,
+                    (SELECT COUNT(*) FROM recent_24h WHERE procurement_risk_level = 'CRITICAL') AS critical_count_24h,
+                    (SELECT COUNT(*) FROM recent_24h WHERE procurement_risk_level = 'WARNING') AS warning_count_24h,
+                    (SELECT AVG(erp_exposure_score) FROM recent_24h) AS erp_exposure_score_avg_24h,
+                    (SELECT AVG(external_signal_score) FROM recent_24h) AS external_signal_score_avg_24h
+                """, new MapSqlParameterSource(), (rs, rowNumber) -> new DashboardDto.ProcurementRiskSummary(
+                rs.getLong("assessed_category_count"),
+                rs.getLong("critical_count"),
+                rs.getLong("warning_count"),
+                rs.getLong("normal_count"),
+                rs.getBigDecimal("erp_exposure_score_avg"),
+                rs.getBigDecimal("external_signal_score_avg"),
+                rs.getLong("verified_briefing_count"),
+                rs.getObject("latest_assessed_at", OffsetDateTime.class),
+                rs.getLong("critical_count_24h"),
+                rs.getLong("warning_count_24h"),
+                rs.getBigDecimal("erp_exposure_score_avg_24h"),
+                rs.getBigDecimal("external_signal_score_avg_24h"),
                 true));
     }
 

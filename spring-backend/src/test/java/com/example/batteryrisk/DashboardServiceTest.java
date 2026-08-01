@@ -53,6 +53,17 @@ class DashboardServiceTest {
     }
 
     @Test
+    void procurementRiskSummaryReturnsRepositoryResultAsIs() {
+        DashboardDto.ProcurementRiskSummary summary = new DashboardDto.ProcurementRiskSummary(
+                8, 3, 5, 0, new BigDecimal("75.0"), new BigDecimal("60.0"), 8,
+                OffsetDateTime.parse("2026-07-31T10:00:00+09:00"),
+                1, 2, new BigDecimal("68.0"), new BigDecimal("72.0"), true);
+        when(repository.loadProcurementRiskSummary()).thenReturn(summary);
+
+        assertThat(service.procurementRiskSummary()).isSameAs(summary);
+    }
+
+    @Test
     void materialRisksNormalizesLowercaseSeverityBeforeQuery() {
         when(repository.findMaterialRisks("CRITICAL", 5)).thenReturn(List.of());
 

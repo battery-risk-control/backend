@@ -255,8 +255,9 @@ public class ErpSeedConfig {
                 INSERT INTO supplier_materials (
                     erp_supplier_material_id, supplier_id, material_id, contract_id,
                     supply_share_ratio, lead_time_days, minimum_order_quantity,
-                    approved_status, priority_rank, is_alternative, valid_from, valid_to
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    approved_status, priority_rank, is_alternative, valid_from, valid_to,
+                    available_capacity_quantity
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (erp_supplier_material_id) DO UPDATE SET
                     supplier_id = EXCLUDED.supplier_id,
                     material_id = EXCLUDED.material_id,
@@ -268,7 +269,8 @@ public class ErpSeedConfig {
                     priority_rank = EXCLUDED.priority_rank,
                     is_alternative = EXCLUDED.is_alternative,
                     valid_from = EXCLUDED.valid_from,
-                    valid_to = EXCLUDED.valid_to
+                    valid_to = EXCLUDED.valid_to,
+                    available_capacity_quantity = EXCLUDED.available_capacity_quantity
                 """;
         rows.forEach(row -> jdbc.update(sql,
                 required(row, "supplier_material_id"), reference(supplierIds, row, "supplier_id"),
@@ -276,7 +278,8 @@ public class ErpSeedConfig {
                 decimal(row, "supply_share_ratio"), integer(row, "lead_time_days"),
                 decimal(row, "minimum_order_quantity"), required(row, "approved_status"),
                 integer(row, "priority_rank"), bool(row, "is_alternative"),
-                date(row, "valid_from"), nullableDate(row, "valid_to")));
+                date(row, "valid_from"), nullableDate(row, "valid_to"),
+                nullableDecimal(row, "available_capacity_quantity")));
     }
 
     private static void seedInventory(

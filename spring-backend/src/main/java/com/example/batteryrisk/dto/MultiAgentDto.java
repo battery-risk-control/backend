@@ -77,9 +77,11 @@ public final class MultiAgentDto {
         @NotBlank
         String erpMaterialId,
 
+        // 생략 가능 — ErpRepository.findSupply가 null이면 priority_rank 순으로 주 공급사를
+        // 자동 선택한다(스케줄러가 이 방식을 쓴다: analyses.material_category를 ERP 자재로
+        // 펼치되 공급사까지는 안 펼침).
         @JsonProperty("erp_supplier_id")
         @JsonAlias("erpSupplierId")
-        @NotBlank
         String erpSupplierId,
 
         // KG 게이트(analyze_kg_context_node, FastAPI 쪽)가 country+affected_materials 없이는
@@ -145,20 +147,33 @@ public final class MultiAgentDto {
             @JsonProperty("rag_material_id")
             Long ragMaterialId,
 
-            // 재고부족이 KG로 확정된 원자재와 연결된 아웃바운드(완성차 고객사) 계약. 리졸브
-            // 실패(아웃바운드 계약 없음/매칭 안 됨)하면 셋 다 null — FastAPI는 그 경우 아웃바운드
-            // 조회를 건너뛴다.
-            @JsonProperty("outbound_contract_id")
-            Long outboundContractId,
+            // 재고부족이 KG로 확정된 원자재와 연결된 아웃바운드(완성차 고객사) 계약들. kg_service가
+            // 돌려주는 전체 매칭 건수(수십 건일 수 있음, 2026-07-31 실측 콩고+코발트 21건) 중
+            // 재무 노출도(계약가치×penalty_pct+line_stop_charge) 상위 N건만 골라 싣는다 — 전부
+            // 실으면 비용·브리핑 가독성이 감당 안 된다(사용자 확정). 리졸브 실패/매칭 없음이면
+            // 빈 리스트 — FastAPI는 그 경우 아웃바운드 조회를 건너뛴다.
+            @JsonProperty("outbound_contracts")
+            List<OutboundContractRef> outboundContracts,
 
-            @JsonProperty("outbound_product_id")
-            Long outboundProductId,
-
-            @JsonProperty("outbound_customer_id")
-            Long outboundCustomerId,
+            // kg_service가 원래 돌려준 전체 매칭 건수. outboundContracts.size()보다 클 수 있고,
+            // FastAPI가 "이 외 N건 더" 요약 문구에 쓴다.
+            @JsonProperty("outbound_contracts_total_matched")
+            int outboundContractsTotalMatched,
 
             @JsonProperty("use_llm")
             boolean useLlm
+    ) {}
+
+    /** 아웃바운드 계약 1건(내부 PK + product/customer) — Request.outboundContracts 원소. */
+    public record OutboundContractRef(
+            @JsonProperty("contract_id")
+            Long contractId,
+
+            @JsonProperty("product_id")
+            Long productId,
+
+            @JsonProperty("customer_id")
+            Long customerId
     ) {}
     public record FastApiResponse(
         boolean success,
