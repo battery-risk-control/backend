@@ -54,6 +54,39 @@ def test_generates_rule_based_briefing_without_llm():
     assert len(result["recommended_actions"]) == 4
 
 
+def test_rule_based_briefing_includes_outbound_findings_when_present():
+    state = {
+        **create_state(),
+        "use_llm": False,
+        "outbound_contract_findings": [
+            {
+                "contract_id": 501,
+                "page": 3,
+                "clause_name_kr": "납기·지체상금 조항",
+                "evidence_text": "ARTICLE 3. DELIVERY AND PENALTY",
+            },
+        ],
+    }
+
+    result = generate_briefing_node(state)
+
+    assert "완성차 고객사 납품 지연" in result["briefing"]
+    assert "계약 ID: 501" in result["briefing"]
+    assert "ARTICLE 3. DELIVERY AND PENALTY" in result["briefing"]
+
+
+def test_rule_based_briefing_omits_outbound_section_when_empty():
+    state = {
+        **create_state(),
+        "use_llm": False,
+        "outbound_contract_findings": [],
+    }
+
+    result = generate_briefing_node(state)
+
+    assert "완성차 고객사 납품 지연" not in result["briefing"]
+
+
 def test_rule_based_briefing_includes_kg_evidence():
     state = {
         **create_state(),

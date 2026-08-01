@@ -1,0 +1,29 @@
+ruleVersion: "contract-gap-v0.1"
+
+# 공급 지속성/지체상금과 직결되는 조항 유형.
+# rag/clause_classifier.py의 11종 clause_type 중 이 4종만 "보호조항"으로 취급한다 —
+# payment/confidentiality/IP/assignment/governing_law/price_adjustment/quality_warranty/unknown은
+# 찾아도 공급 리스크 자체를 줄여주는 조항이 아니다.
+protectiveClauseTypes:
+  - force_majeure
+  - delivery_delay
+  - volume_commitment
+  - termination
+
+# 계약 보호 공백 점수 (contract_gap_score). 높을수록 미보호.
+contractGapRisk:
+  notSearchable:
+    score: 80
+
+  notFound:
+    score: 80
+
+  protectiveHighSimilarity:
+    minSimilarity: 0.7
+    score: 25
+
+  protectiveLowSimilarity:
+    score: 50
+
+  nonProtective:
+    score: 65

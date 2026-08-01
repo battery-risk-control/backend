@@ -173,7 +173,13 @@ class OpenAIExtractionInference:
                 {"role": "user", "content": f"Title: {event.title}\n\nArticle Text:\n{event.content[:MAX_CHARS_FOR_LLM]}"},
             ],
             response_format=_ArticleRiskExtraction,
-            temperature=0.1,
+            # tone_score 등 추출 결과의 재현성을 위해 0으로 낮춘다. 같은 기사를 반복 추출했을 때
+            # tone_score 부호가 -0.5/+0.5로 뒤집혀 severity 등급(WARNING/NORMAL)까지 바뀌는 것을
+            # 실증으로 확인했다(2026-07-31). temperature=0.0만으로는 부족해서(5회 중 2/3 비율로
+            # 여전히 뒤집힘) seed도 함께 고정한다 — 두 값을 같이 줘야 OpenAI가 결정론적 실행을
+            # 시도한다(그래도 100% 보장은 아님, system_fingerprint로만 확인 가능).
+            temperature=0.0,
+            seed=42,
         )
         parsed = completion.choices[0].message.parsed
 

@@ -71,7 +71,14 @@ class MultiAgentBriefingRequest(
     rag_supplier_id: int | None = None
     rag_material_id: int | None = None
 
-    # Response Agent의 GPT-4o mini 사용 여부
+    # KG가 확정한 재고부족 원자재와 연결된 아웃바운드(완성차 고객사) 계약.
+    # Spring이 kg_service /resolve로 외부ID를 미리 내부 PK로 리졸브해서 실어 보낸다 —
+    # 리졸브 실패(아웃바운드 계약 없음/매칭 안 됨) 시 셋 다 None.
+    outbound_contract_id: int | None = None
+    outbound_product_id: int | None = None
+    outbound_customer_id: int | None = None
+
+    # Response Agent의 Claude 사용 여부
     use_llm: bool = False
 
 

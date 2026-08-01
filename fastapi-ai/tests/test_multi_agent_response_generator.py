@@ -12,7 +12,7 @@ from app.multi_agent.llm.schemas import (
 )
 
 
-class FakeResponses:
+class FakeMessages:
     def __init__(self, parsed_output):
         self.parsed_output = parsed_output
         self.last_request = None
@@ -21,13 +21,13 @@ class FakeResponses:
         self.last_request = kwargs
 
         return SimpleNamespace(
-            output_parsed=self.parsed_output,
+            parsed_output=self.parsed_output,
         )
 
 
-class FakeOpenAIClient:
+class FakeAnthropicClient:
     def __init__(self, parsed_output):
-        self.responses = FakeResponses(parsed_output)
+        self.messages = FakeMessages(parsed_output)
 
 
 def create_state():
@@ -109,17 +109,22 @@ def test_generates_structured_llm_response(
             "구매 위험 브리핑입니다."
         ),
     )
-    fake_client = FakeOpenAIClient(parsed_output)
+    fake_client = FakeAnthropicClient(parsed_output)
 
     monkeypatch.setattr(
         "app.multi_agent.llm.response_generator."
-        "get_openai_client",
+        "get_anthropic_client",
         lambda: fake_client,
     )
     monkeypatch.setattr(
         "app.multi_agent.llm.response_generator."
-        "get_openai_model",
-        lambda: "gpt-4o-mini",
+        "get_anthropic_model",
+        lambda: "claude-sonnet-5",
+    )
+    monkeypatch.setattr(
+        "app.multi_agent.llm.response_generator."
+        "get_anthropic_max_tokens",
+        lambda: 4096,
     )
 
     result = generate_response_with_llm(
@@ -143,18 +148,24 @@ def test_generates_structured_llm_response(
         in result["briefing"]
     )
     assert (
-        fake_client.responses.last_request["model"]
-        == "gpt-4o-mini"
+        fake_client.messages.last_request["model"]
+        == "claude-sonnet-5"
     )
     assert (
-        fake_client.responses.last_request[
-            "text_format"
+        fake_client.messages.last_request["max_tokens"]
+        == 4096
+    )
+    assert (
+        fake_client.messages.last_request[
+            "output_format"
         ]
         is ResponseAgentOutput
     )
 
     user_content = (
-        fake_client.responses.last_request["input"][1][
+        fake_client.messages.last_request["messages"][
+            0
+        ][
             "content"
         ]
     )
@@ -164,17 +175,22 @@ def test_generates_structured_llm_response(
 def test_raises_error_when_llm_has_no_parsed_output(
     monkeypatch,
 ):
-    fake_client = FakeOpenAIClient(None)
+    fake_client = FakeAnthropicClient(None)
 
     monkeypatch.setattr(
         "app.multi_agent.llm.response_generator."
-        "get_openai_client",
+        "get_anthropic_client",
         lambda: fake_client,
     )
     monkeypatch.setattr(
         "app.multi_agent.llm.response_generator."
-        "get_openai_model",
-        lambda: "gpt-4o-mini",
+        "get_anthropic_model",
+        lambda: "claude-sonnet-5",
+    )
+    monkeypatch.setattr(
+        "app.multi_agent.llm.response_generator."
+        "get_anthropic_max_tokens",
+        lambda: 4096,
     )
 
     with pytest.raises(

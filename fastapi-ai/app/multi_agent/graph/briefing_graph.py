@@ -5,6 +5,9 @@ from langgraph.graph import END, START, StateGraph
 from app.multi_agent.agents.contract_agent import (
     analyze_contracts_node,
 )
+from app.multi_agent.agents.outbound_contract_agent import (
+    analyze_outbound_contract_node,
+)
 from app.multi_agent.erp.soojung_adapter import (
     analyze_soojung_erp_node,
     recheck_soojung_erp_node,
@@ -45,7 +48,8 @@ def run_erp_agent(
         "contract_findings": [],
         "questions_for_erp_agent": [],
         "erp_reassessment": {},
-        "erp_reassessment_done": False,
+        "negotiation_round": 0,
+        "questions_for_contract_agent_round2": [],
         "procurement_risk_level": None,
         "procurement_risk_score": 0,
         "risk_reasons": [],
@@ -74,7 +78,10 @@ def create_contract_agent_node(
         return {
             **result,
             "erp_reassessment": {},
-            "erp_reassessment_done": False,
+            # negotiation_round는 여기서 건드리지 않는다 — 라운드2로 재진입한
+            # contract 호출일 수 있어서 지우면 협상 루프의 라운드 카운트가
+            # 끊긴다(soojung_adapter.recheck_soojung_erp_node가 관리).
+            "questions_for_contract_agent_round2": [],
             "procurement_risk_level": None,
             "procurement_risk_score": 0,
             "risk_reasons": [],
@@ -106,6 +113,22 @@ def run_erp_recheck(
         "review_passed": None,
         "error_owner": None,
     }
+
+
+def create_outbound_contract_agent_node(
+    rag_service: RagSearchService,
+) -> Callable[[BriefingState], dict]:
+    """실제 Minji RagService가 주입된 Outbound Contract Agent 노드를 만든다."""
+
+    def run_outbound_contract_agent(
+        state: BriefingState,
+    ) -> dict:
+        return analyze_outbound_contract_node(
+            state,
+            rag_service,
+        )
+
+    return run_outbound_contract_agent
 
 
 def run_response_agent(
@@ -166,6 +189,12 @@ def build_briefing_graph(
         calculate_procurement_risk_node,
     )
     graph_builder.add_node(
+        "outbound_contract",
+        create_outbound_contract_agent_node(
+            rag_service,
+        ),
+    )
+    graph_builder.add_node(
         "response",
         run_response_agent,
     )
@@ -188,6 +217,7 @@ def build_briefing_graph(
             "contract": "contract",
             "erp_recheck": "erp_recheck",
             "risk": "risk",
+            "outbound_contract": "outbound_contract",
             "response": "response",
             "reviewer": "reviewer",
             "finish": END,
@@ -212,6 +242,10 @@ def build_briefing_graph(
     )
     graph_builder.add_edge(
         "risk",
+        "supervisor",
+    )
+    graph_builder.add_edge(
+        "outbound_contract",
         "supervisor",
     )
     graph_builder.add_edge(

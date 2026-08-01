@@ -735,6 +735,10 @@ def calculateErpRiskComponents(
                 rules=rules,
             )
         ),
+        # 최초 계산 시점엔 Contract Agent가 아직 안 돌아서 항상 None.
+        # erp_recheck 협상 라운드에서 contract_gap_score가 나오면 그 값을
+        # 그대로 이 컴포넌트로 채워서 재계산한다(soojung_adapter.recheck_soojung_erp_node).
+        contractProtectionRiskScore=None,
     )
 
 # ERP Exposure Score 계산
@@ -742,39 +746,64 @@ def calculateErpExposureScore(
     riskComponents: ErpRiskComponents,
     rules: dict[str, Any] | None = None,
 ) -> float | None:
-    """다섯 가지 세부 점수의 가중합을 계산한다."""
+    """
+    세부 위험점수의 가중합을 계산한다.
+
+    contractProtectionRiskScore가 없으면(최초 계산 — Contract Agent가 아직 안 돎)
+    나머지 5개 가중치만으로 계산하되, 5개 가중치 합(0.85)으로 나눠 합이 1.0이
+    되도록 재정규화한다. contractProtectionRiskScore가 채워지면(협상 라운드 재계산)
+    6개 전부를 rules["weights"] 그대로 사용한다.
+    """
 
     if rules is None:
         rules = loadErpRules()
 
-    componentValues = [
-        riskComponents.gapRiskScore,
-        riskComponents.safetyStockRiskScore,
-        riskComponents.dependencyRiskScore,
-        riskComponents.purchaseOrderDelayRiskScore,
-        riskComponents.alternativeSupplierRiskScore,
-    ]
+    baseComponents = {
+        "supplyGap": riskComponents.gapRiskScore,
+        "safetyStock": riskComponents.safetyStockRiskScore,
+        "supplierDependency": (
+            riskComponents.dependencyRiskScore
+        ),
+        "purchaseOrderDelay": (
+            riskComponents.purchaseOrderDelayRiskScore
+        ),
+        "alternativeSupplier": (
+            riskComponents.alternativeSupplierRiskScore
+        ),
+    }
 
-    # 하나라도 계산할 수 없으면 최종 점수를 만들지 않는다.
+    # 5개 필수 컴포넌트 중 하나라도 없으면 최종 점수를 만들지 않는다.
     if any(
         value is None
-        for value in componentValues
+        for value in baseComponents.values()
     ):
         return None
 
     weights = rules["weights"]
 
-    score = (
-        riskComponents.gapRiskScore
-        * weights["supplyGap"]
-        + riskComponents.safetyStockRiskScore
-        * weights["safetyStock"]
-        + riskComponents.dependencyRiskScore
-        * weights["supplierDependency"]
-        + riskComponents.purchaseOrderDelayRiskScore
-        * weights["purchaseOrderDelay"]
-        + riskComponents.alternativeSupplierRiskScore
-        * weights["alternativeSupplier"]
+    if riskComponents.contractProtectionRiskScore is None:
+        baseWeightSum = sum(
+            weights[name]
+            for name in baseComponents
+        )
+
+        score = sum(
+            value * (weights[name] / baseWeightSum)
+            for name, value in baseComponents.items()
+        )
+
+        return round(score, 2)
+
+    componentValues = {
+        **baseComponents,
+        "contractProtection": (
+            riskComponents.contractProtectionRiskScore
+        ),
+    }
+
+    score = sum(
+        value * weights[name]
+        for name, value in componentValues.items()
     )
 
     return round(score, 2)

@@ -103,9 +103,34 @@ class BriefingState(TypedDict, total=False):
     # Contract Agent의 질문을 반영한 ERP 재평가 결과
     erp_reassessment: dict
 
-    # ERP 재평가가 이미 실행됐는지 표시
-    # Contract → ERP 순환을 한 번으로 제한한다.
-    erp_reassessment_done: bool
+    # ERP↔Contract 협상 왕복 횟수. MAX_NEGOTIATION_ROUNDS(routing.py)까지
+    # 라운드마다 +1 — 이전엔 불리언 게이트(erp_reassessment_done)로 딱 한 번만
+    # 허용했지만, 이제 recheck_soojung_erp_node가 매 라운드 점수를 실제로
+    # 재계산하고 수렴할 때까지(또는 상한까지) 여러 번 왕복할 수 있다.
+    negotiation_round: int
+
+    # ERP 재검토가 "그래도 아직 판단하기엔 근거가 부족하다"고 판단해서
+    # Contract Agent에게 한 번 더 검색을 요청하는 질문. 비어있으면 협상 종료.
+    questions_for_contract_agent_round2: list[str]
+
+    # =========================================================
+    # 3-1. Outbound Contract Agent (완성차 고객사 배상책임)
+    # =========================================================
+
+    # KG가 확정한 재고부족 원자재와 연결된 아웃바운드 계약의 PostgreSQL 내부 숫자 ID.
+    # Spring이 kg_service /resolve로 미리 리졸브해서 실어 보낸다 — 리졸브 실패(아웃바운드
+    # 계약 없음/매칭 안 됨) 시 None이고, 이땐 아웃바운드 조회 자체를 건너뛴다.
+    outbound_contract_id: int | None
+    outbound_product_id: int | None
+    outbound_customer_id: int | None
+
+    # 검색된 아웃바운드 계약 조항(배상책임/지체상금 등)과 출처 근거.
+    # contract_findings와 같은 형태지만 완성차 고객사 계약이라 별도로 둔다.
+    outbound_contract_findings: list[dict]
+
+    # outbound_contract 노드가 이미 실행됐는지. 라운드 왕복이 아니라 단발성 조회라
+    # negotiation_round 같은 카운터 대신 불리언 가드로 충분하다.
+    outbound_contract_checked: bool
 
     # =========================================================
     # 4. 최종 구매 리스크
