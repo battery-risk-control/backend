@@ -44,6 +44,11 @@ services:
       # 실제 임베딩을 쓰려면 EMBEDDING_PROVIDER=openai + OPENAI_API_KEY를 .env에 설정.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
+      # 브리핑 생성 LLM(claude-sonnet-5). 없으면 use_llm=true여도 LLM 호출이 실패한다.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # 기본 30s는 구조화 출력(계약 근거 다건 포함) 프롬프트에 실제로 부족해 APITimeoutError로
+      # 폴백되는 것을 실증했다(2026-07-31). 여유 있게 잡는다.
+      ANTHROPIC_TIMEOUT_SECONDS: ${ANTHROPIC_TIMEOUT_SECONDS:-90}
       # [surin F9] FastAPI supplier_recommendation_service가 Spring /api/v1/suppliers/qualified로 콜백. docker 네트워크에선 서비스명 spring 사용(localhost 아님).
       SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
       # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 host.docker.internal로 접근한다.

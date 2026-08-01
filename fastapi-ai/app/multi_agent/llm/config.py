@@ -27,9 +27,13 @@ def get_anthropic_settings() -> AnthropicSettings:
     except ValueError:
         timeout_seconds = 30.0
 
+    # extended thinking이 이 예산을 함께 소비한다. 콩고+코발트 실증에서 4096으로는
+    # thinking이 4095를 다 써버려 구조화 출력이 통째로 잘리고(stop_reason=max_tokens)
+    # ValidationError로 이어졌다(2026-07-31). 8192는 같은 입력에서 thinking 3176 +
+    # output 5325로 여유 있게 끝난다.
     max_tokens_text = os.getenv(
         "ANTHROPIC_MAX_TOKENS",
-        "4096",
+        "8192",
     )
 
     try:

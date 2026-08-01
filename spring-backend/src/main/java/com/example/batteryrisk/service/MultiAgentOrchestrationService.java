@@ -103,10 +103,16 @@ public class MultiAgentOrchestrationService {
                         externalSignal
                 );
 
+        String materialCategoryForOutbound =
+                externalSignal.materialCategory() != null
+                        ? externalSignal.materialCategory()
+                        : erpRepository.findMaterialCategory(erp.materialId())
+                                .orElse(null);
+
         OutboundContractResolution outboundResolution =
                 resolveOutboundContract(
                         request.country(),
-                        externalSignal.materialCategory()
+                        materialCategoryForOutbound
                 );
 
         MultiAgentDto.Request fastApiRequest =
@@ -263,8 +269,11 @@ public class MultiAgentOrchestrationService {
      * 세 값 다 null로 폴백한다 — {@link KgResolverService}와 같은 방침. FastAPI는 이 값들이 없으면
      * 아웃바운드 배상책임 조회 단계를 건너뛴다.
      *
-     * <p>materialCategory는 외부신호를 요청 본문으로 직접 넣은 경우 null일 수 있고, 그때는
-     * {@link KgResolverService#resolve}가 곧바로 매칭없음으로 처리한다.
+     * <p>materialCategory는 외부신호를 요청 본문으로 직접 넣은 경우(analysisId 미사용) 원래
+     * null이었다 — 호출부(generate())에서 이제 erp.materialId() 기반으로 폴백해서 채운다
+     * (2026-07-31 실증: 이 폴백 없이는 direct-signal 경로로 아웃바운드 배상책임이 한 번도
+     * 안 잡혔다). 그래도 폴백 조회(materials.material_category)가 비어 있으면 여전히 null이고,
+     * 그때는 {@link KgResolverService#resolve}가 곧바로 매칭없음으로 처리한다.
      */
     private OutboundContractResolution resolveOutboundContract(
             String countryCode, String materialCategory

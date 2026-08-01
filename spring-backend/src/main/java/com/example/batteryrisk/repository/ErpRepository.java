@@ -286,6 +286,21 @@ public class ErpRepository {
         return resolveId("materials", "material_id", "erp_material_id", erpMaterialId);
     }
 
+    /**
+     * KG 리졸버 kg_service /resolve가 요구하는 자재 대분류(LITHIUM/COBALT/...).
+     *
+     * <p>{@code analysis_id} 경로가 아니라 외부신호를 요청 본문에 직접 실은 경우
+     * externalSignal.materialCategory()가 null이라 아웃바운드 계약 리졸브가 조용히
+     * 건너뛰어졌다(2026-07-31 실증 — 콩고+코발트를 직접 호출해도 아웃바운드 배상책임이
+     * 한 번도 안 잡혔음). 이미 알고 있는 material_id로 조회하는 폴백이라 추가 호출 없이 해결된다.
+     */
+    public Optional<String> findMaterialCategory(long materialId) {
+        return first(jdbc.query("""
+                SELECT material_category FROM materials WHERE material_id = :materialId
+                """, new MapSqlParameterSource("materialId", materialId),
+                (rs, rowNum) -> rs.getString("material_category")));
+    }
+
     public Optional<Long> resolveSupplierId(String erpSupplierId) {
         return resolveId("suppliers", "supplier_id", "erp_supplier_id", erpSupplierId);
     }
