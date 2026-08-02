@@ -5,6 +5,11 @@ from app.multi_agent.llm.client import (
     get_anthropic_client,
     get_anthropic_max_tokens,
     get_anthropic_model,
+    get_openai_briefing_client,
+    get_openai_briefing_model,
+)
+from app.multi_agent.llm.config import (
+    use_claude_for_briefing,
 )
 from app.multi_agent.llm.schemas import (
     ResponseAgentOutput,
@@ -211,37 +216,77 @@ def build_response_payload(
     }
 
 
-def generate_response_with_llm(
-    state: BriefingState,
-) -> dict:
-    """
-    Claude Sonnet 5의 구조화된 출력으로
-    구매팀 브리핑과 권고 조치를 생성한다.
-    """
+def _generate_with_claude(payload_json: str) -> ResponseAgentOutput | None:
+    """Claude(Anthropic) 구조화 출력. 운영 경로."""
 
-    client = get_anthropic_client()
-    model = get_anthropic_model()
-    max_tokens = get_anthropic_max_tokens()
-    payload = build_response_payload(state)
-
-    response = client.messages.parse(
-        model=model,
-        max_tokens=max_tokens,
+    response = get_anthropic_client().messages.parse(
+        model=get_anthropic_model(),
+        max_tokens=get_anthropic_max_tokens(),
         system=SYSTEM_PROMPT,
         messages=[
             {
                 "role": "user",
-                "content": json.dumps(
-                    payload,
-                    ensure_ascii=False,
-                    default=str,
-                ),
+                "content": payload_json,
             },
         ],
         output_format=ResponseAgentOutput,
     )
 
-    parsed = response.parsed_output
+    return response.parsed_output
+
+
+def _generate_with_openai(payload_json: str) -> ResponseAgentOutput | None:
+    """
+    OpenAI 구조화 출력. `BRIEFING_USE_CLAUDE=false`일 때만 쓰인다.
+
+    같은 `SYSTEM_PROMPT`·같은 페이로드·같은 출력 스키마를 쓴다 — 다른 것은 호출 SDK뿐이라
+    두 경로의 결과를 나란히 비교할 수 있다. Anthropic이 `system`을 별도 인자로 받는 것과
+    달리 OpenAI는 첫 메시지의 role로 받으므로 그 부분만 모양이 다르다.
+
+    `max_tokens`를 넘기지 않는다. 그 값은 Claude의 extended thinking 예산까지 함께
+    계산해 8192로 잡은 것이라(2026-07-31 실측) thinking이 없는 모델에 그대로 적용할 근거가
+    없다. 모델 기본 상한에 맡긴다.
+    """
+
+    response = get_openai_briefing_client().chat.completions.parse(
+        model=get_openai_briefing_model(),
+        messages=[
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": payload_json,
+            },
+        ],
+        response_format=ResponseAgentOutput,
+    )
+
+    return response.choices[0].message.parsed
+
+
+def generate_response_with_llm(
+    state: BriefingState,
+) -> dict:
+    """
+    구조화된 출력으로 구매팀 브리핑과 권고 조치를 생성한다.
+
+    provider는 `BRIEFING_USE_CLAUDE`가 정한다(기본 Claude). 어느 쪽이든 실패하면 예외를
+    올리고, `briefing_node`가 그것을 잡아 규칙 기반 브리핑으로 폴백한다.
+    """
+
+    payload_json = json.dumps(
+        build_response_payload(state),
+        ensure_ascii=False,
+        default=str,
+    )
+
+    parsed = (
+        _generate_with_claude(payload_json)
+        if use_claude_for_briefing()
+        else _generate_with_openai(payload_json)
+    )
 
     if parsed is None:
         raise RuntimeError(

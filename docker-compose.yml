@@ -46,12 +46,34 @@ services:
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-3072}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # .env에 있었지만 컨테이너로 전달되지 않아 코드 기본값만 먹고 있었다(2026-08-03 확인).
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
       # 브리핑 생성 LLM(claude-sonnet-5). 없으면 use_llm=true여도 LLM 호출이 실패한다.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # 기본 30s는 구조화 출력(계약 근거 다건 포함) 프롬프트에 실제로 부족해 APITimeoutError로
       # 폴백되는 것을 실증했다(2026-07-31). 여유 있게 잡는다.
       ANTHROPIC_TIMEOUT_SECONDS: ${ANTHROPIC_TIMEOUT_SECONDS:-90}
+      # 브리핑 1건의 출력 예산. **extended thinking이 이 예산을 함께 쓴다.**
+      # 4096으로는 thinking이 4095를 다 써버려 구조화 출력이 통째로 잘리고
+      # (stop_reason=max_tokens) ValidationError → 규칙 기반 폴백으로 떨어지는 것을
+      # 실증했다(2026-07-31, 콩고+코발트). 8192는 같은 입력에서 thinking 3176 +
+      # output 5325로 여유 있게 끝난다. 줄이려면 실측부터 다시 할 것.
+      #
+      # 지금까지 config.py의 코드 기본값에만 있어서 .env에 적어도 컨테이너까지 전달되지
+      # 않았다(값을 바꾸려면 이미지를 다시 빌드해야 했다) — 여기 올려 환경변수로 조절한다.
+      ANTHROPIC_MAX_TOKENS: ${ANTHROPIC_MAX_TOKENS:-8192}
+      # 브리핑 문장을 Claude로 쓸지(true·기본) OpenAI로 쓸지(false).
+      # false는 Anthropic 키가 아직 없을 때 브리핑 경로(페이로드 조립 → 구조화 출력 →
+      # DB 적재)를 확인하는 용도다. 추출·번역이 쓰는 OPENAI_API_KEY를 그대로 재사용한다.
+      #   ⚠️ OpenAI 경로로는 **thinking 토큰이 max_tokens를 잠식하는 문제를 검증하지 못한다.**
+      #      2026-07-31에 실제로 터졌던 그 버그는 extended thinking이 있는 Claude에서만
+      #      재현되므로, 여기서 초록불이 떠도 Claude 경로의 보증이 아니다.
+      #   ⚠️ 프롬프트가 Claude 기준으로 튜닝돼 있어 문장 품질이 다르다. 그 사실은
+      #      결과의 warnings에 남는다.
+      BRIEFING_USE_CLAUDE: ${BRIEFING_USE_CLAUDE:-true}
+      # 브리핑만 다른 OpenAI 모델로 돌리고 싶을 때. 미설정이면 OPENAI_MODEL을 따른다.
+      BRIEFING_OPENAI_MODEL: ${BRIEFING_OPENAI_MODEL:-}
       # [surin F9] FastAPI supplier_recommendation_service가 Spring /api/v1/suppliers/qualified로 콜백. docker 네트워크에선 서비스명 spring 사용(localhost 아님).
       SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
       # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 host.docker.internal로 접근한다.

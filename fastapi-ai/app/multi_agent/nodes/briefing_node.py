@@ -1,4 +1,10 @@
 from app.multi_agent.graph.state import BriefingState
+from app.multi_agent.llm.client import (
+    get_openai_briefing_model,
+)
+from app.multi_agent.llm.config import (
+    use_claude_for_briefing,
+)
 from app.multi_agent.llm.response_generator import (
     generate_response_with_llm,
 )
@@ -105,7 +111,7 @@ def generate_briefing_node(
                 state,
             )
 
-            return {
+            result = {
                 "recommended_actions": (
                     llm_result["recommended_actions"]
                 ),
@@ -113,6 +119,21 @@ def generate_briefing_node(
                 "llm_used": True,
                 "llm_error": None,
             }
+
+            # 운영 경로(Claude)가 아니면 어느 모델이 썼는지 결과에 남긴다. llm_used만으로는
+            # "LLM이 썼다"까지만 알 수 있어, 나중에 이 브리핑을 보고 Claude가 쓴 문장으로
+            # 오해할 수 있다. KG 게이트 우회 표식과 같은 이유다.
+            if not use_claude_for_briefing():
+                result["warnings"] = [
+                    *state.get("warnings", []),
+                    (
+                        "브리핑을 OpenAI로 생성했습니다"
+                        f"(BRIEFING_USE_CLAUDE=false, {get_openai_briefing_model()}). "
+                        "운영 경로인 Claude와 문장 품질이 다를 수 있습니다."
+                    ),
+                ]
+
+            return result
 
         except Exception as error:
             # API 장애, timeout 또는 출력 검증 실패 시에도
