@@ -202,7 +202,8 @@ class RiskMonitoringGradingTest {
                 "LITHIUM", "PRODUCTION", OffsetDateTime.now(), BigDecimal.valueOf(54), "NORMAL",
                 erpExposureScore, erpExposureScore == null ? null : BigDecimal.valueOf(30),
                 score, level, List.of("근거"), Map.of(), Map.of(),
-                "procurement-risk-v1", false, true, false, false, OffsetDateTime.now());
+                "procurement-risk-v1", false, true, false, false, OffsetDateTime.now(),
+                null, List.of(), List.of(), List.of());
     }
 
     private static RawEvent newsEvent(long id, String country) {

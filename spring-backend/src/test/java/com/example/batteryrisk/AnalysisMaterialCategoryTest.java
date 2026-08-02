@@ -78,7 +78,9 @@ class AnalysisMaterialCategoryTest {
                         new AnalysisDto.FastApiClassification("PRODUCTION", 0.9, "v1", false),
                         new AnalysisDto.FastApiSeverity(severity, 50.4, List.of("BASE_SCORE_ONLY"), "v1", false),
                         false,
-                        affectedMaterials),
+                        affectedMaterials,
+                        null,
+                        null),
                 Instant.now());
     }
 
