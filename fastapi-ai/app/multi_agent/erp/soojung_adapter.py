@@ -8,11 +8,31 @@ from app.adapters.erp_agent_adapter import (
 from app.agents.erp_exposure_agent import (
     runErpExposureAgent,
 )
+from app.multi_agent.graph.routing import (
+    MAX_NEGOTIATION_ROUNDS,
+)
 from app.schemas.erp import (
     AlternativeSupplierStatus,
     ErpExposureRequest,
     ErpExposureResponse,
+    ErpRiskComponents,
 )
+from app.services.erp_calculator import (
+    calculateErpExposureScore,
+)
+from app.services.erp_rule_loader import (
+    loadErpRules,
+)
+
+
+# 재검토 라운드에서 점수 변화가 이보다 작으면 더 물어봐도 의미 없다고 보고 수렴시킨다.
+SCORE_CONVERGENCE_THRESHOLD = 5
+
+# 보호 근거를 못 찾은 걸로 치는 protection_status
+UNPROTECTED_STATUSES = ("unprotected", "not_found")
+
+# 계속 협상할 가치가 있다고 보는 노출등급 — 정상(normal)이면 더 물을 이유 없음
+STILL_RISKY_EXPOSURE_LEVELS = ("critical", "warning")
 
 
 def build_erp_findings(
@@ -294,11 +314,17 @@ def recheck_soojung_erp_node(
     state: dict[str, Any],
 ) -> dict[str, Any]:
     """
-    Contract Agent 검색 결과를 반영해
-    수정님 ERP 분석 결과를 재검토한다.
+    Contract Agent 검색 결과를 반영해 ERP 분석 결과를 재검토한다.
 
-    계약 검색만으로 ERP 원천 수치나 점수를 임의로 변경하지 않고,
-    실제 납기 변경 반영 여부는 담당자 확인 대상으로 남긴다.
+    이전에는 계약 검색 결과와 무관하게 score_after를 score_before와 항상 같게
+    둬서 "재검토"가 이름만 있고 실제로는 아무것도 안 바뀌었다. 이제는
+    contract_gap_score를 ERP 리스크 공식의 6번째 구성요소(contractProtection,
+    erp_rules.yaml)로 실제로 채워 넣고 calculateErpExposureScore로 다시 계산한다.
+
+    최대 MAX_NEGOTIATION_ROUNDS 라운드까지 왕복 가능 — 아직 보호 근거를
+    못 찾았는데 리스크 등급이 여전히 위험하면 Contract Agent에게 한 번 더
+    확인을 요청하고(questions_for_contract_agent_round2), 점수가 수렴했거나
+    라운드 상한에 닿으면 협상을 종료한다.
     """
 
     erp_assessment = dict(
@@ -312,10 +338,20 @@ def recheck_soojung_erp_node(
         0,
     )
 
+    negotiation_round = (
+        state.get("negotiation_round", 0) + 1
+    )
+
     questions = list(
         state.get(
             "questions_for_erp_agent",
             [],
+        )
+    )
+    contract_assessment = dict(
+        state.get(
+            "contract_assessment",
+            {},
         )
     )
     contract_findings = list(
@@ -324,20 +360,54 @@ def recheck_soojung_erp_node(
             [],
         )
     )
+    contract_gap_score = contract_assessment.get(
+        "contract_gap_score",
+    )
+    protection_status = contract_assessment.get(
+        "protection_status",
+    )
 
     findings = []
+    risk_components_dict = dict(
+        erp_assessment.get(
+            "risk_components",
+            {},
+        )
+    )
 
-    if contract_findings:
+    if contract_gap_score is not None:
+        risk_components_dict[
+            "contractProtectionRiskScore"
+        ] = contract_gap_score
+
+        rules = loadErpRules()
+        recalculated_score = calculateErpExposureScore(
+            riskComponents=ErpRiskComponents.model_validate(
+                risk_components_dict,
+            ),
+            rules=rules,
+        )
+        score_after = (
+            recalculated_score
+            if recalculated_score is not None
+            else score_before
+        )
+
         findings.append(
-            "계약 검색 근거를 수신했습니다. "
-            "계약 조건이 실제 발주 납기와 ERP 계획에 "
-            "반영됐는지는 담당자 확인이 필요합니다."
+            f"{negotiation_round}차 재검토: 계약 근거 반영 전 "
+            f"{score_before}점 → 반영 후 {score_after}점 "
+            f"(계약 보호 공백 점수 {contract_gap_score}점 반영, "
+            f"protection_status={protection_status})"
         )
     else:
+        score_after = score_before
         findings.append(
             "관련 계약 근거를 검색 결과에서 확인하지 못했습니다. "
             "ERP 재고 계획과 계약서를 추가로 확인해야 합니다."
         )
+
+    erp_assessment["erp_exposure_score"] = score_after
+    erp_assessment["risk_components"] = risk_components_dict
 
     existing_findings = list(
         erp_assessment.get(
@@ -352,18 +422,58 @@ def recheck_soojung_erp_node(
 
     erp_assessment["findings"] = existing_findings
 
+    # 종료/계속 협상 판정.
+    score_delta = abs(score_after - score_before)
+    round_capped = (
+        negotiation_round >= MAX_NEGOTIATION_ROUNDS
+    )
+    converged_by_score = (
+        score_delta < SCORE_CONVERGENCE_THRESHOLD
+    )
+    exposure_level = erp_assessment.get(
+        "exposure_level",
+    )
+
+    if round_capped or converged_by_score:
+        questions_for_contract_agent_round2: list[str] = []
+    else:
+        still_uncertain = (
+            protection_status in UNPROTECTED_STATUSES
+            and exposure_level
+            in STILL_RISKY_EXPOSURE_LEVELS
+        )
+
+        questions_for_contract_agent_round2 = (
+            [
+                "현재까지 발견된 계약 조항으로는 리스크가 "
+                "해소되지 않습니다. 불가항력, 공급 물량 확약 등 "
+                "다른 보호조항이 있는지 다시 확인해야 합니다."
+            ]
+            if still_uncertain
+            else []
+        )
+
     return {
         "erp_assessment": erp_assessment,
         "erp_findings": erp_assessment,
         "erp_reassessment": {
             "score_before": score_before,
-            "score_after": score_before,
+            "score_after": score_after,
             "checked_questions": questions,
             "contract_evidence_count": len(
                 contract_findings,
             ),
             "findings": findings,
-            "requires_human_confirmation": True,
+            "requires_human_confirmation": (
+                bool(questions_for_contract_agent_round2)
+                or contract_gap_score is None
+            ),
         },
-        "erp_reassessment_done": True,
+        "negotiation_round": negotiation_round,
+        # 이번 라운드 질문은 소비했으니 비워서 supervisor가 같은 질문으로
+        # erp_recheck에 재진입하지 않게 한다.
+        "questions_for_erp_agent": [],
+        "questions_for_contract_agent_round2": (
+            questions_for_contract_agent_round2
+        ),
     }

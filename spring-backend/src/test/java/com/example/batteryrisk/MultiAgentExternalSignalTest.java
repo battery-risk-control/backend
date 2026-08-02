@@ -10,6 +10,7 @@ import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.ErpRepository;
 import com.example.batteryrisk.repository.ProcurementRiskRepository;
 import com.example.batteryrisk.service.ErpService;
+import com.example.batteryrisk.service.KgResolverService;
 import com.example.batteryrisk.service.MultiAgentOrchestrationService;
 import com.example.batteryrisk.service.MultiAgentService;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -91,6 +93,8 @@ class MultiAgentExternalSignalTest {
     private MultiAgentService multiAgentService;
     private AnalysisRepository analysisRepository;
     private ProcurementRiskRepository procurementRiskRepository;
+    private KgResolverService kgResolverService;
+    private ErpRepository erpRepository;
     private MultiAgentOrchestrationService service;
 
     @BeforeEach
@@ -99,9 +103,13 @@ class MultiAgentExternalSignalTest {
         multiAgentService = mock(MultiAgentService.class);
         analysisRepository = mock(AnalysisRepository.class);
         procurementRiskRepository = mock(ProcurementRiskRepository.class);
+        kgResolverService = mock(KgResolverService.class);
+        erpRepository = mock(ErpRepository.class);
+        when(kgResolverService.resolve(any(), any()))
+                .thenReturn(KgResolverService.KgResolveResult.NOT_MATCHED);
         service = new MultiAgentOrchestrationService(
-                erpService, multiAgentService, mock(ErpRepository.class),
-                analysisRepository, procurementRiskRepository);
+                erpService, multiAgentService, erpRepository,
+                analysisRepository, procurementRiskRepository, kgResolverService);
         when(erpService.buildContext(any())).thenReturn(erpContext());
         when(multiAgentService.generate(any())).thenReturn(stubResponse());
     }
@@ -135,7 +143,8 @@ class MultiAgentExternalSignalTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         MultiAgentOrchestrationService seamService = new MultiAgentOrchestrationService(
                 erpService, new MultiAgentService(builder.build()),
-                mock(ErpRepository.class), analysisRepository, procurementRiskRepository);
+                mock(ErpRepository.class), analysisRepository, procurementRiskRepository,
+                kgResolverService);
 
         Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
         when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
@@ -158,6 +167,73 @@ class MultiAgentExternalSignalTest {
         server.verify();
         // kg* 필드가 늘어나도 기존 응답 파싱이 깨지지 않아야 한다.
         assertThat(response.procurementRiskScore()).isEqualTo(72);
+    }
+
+    /**
+     * KG가 재고부족을 확정하고 연결된 아웃바운드 계약을 돌려주면, Spring이 그 외부ID를
+     * 내부 PK로 리졸브해서 FastAPI 요청에 실어 보내는지 확인한다.
+     */
+    @Test
+    void resolvesOutboundContractWhenKgConfirmsShortage() {
+        when(kgResolverService.resolve(eq("CL"), eq("LITHIUM")))
+                .thenReturn(new KgResolverService.KgResolveResult(
+                        true, "SUP-CHL-01", List.of("CTR-OUT-005")));
+        when(erpRepository.resolveOutboundContractId("CTR-OUT-005"))
+                .thenReturn(Optional.of(501L));
+        when(erpRepository.findOutboundContractProductCustomer(501L))
+                .thenReturn(Optional.of(
+                        new ErpRepository.OutboundContractProductCustomer(601L, 701L)));
+
+        Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
+        when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
+
+        service.generate(request(analysis.getAnalysisId(), null, null));
+
+        MultiAgentDto.Request sent = captureFastApiRequest();
+        assertThat(sent.outboundContractId()).isEqualTo(501L);
+        assertThat(sent.outboundProductId()).isEqualTo(601L);
+        assertThat(sent.outboundCustomerId()).isEqualTo(701L);
+    }
+
+    /**
+     * kg_service가 재고부족을 확정 못 하거나(매칭없음/재고충분) 아웃바운드 계약이 아예 없는
+     * 경우는 부가 기능이 조용히 비어야 한다 — 예외를 던지면 안 되고, FastAPI 요청도 그대로
+     * 나가야 한다(기존처럼 아웃바운드 없이).
+     */
+    @Test
+    void outboundFieldsStayNullWhenKgDoesNotConfirmShortage() {
+        Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
+        when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
+
+        service.generate(request(analysis.getAnalysisId(), null, null));
+
+        MultiAgentDto.Request sent = captureFastApiRequest();
+        assertThat(sent.outboundContractId()).isNull();
+        assertThat(sent.outboundProductId()).isNull();
+        assertThat(sent.outboundCustomerId()).isNull();
+    }
+
+    /**
+     * 외부ID→내부PK 리졸브가 실패해도(아직 안 올라온 계약 등) 나머지 요청은 정상 진행돼야 한다 —
+     * KgResolverService와 같은 "부가 기능은 실패해도 흡수" 방침.
+     */
+    @Test
+    void outboundFieldsStayNullWhenResolveFails() {
+        when(kgResolverService.resolve(eq("CL"), eq("LITHIUM")))
+                .thenReturn(new KgResolverService.KgResolveResult(
+                        true, "SUP-CHL-01", List.of("CTR-OUT-999")));
+        when(erpRepository.resolveOutboundContractId("CTR-OUT-999"))
+                .thenReturn(Optional.empty());
+
+        Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
+        when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
+
+        service.generate(request(analysis.getAnalysisId(), null, null));
+
+        MultiAgentDto.Request sent = captureFastApiRequest();
+        assertThat(sent.outboundContractId()).isNull();
+        assertThat(sent.outboundProductId()).isNull();
+        assertThat(sent.outboundCustomerId()).isNull();
     }
 
     @Test

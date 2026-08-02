@@ -24,6 +24,8 @@ class FakeRagService:
         supplier_id: int | None,
         top_k: int,
         material_id: int | None = None,
+        product_id: int | None = None,
+        customer_id: int | None = None,
     ) -> list[FakeSearchResult]:
         return [
             FakeSearchResult(

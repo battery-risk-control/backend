@@ -145,6 +145,18 @@ public final class MultiAgentDto {
             @JsonProperty("rag_material_id")
             Long ragMaterialId,
 
+            // 재고부족이 KG로 확정된 원자재와 연결된 아웃바운드(완성차 고객사) 계약. 리졸브
+            // 실패(아웃바운드 계약 없음/매칭 안 됨)하면 셋 다 null — FastAPI는 그 경우 아웃바운드
+            // 조회를 건너뛴다.
+            @JsonProperty("outbound_contract_id")
+            Long outboundContractId,
+
+            @JsonProperty("outbound_product_id")
+            Long outboundProductId,
+
+            @JsonProperty("outbound_customer_id")
+            Long outboundCustomerId,
+
             @JsonProperty("use_llm")
             boolean useLlm
     ) {}

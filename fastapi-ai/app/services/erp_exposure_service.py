@@ -455,11 +455,15 @@ def buildCalculationEvidence(
             metric="erpExposureScore",
             value=erpExposureScore,
             formula=(
-                "gapRiskScore*0.35"
-                " + safetyStockRiskScore*0.20"
-                " + dependencyRiskScore*0.20"
-                " + purchaseOrderDelayRiskScore*0.15"
-                " + alternativeSupplierRiskScore*0.10"
+                "contractProtectionRiskScore가 없으면(최초 계산) "
+                "gapRiskScore*0.30 + safetyStockRiskScore*0.17"
+                " + dependencyRiskScore*0.17"
+                " + purchaseOrderDelayRiskScore*0.13"
+                " + alternativeSupplierRiskScore*0.08"
+                " (5개 가중치 합 0.85로 재정규화). "
+                "협상 라운드에서 contractProtectionRiskScore가 채워지면 "
+                "여기에 contractProtectionRiskScore*0.15를 더한 6개 가중합"
+                "(합계 1.0, 재정규화 없음)."
             ),
             inputs={
                 "gapRiskScore": (
@@ -480,6 +484,10 @@ def buildCalculationEvidence(
                 "alternativeSupplierRiskScore": (
                     riskComponents
                     .alternativeSupplierRiskScore
+                ),
+                "contractProtectionRiskScore": (
+                    riskComponents
+                    .contractProtectionRiskScore
                 ),
             },
             sourceRecordIds=[],

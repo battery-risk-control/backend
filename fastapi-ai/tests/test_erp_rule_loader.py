@@ -29,21 +29,30 @@ def testWeightSum() -> None:
 
 
 def testRequiredWeights() -> None:
+    # 원래 5개 가중치는 0.35/0.20/0.20/0.15/0.10이었으나, contractProtection(0.15)이
+    # 새로 추가되면서 나머지 5개를 원래 비율 그대로 0.85로 비례 축소했다
+    # (calculateErpExposureScore가 contractProtectionRiskScore가 없을 때 /0.85로
+    # 재정규화하므로, 최초 계산 결과는 예전과 완전히 동일해야 한다 — 그래서 반올림하지
+    # 않은 정확한 값을 쓴다: 0.35*0.85=0.2975, 0.15*0.85=0.1275, 0.10*0.85=0.085).
     rules = loadErpRules()
 
-    assert rules["weights"]["supplyGap"] == 0.35
-    assert rules["weights"]["safetyStock"] == 0.20
+    assert rules["weights"]["supplyGap"] == 0.2975
+    assert rules["weights"]["safetyStock"] == 0.17
     assert (
         rules["weights"]["supplierDependency"]
-        == 0.20
+        == 0.17
     )
     assert (
         rules["weights"]["purchaseOrderDelay"]
-        == 0.15
+        == 0.1275
     )
     assert (
         rules["weights"]["alternativeSupplier"]
-        == 0.10
+        == 0.085
+    )
+    assert (
+        rules["weights"]["contractProtection"]
+        == 0.15
     )
 
 # 같은 중복 키가 append돼도 즉시 잡힘. 재발 방지용 추가

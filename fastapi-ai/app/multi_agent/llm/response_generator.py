@@ -2,8 +2,9 @@ import json
 
 from app.multi_agent.graph.state import BriefingState
 from app.multi_agent.llm.client import (
-    get_openai_client,
-    get_openai_model,
+    get_anthropic_client,
+    get_anthropic_max_tokens,
+    get_anthropic_model,
 )
 from app.multi_agent.llm.schemas import (
     ResponseAgentOutput,
@@ -39,6 +40,28 @@ SYSTEM_PROMPT = """
     현재 재고 소진부터 다음 입고까지 이어지는 예상 공급 공백 기간입니다.
     예를 들어 값이 1.5이면 '1.5일 후 부족'이 아니라
     '약 1.5일의 공급 공백이 예상된다'고 표현하세요.
+14. stockout_before_eta가 true라면 erp_assessment.supplier_assessments와
+    kg_evidence.alternative_suppliers를 확인해서 구체적인 대체 공급사
+    후보를 언급하고, 승인상태·리드타임 등 왜 그 후보가 적합한지 근거를
+    함께 제시하세요. 후보가 없거나 비어 있으면 등록된 대체 공급사가
+    없다고 명시하세요.
+15. contract_findings 중 clause_type이 force_majeure, delivery_delay,
+    volume_commitment, termination인 항목이 있으면 그 원문
+    (evidence_text)을 근거로 공급사에게 요구할 수 있는 조치를
+    제시하세요.
+16. 규칙 15에 따라 "이걸 요구할 수 있다"고 쓸 때는 반드시 evidence_text
+    원문에서 그 의무를 지는 주체가 공급사인지 LG엔솔인지 실제로
+    확인하세요. clause_type이라는 이름(예: delivery_delay)은 조항의
+    주제일 뿐 의무 방향을 보장하지 않습니다. 원문에 의무 주체가
+    명확히 나와 있지 않으면 "어느 쪽 의무인지 계약 원문 추가 확인
+    필요"라고 표현하고 LG엔솔에 유리한 방향으로 단정하지 마세요.
+17. outbound_contract_findings가 있으면, 원자재 공급 차질이 지속될 경우
+    발생할 수 있는 완성차 고객사 납품 지연의 배상책임(지체상금 등)을
+    그 원문(evidence_text) 근거와 함께 브리핑에 포함하세요.
+    finished_goods_inventory.available이 false이므로 완제품(배터리)
+    버퍼 재고 부족이 확정됐다고 단정하지 말고, "원자재 공급 차질이
+    지속될 경우 참고할 배상책임"이라는 조건부로 표현하세요.
+    outbound_contract_findings가 비어 있으면 이 항목은 생략하세요.
 
 브리핑에는 다음 내용을 포함하세요.
 
@@ -46,6 +69,9 @@ SYSTEM_PROMPT = """
 - 최종 위험 단계와 점수
 - ERP 노출 근거
 - 계약서에서 실제 확인된 근거
+- 대체 공급사 추천
+- 공급사에게 요구 가능한 조치(방향이 불명확하면 확인 필요로 표시)
+- 완성차 고객사 납품 지연 시 배상책임(원자재 공급 차질이 지속될 경우, 해당 시)
 - 아직 확인되지 않은 사항
 - 구매팀 권고 조치
 """.strip()
@@ -109,6 +135,17 @@ def build_response_payload(
             "contract_findings",
             [],
         ),
+        "outbound_contract_findings": state.get(
+            "outbound_contract_findings",
+            [],
+        ),
+        "finished_goods_inventory": {
+            "available": False,
+            "note": (
+                "완제품(배터리) 재고 데이터는 ERP에 없어 "
+                "실제 버퍼 여력은 확인할 수 없습니다."
+            ),
+        },
         "kg_evidence": {
             "evidence_paths": state.get(
                 "kg_evidence_paths",
@@ -130,21 +167,20 @@ def generate_response_with_llm(
     state: BriefingState,
 ) -> dict:
     """
-    GPT-4o mini의 구조화된 출력으로
+    Claude Sonnet 5의 구조화된 출력으로
     구매팀 브리핑과 권고 조치를 생성한다.
     """
 
-    client = get_openai_client()
-    model = get_openai_model()
+    client = get_anthropic_client()
+    model = get_anthropic_model()
+    max_tokens = get_anthropic_max_tokens()
     payload = build_response_payload(state)
 
-    response = client.responses.parse(
+    response = client.messages.parse(
         model=model,
-        input=[
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT,
-            },
+        max_tokens=max_tokens,
+        system=SYSTEM_PROMPT,
+        messages=[
             {
                 "role": "user",
                 "content": json.dumps(
@@ -154,10 +190,10 @@ def generate_response_with_llm(
                 ),
             },
         ],
-        text_format=ResponseAgentOutput,
+        output_format=ResponseAgentOutput,
     )
 
-    parsed = response.output_parsed
+    parsed = response.parsed_output
 
     if parsed is None:
         raise RuntimeError(

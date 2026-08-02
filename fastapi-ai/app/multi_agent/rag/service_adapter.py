@@ -23,6 +23,8 @@ class RagSearchService(Protocol):
         supplier_id: int | None,
         top_k: int,
         material_id: int | None = None,
+        product_id: int | None = None,
+        customer_id: int | None = None,
     ) -> list[RagSearchResultItem]:
         ...
 
@@ -33,6 +35,8 @@ def search_contract_evidence(
     contract_id: int | None = None,
     supplier_id: int | None = None,
     material_id: int | None = None,
+    product_id: int | None = None,
+    customer_id: int | None = None,
     top_k: int = 5,
 ) -> list[dict]:
     results = service.search(
@@ -40,6 +44,8 @@ def search_contract_evidence(
         contract_id=contract_id,
         supplier_id=supplier_id,
         material_id=material_id,
+        product_id=product_id,
+        customer_id=customer_id,
         top_k=top_k,
     )
 

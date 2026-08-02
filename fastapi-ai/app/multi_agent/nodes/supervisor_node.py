@@ -1,4 +1,5 @@
 from app.multi_agent.graph.routing import (
+    MAX_NEGOTIATION_ROUNDS,
     MAX_RETRY_COUNT,
     SupervisorRoute,
 )
@@ -47,19 +48,43 @@ def select_next_route(
     if not state.get("contract_assessment"):
         return "contract"
 
-    # Contract Agent가 ERP 확인 질문을 생성했다면
-    # ERP Agent가 계약 근거를 반영하여 한 번 재검토한다.
+    negotiation_round = state.get(
+        "negotiation_round",
+        0,
+    )
+
+    # Contract Agent가 ERP 확인 질문을 남겼고 라운드 한도 안이면
+    # ERP Agent가 계약 근거를 반영하여 재검토한다.
+    # (recheck_soojung_erp_node가 처리 후 questions_for_erp_agent를 비우므로
+    # 같은 질문으로 두 번 재진입하지 않는다.)
     if (
         state.get("questions_for_erp_agent")
-        and not state.get(
-            "erp_reassessment_done",
-            False,
-        )
+        and negotiation_round < MAX_NEGOTIATION_ROUNDS
     ):
         return "erp_recheck"
 
+    # ERP 재검토가 "아직 근거가 부족하다"며 Contract Agent에게 한 번 더
+    # 확인을 요청했고 라운드 한도 안이면 — 진짜 왕복 협상.
+    if (
+        state.get("questions_for_contract_agent_round2")
+        and negotiation_round < MAX_NEGOTIATION_ROUNDS
+    ):
+        return "contract"
+
     if state.get("procurement_risk_level") is None:
         return "risk"
+
+    # 재고부족이 확정된 원자재(stockout_before_eta)와 연결된 아웃바운드 계약이 있으면
+    # 완성차 고객사 납품 지연 시 배상책임을 한 번만 조회한다(왕복 없는 단발성 조회).
+    # 완제품 재고 데이터가 없어 "실제로 늦어질지"는 확정 못 하므로, 원자재가 끊길
+    # 가능성이 있는 경우로 게이트를 좁혀서 불필요한 조회를 줄인다.
+    erp_assessment = state.get("erp_assessment", {})
+    if (
+        not state.get("outbound_contract_checked")
+        and erp_assessment.get("stockout_before_eta") is True
+        and state.get("outbound_contract_id") is not None
+    ):
+        return "outbound_contract"
 
     if not state.get("briefing"):
         return "response"
