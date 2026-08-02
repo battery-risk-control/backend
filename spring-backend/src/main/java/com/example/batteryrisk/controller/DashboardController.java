@@ -4,6 +4,7 @@ import com.example.batteryrisk.dto.ApiResponse;
 import com.example.batteryrisk.dto.DashboardDto;
 import com.example.batteryrisk.dto.PageResponse;
 import com.example.batteryrisk.service.DashboardService;
+import com.example.batteryrisk.service.SupplierOverviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.constraints.Max;
@@ -31,9 +32,12 @@ import java.util.List;
 @Validated
 public class DashboardController {
     private final DashboardService dashboardService;
+    private final SupplierOverviewService supplierOverviewService;
 
-    public DashboardController(DashboardService dashboardService) {
+    public DashboardController(
+            DashboardService dashboardService, SupplierOverviewService supplierOverviewService) {
         this.dashboardService = dashboardService;
+        this.supplierOverviewService = supplierOverviewService;
     }
 
     @Operation(
@@ -84,6 +88,26 @@ public class DashboardController {
     @GetMapping("/purchasing-dashboard/material-risk-summary")
     public ApiResponse<List<DashboardDto.MaterialRiskSummaryItem>> materialRiskSummary() {
         return ApiResponse.ok(dashboardService.materialRiskSummary());
+    }
+
+    @Operation(
+            summary = "공급사 현황 및 대체 공급사 추천",
+            description = """
+                    왼쪽 카드용 현재 주 공급사(발주 금액 1위)와 오른쪽 카드용 대체 후보 3건을 함께 반환합니다.
+
+                    현재 공급사의 dependency_ratio는 전체 발주 금액 대비 비중입니다. 수입 의존도 도넛과
+                    같은 규칙으로 통화별 발주를 한국수출입은행 고시 매매기준율로 원화 환산한 뒤 계산하며,
+                    환산할 수 없는 통화의 발주는 분모·분자에서 제외됩니다.
+
+                    대체 후보는 가장 최근 분석의 analysis_supplier_recommendations를 rank 순으로 냅니다.
+                    supplier_status·risk_level은 저장 시점이 아니라 suppliers의 현재 값입니다 —
+                    추천은 과거 시점 결과지만 "지금 발주 가능한가"는 지금 기준이어야 하기 때문입니다.
+                    recommendation_reason이 함께 오므로 화면은 "왜 이 공급사인지"를 그대로 보여주면 됩니다.
+
+                    발주가 없으면 current가 null, 추천이 저장된 분석이 없으면 alternatives가 빈 배열입니다.""")
+    @GetMapping("/purchasing-dashboard/supplier-overview")
+    public ApiResponse<DashboardDto.SupplierOverview> supplierOverview() {
+        return ApiResponse.ok(supplierOverviewService.overview());
     }
 
     @Operation(

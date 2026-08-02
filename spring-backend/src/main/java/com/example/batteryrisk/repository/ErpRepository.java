@@ -567,6 +567,46 @@ public class ErpRepository {
             LocalDate firstOrderDate,
             LocalDate lastOrderDate) {}
 
+    /**
+     * 공급사·결제통화별 발주 금액 합계. 대시보드 "공급사 현황"의 의존도 %가 여기서 나온다.
+     *
+     * <p>{@link #aggregatePurchaseAmountsByCountry()}를 공급사 단위로 내린 것이며, 통화를 합치지
+     * 않고 그대로 내보내는 이유도 같다 — 주문마다 통화가 달라 여기서 더하면 서로 다른 화폐를
+     * 더한 값이 된다. 원화 환산(고시 매매기준율)은 환율을 아는 서비스 계층이 한다.
+     */
+    public List<SupplierPurchaseAmountRow> aggregatePurchaseAmountsBySupplier() {
+        return jdbc.query("""
+                SELECT s.supplier_id, s.supplier_code, s.supplier_name, s.country_code,
+                       s.supplier_status, s.risk_level,
+                       po.currency,
+                       SUM(poi.ordered_quantity * poi.unit_price) AS amount
+                FROM purchase_order_items poi
+                JOIN purchase_orders po ON po.purchase_order_id = poi.purchase_order_id
+                JOIN suppliers s ON s.supplier_id = po.supplier_id
+                GROUP BY s.supplier_id, s.supplier_code, s.supplier_name, s.country_code,
+                         s.supplier_status, s.risk_level, po.currency
+                """, new MapSqlParameterSource(),
+                (rs, rowNum) -> new SupplierPurchaseAmountRow(
+                        rs.getLong("supplier_id"),
+                        rs.getString("supplier_code"),
+                        rs.getString("supplier_name"),
+                        rs.getString("country_code"),
+                        rs.getString("supplier_status"),
+                        rs.getString("risk_level"),
+                        rs.getString("currency"),
+                        rs.getBigDecimal("amount")));
+    }
+
+    public record SupplierPurchaseAmountRow(
+            long supplierId,
+            String supplierCode,
+            String supplierName,
+            String countryCode,
+            String supplierStatus,
+            String riskLevel,
+            String currency,
+            BigDecimal amount) {}
+
     public record MaterialRow(long materialId, String erpMaterialId, String materialName, String unit) {}
 
     public record InventoryRow(

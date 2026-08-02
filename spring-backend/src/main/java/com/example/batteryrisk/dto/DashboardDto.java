@@ -149,6 +149,61 @@ public final class DashboardDto {
             OffsetDateTime assessedAt
     ) {}
 
+    /**
+     * 대시보드 "공급사 현황 및 대체 공급사 추천".
+     *
+     * <p>왼쪽(현재 공급사)과 오른쪽(대체 후보)의 <b>원천이 다르다</b> — 현재 공급사는 ERP 발주
+     * 실적이고, 대체 후보는 분석이 돌 때 저장된 추천 결과다. 둘을 한 응답에 담는 이유는 화면이
+     * 나란히 보여주기 때문이고, 서로 다른 시점을 가리킬 수 있다는 뜻이기도 하다.
+     */
+    public record SupplierOverview(
+            /** 발주 금액(고시환율 원화 환산) 1위 공급사. 발주가 하나도 없으면 null. */
+            CurrentSupplier current,
+            /**
+             * 대체 후보. 가장 최근 분석의 추천을 rank 순으로 최대 3건 준다.
+             * 추천이 저장된 분석이 아직 없으면 빈 목록이다.
+             */
+            List<AlternativeSupplier> alternatives
+    ) {}
+
+    /**
+     * 현재 주 공급사.
+     *
+     * <p>{@code dependencyRatio}는 <b>전체 발주 금액 대비 이 공급사 비중</b>이다. 수입 의존도
+     * 도넛과 같은 집계를 공급사 단위로 내린 것이라 환산 규칙도 같다 — 통화가 섞인 발주를
+     * 한국수출입은행 고시 매매기준율로 원화 환산한 뒤 비중을 낸다. 환산할 수 없는 통화의
+     * 발주는 분모·분자 양쪽에서 빠진다(1.0으로 때우면 USD 발주가 1400배 축소된다).
+     */
+    public record CurrentSupplier(
+            String supplierCode,
+            String supplierName,
+            String countryCode,
+            String supplierStatus,
+            String riskLevel,
+            BigDecimal dependencyRatio
+    ) {}
+
+    /**
+     * 대체 공급사 후보 1건.
+     *
+     * <p>{@code recommendationReason}을 반드시 함께 내려보낸다 — "왜 이 공급사인가"가 없으면
+     * 구매팀이 화면만 보고는 판단할 수 없다. 이미 저장돼 있는 값이라 추가 계산이 없다.
+     *
+     * <p>{@code supplierStatus}는 추천 당시 값이 아니라 {@code suppliers}의 <b>현재</b> 상태다.
+     * 추천은 과거 분석 시점의 결과지만 승인 상태는 지금 기준이어야 실제로 발주할 수 있는지를
+     * 말해준다.
+     */
+    public record AlternativeSupplier(
+            int rankPosition,
+            String supplierCode,
+            String supplierName,
+            String supplierStatus,
+            String riskLevel,
+            String recommendationReason,
+            String pros,
+            String cons
+    ) {}
+
     /** 계약 목록 항목. */
     public record ContractItem(
             Long contractId,
