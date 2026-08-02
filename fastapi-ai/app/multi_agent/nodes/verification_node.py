@@ -149,7 +149,11 @@ def validate_briefing_node(
         False,
     )
 
-    warnings = []
+    # 앞선 노드가 남긴 경고를 이어받는다. 빈 리스트로 시작하면 reviewer가 실행될 때마다
+    # 그 경고들이 사라져, KG 게이트 우회처럼 **결과와 함께 남아야 할 사실**이 DB까지
+    # 도달하지 못한다(응답 스키마에 warnings 말고는 그 사실을 실어 보낼 필드가 없다).
+    # add_warning이 중복을 막으므로 reviewer가 여러 번 돌아도 같은 문구가 쌓이지 않는다.
+    warnings = list(state.get("warnings", []))
     error_owner = None
 
     if not briefing.strip():
