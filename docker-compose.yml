@@ -117,6 +117,11 @@ services:
       # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 컨테이너 네트워크 서비스명이
       # 아니라 host.docker.internal로 접근해야 한다(.env에 KG_SERVICE_BASE_URL로 설정).
       KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
+      # fastapi 서비스와 같은 변수를 공유한다 — 게이트가 두 군데(Spring: 멀티에이전트를 호출할지 /
+      # FastAPI: 그래프 안에서 KG 노드가 short-circuit할지) 있어서 한쪽만 내리면 막힌다.
+      KG_GATE_ENABLED: ${KG_GATE_ENABLED:-true}
+      # 자동 브리핑에서 LLM 문장 생성을 쓸지. off면 규칙 기반 문장만 나오고 BRIEFING_USE_CLAUDE도 무효다.
+      AUTO_BRIEFING_USE_LLM: ${AUTO_BRIEFING_USE_LLM:-true}
       JWT_SECRET: ${JWT_SECRET:-change-this-development-only-secret-key-please-override-in-env-32bytes+}
       JWT_ACCESS_TOKEN_VALIDITY_SECONDS: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:-3600}
       JWT_REFRESH_TOKEN_VALIDITY_SECONDS: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:-1209600}

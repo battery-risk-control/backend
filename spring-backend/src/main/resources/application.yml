@@ -133,6 +133,17 @@ app:
     # KG 리졸버 서비스(kg_service/, 결정사항 10번 1단계). 계약서 업로드가 새 계약을 만들면
     # 04_contracts.csv(+05_supplier_materials.csv)도 같이 갱신하고 여기다 리로드를 건다.
     base-url: ${KG_SERVICE_BASE_URL:http://localhost:8100}
+    # KG 게이트. true면 KG가 부족을 확정한 건에 대해서만 멀티에이전트 브리핑을 자동 트리거한다.
+    # false면 KG 확정 없이도 태운다 — KG 서버가 없는 개발·검증 환경용이다.
+    #
+    # 이름과 기본값을 FastAPI의 KG_GATE_ENABLED와 일부러 맞췄다. 같은 게이트가 두 군데 있기
+    # 때문이다: Spring은 "멀티에이전트를 호출할지"를, FastAPI는 "그래프 안에서 KG 노드가
+    # short-circuit할지"를 각각 판단한다. 한쪽만 내리면 나머지 한쪽에서 그대로 막힌다
+    # (2026-08-03: FastAPI만 내려둔 탓에 자동 경로가 브리핑까지 도달하지 못했다).
+    #
+    # 기본 true인 이유는 risk-scoring.enabled와 반대다. 여기서 안전한 쪽은 "원래 설계대로
+    # KG 근거가 있을 때만 태우는" 쪽이고, false는 근거 없이 공급사를 지목하게 만든다.
+    gate-enabled: ${KG_GATE_ENABLED:true}
   upload:
     max-file-size: ${UPLOAD_MAX_FILE_SIZE:52428800}
     root: ${UPLOAD_ROOT:../uploads}
@@ -198,6 +209,12 @@ app:
     #
     # 수동 트리거(POST /collection/translate)는 이 플래그와 무관하게 항상 동작한다.
     translation-enabled: ${COLLECTION_TRANSLATION_ENABLED:false}
+  multi-agent:
+    # 자동 트리거된 브리핑에서 LLM 문장 생성을 쓸지. 원래 AnalysisService에 false로 박혀 있어서
+    # 자동 경로는 규칙 기반 문장만 냈고 BRIEFING_USE_CLAUDE가 무효였다(그 플래그는 use_llm=true일
+    # 때 provider를 고르는 것이다). 여기까지 오려면 COLLECTION_ANALYSIS_ENABLED=true로 이미 LLM
+    # 비용을 감수한 상태이고 게이트 세 개를 통과한 소수 건이라 기본 true다.
+    auto-briefing-use-llm: ${AUTO_BRIEFING_USE_LLM:true}
   risk-scoring:
     # 구매 리스크 점수 자동 축적 스케줄러(F5, 비로그인 대시보드용). 기본 false — 수집 스케줄러(F4)와
     # 같은 이유로, 켜는 걸 깜빡하면 점수가 안 쌓일 뿐이지만 끄는 걸 깜빡하면 LLM 비용이 실제로 나가고
