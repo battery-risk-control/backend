@@ -78,7 +78,18 @@ public final class RiskEventDto {
             String eventSummary,
             String countryCode,
             String countryName,
-            Coordinates coordinates
+            Coordinates coordinates,
+            /**
+             * 기사 원문 링크. 절대 http(s)가 아니면 null이라 화면이 버튼을 숨긴다
+             * ({@link RiskEventService#linkableUrl}).
+             *
+             * <p>뉴스 속보에는 처음부터 있었고 지도에만 없었다 — 그래서 "최신 뉴스"에서 고른
+             * 기사에는 "기사 원문 열기"가 뜨는데 지도 마커로 고르면 안 뜨는 차이가 났다.
+             * 두 경로가 같은 상세 패널을 쓰므로 같은 필드를 실어 보낸다.
+             */
+            String sourceUrl,
+            /** 분석 생성 시각(UTC). 화면이 날짜·시각을 표기한다. */
+            java.time.Instant collectedAt
     ) {}
 
     /**

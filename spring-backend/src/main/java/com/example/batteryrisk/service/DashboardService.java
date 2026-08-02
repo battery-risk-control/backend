@@ -35,6 +35,22 @@ public class DashboardService {
         return repository.loadProcurementRiskSummary();
     }
 
+    /**
+     * 원자재별 리스크 요약 7종. 요약 행을 먼저 만들고 평가가 있는 자재에만 "주요 이슈" 3건을
+     * 채운다 — 평가가 0건인 자재까지 조회하면 7번 중 대부분이 빈 결과를 받는 낭비다.
+     */
+    public List<DashboardDto.MaterialRiskSummaryItem> materialRiskSummary() {
+        return repository.findMaterialRiskSummary().stream()
+                .map(item -> item.riskScore() == null
+                        ? item
+                        : new DashboardDto.MaterialRiskSummaryItem(
+                                item.materialCategory(), item.materialName(), item.riskScore(),
+                                item.riskLevel(), item.riskScore24hAgo(), item.scoreDelta(),
+                                item.latestAssessmentId(),
+                                repository.findMaterialRiskTopNews(item.materialCategory())))
+                .toList();
+    }
+
     public List<DashboardDto.MaterialRiskItem> materialRisks(String severity, int limit) {
         String normalized = normalize(severity);
         if (normalized != null && !LEVELS.contains(normalized)) {

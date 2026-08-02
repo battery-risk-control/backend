@@ -131,6 +131,141 @@ public class DashboardRepository {
                 true));
     }
 
+    /**
+     * 대시보드 "원자재별 리스크 요약" 7종.
+     *
+     * <p>화면에 항상 7행이 나와야 하므로 목록은 상수({@code SUMMARY_CATEGORIES})로 고정하고
+     * 평가를 LEFT JOIN한다 — 평가가 있는 자재만 보여주면 "리튬만 위험하다"인지 "나머지는 아직
+     * 못 봤다"인지 구분되지 않는다. {@code RARE_EARTH}는 {@code materials}에 있지만 배터리
+     * 원자재 7종에 들지 않아 뺐다.
+     *
+     * <p>대분류당 <b>점수 상위 3건</b>을 골라 평균을 내고 등급은 그중 최고를 쓴다. 완료 처리된
+     * 평가({@code procurement_risk_acknowledgements})는 KPI와 같은 기준으로 제외한다.
+     *
+     * <p>{@code risk_score_24h_ago}는 24시간 전까지 쌓여 있던 평가만으로 같은 계산을 한 값이다.
+     * "어제 같은 시각의 스냅샷"이 따로 저장되지 않으므로 이 방식으로 재구성한다 — 그때까지
+     * 평가가 없던 자재는 null이 되고, 화면은 증감을 그리지 않는다(0으로 채우면 "변화 없음"으로
+     * 잘못 읽힌다).
+     */
+    public List<DashboardDto.MaterialRiskSummaryItem> findMaterialRiskSummary() {
+        return jdbc.query("""
+                WITH categories(material_category, material_name) AS (
+                    VALUES ('ALUMINUM','알루미늄'), ('COBALT','코발트'), ('COPPER','구리'),
+                           ('GRAPHITE','흑연'), ('LITHIUM','리튬'), ('MANGANESE','망간'),
+                           ('NICKEL','니켈')
+                ),
+                live AS (
+                    SELECT p.assessment_id, p.material_category, p.procurement_risk_score,
+                           p.procurement_risk_level, p.assessed_at, p.created_at, p.analysis_id
+                    FROM procurement_risk_assessments p
+                    WHERE p.material_category IS NOT NULL
+                      AND p.procurement_risk_score IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM procurement_risk_acknowledgements a
+                          WHERE a.assessment_id = p.assessment_id
+                      )
+                ),
+                ranked AS (
+                    SELECT live.*, ROW_NUMBER() OVER (
+                               PARTITION BY material_category
+                               ORDER BY procurement_risk_score DESC, created_at DESC
+                           ) AS score_rank,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY material_category ORDER BY created_at DESC
+                           ) AS recency_rank
+                    FROM live
+                ),
+                top3 AS (SELECT * FROM ranked WHERE score_rank <= 3),
+                agg AS (
+                    SELECT material_category,
+                           AVG(procurement_risk_score) AS risk_score,
+                           MAX(CASE procurement_risk_level
+                                   WHEN 'CRITICAL' THEN 3 WHEN 'WARNING' THEN 2 ELSE 1 END) AS level_rank
+                    FROM top3 GROUP BY material_category
+                ),
+                past AS (
+                    SELECT material_category, AVG(procurement_risk_score) AS risk_score
+                    FROM (
+                        SELECT material_category, procurement_risk_score,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY material_category
+                                   ORDER BY procurement_risk_score DESC, created_at DESC
+                               ) AS score_rank
+                        FROM procurement_risk_assessments
+                        WHERE material_category IS NOT NULL
+                          AND procurement_risk_score IS NOT NULL
+                          AND created_at <= NOW() - INTERVAL '24 hours'
+                    ) old WHERE score_rank <= 3
+                    GROUP BY material_category
+                ),
+                -- 완료 처리 버튼이 걸릴 행. KPI 건수가 세는 것과 같은 "대분류별 최신 1건"이라
+                -- 점수 상위 3건과는 다른 기준이다.
+                newest AS (
+                    SELECT material_category, assessment_id
+                    FROM ranked WHERE recency_rank = 1
+                )
+                -- 소수 첫째 자리까지만 내보낸다. AVG가 48.333333333333336 같은 값을 주는데
+                -- 화면이 "리스크 지수 48.3"을 보여주는 마당에 그 정밀도는 의미가 없고,
+                -- 증감(score_delta)도 3.6666666666666665처럼 나와 그대로는 못 쓴다.
+                SELECT c.material_category, c.material_name,
+                       ROUND(a.risk_score, 1) AS risk_score,
+                       CASE a.level_rank WHEN 3 THEN 'CRITICAL' WHEN 2 THEN 'WARNING'
+                                         WHEN 1 THEN 'NORMAL' END AS risk_level,
+                       ROUND(pa.risk_score, 1) AS risk_score_24h_ago,
+                       ROUND(a.risk_score - pa.risk_score, 1) AS score_delta,
+                       n.assessment_id AS latest_assessment_id
+                FROM categories c
+                LEFT JOIN agg a  ON a.material_category = c.material_category
+                LEFT JOIN past pa ON pa.material_category = c.material_category
+                LEFT JOIN newest n ON n.material_category = c.material_category
+                ORDER BY a.risk_score DESC NULLS LAST, c.material_name
+                """, new MapSqlParameterSource(), (rs, rowNumber) -> new DashboardDto.MaterialRiskSummaryItem(
+                rs.getString("material_category"),
+                rs.getString("material_name"),
+                rs.getBigDecimal("risk_score"),
+                rs.getString("risk_level"),
+                rs.getBigDecimal("risk_score_24h_ago"),
+                rs.getBigDecimal("score_delta"),
+                rs.getObject("latest_assessment_id", java.util.UUID.class),
+                List.of()));
+    }
+
+    /**
+     * {@link #findMaterialRiskSummary()}의 "주요 이슈" 칸에 붙일 상위 3건.
+     *
+     * <p>제목은 {@code raw_events.title_ko}(번역본)를 우선하고 없으면 {@code analyses.event_title}
+     * (영문 원문)로 떨어진다 — 지도·속보와 같은 규칙이라 화면끼리 같은 뉴스를 다른 제목으로
+     * 부르지 않는다.
+     *
+     * <p>요약 조회와 쿼리를 나눈 이유는 1:N 조인 결과를 한 번에 매핑하면 집계 행이 뉴스 수만큼
+     * 복제돼 평균이 어긋나기 때문이다. 대분류 7개 × 최대 3건이라 두 번째 조회는 21행이 상한이다.
+     */
+    public List<DashboardDto.MaterialRiskNewsItem> findMaterialRiskTopNews(String materialCategory) {
+        return jdbc.query("""
+                SELECT p.assessment_id, p.procurement_risk_score, p.procurement_risk_level,
+                       p.assessed_at,
+                       COALESCE(r.title_ko, an.event_title) AS title
+                FROM procurement_risk_assessments p
+                LEFT JOIN analyses an ON an.analysis_id = p.analysis_id
+                LEFT JOIN raw_events r ON r.triggered_analysis_id = p.analysis_id
+                WHERE p.material_category = :materialCategory
+                  AND p.procurement_risk_score IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM procurement_risk_acknowledgements a
+                      WHERE a.assessment_id = p.assessment_id
+                  )
+                ORDER BY p.procurement_risk_score DESC, p.created_at DESC
+                LIMIT 3
+                """,
+                new MapSqlParameterSource().addValue("materialCategory", materialCategory),
+                (rs, rowNumber) -> new DashboardDto.MaterialRiskNewsItem(
+                        rs.getObject("assessment_id", java.util.UUID.class),
+                        rs.getString("title"),
+                        rs.getBigDecimal("procurement_risk_score"),
+                        rs.getString("procurement_risk_level"),
+                        rs.getObject("assessed_at", OffsetDateTime.class)));
+    }
+
     /** 자재별 현재 리스크. 아직 분석되지 않은 자재는 제외한다. */
     public List<DashboardDto.MaterialRiskItem> findMaterialRisks(String severity, int limit) {
         MapSqlParameterSource params = new MapSqlParameterSource()

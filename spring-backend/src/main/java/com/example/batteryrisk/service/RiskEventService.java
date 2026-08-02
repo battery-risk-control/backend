@@ -728,7 +728,9 @@ public class RiskEventService {
                 koreanTitle != null && !koreanTitle.isBlank() ? koreanTitle : analysis.getEventTitle(),
                 analysis.getCountryCode(),
                 country != null ? country.name() : null,
-                country != null ? new Coordinates(country.lat(), country.lng()) : null);
+                country != null ? new Coordinates(country.lat(), country.lng()) : null,
+                linkableUrl(analysis.getSourceUrl()),
+                analysis.getCreatedAt());
     }
 
     /** 분석 id → 번역된 뉴스 제목. 번역 스케줄러가 아직 안 돈 기사는 빠진다(원문으로 폴백). */
@@ -756,6 +758,10 @@ public class RiskEventService {
                 event.marketContext().eventSummary(),
                 event.marketContext().countryCode(),
                 event.marketContext().countryName(),
-                event.marketContext().coordinates());
+                event.marketContext().coordinates(),
+                // placeholder는 실제 기사가 아니라 원문 링크가 없다. 지어내면 화면에 눌리지 않는
+                // 버튼이 생긴다. 시각도 같은 이유로 비운다.
+                null,
+                null);
     }
 }

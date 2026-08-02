@@ -67,6 +67,26 @@ public class DashboardController {
     }
 
     @Operation(
+            summary = "원자재별 리스크 요약(7종, 최종 합성 점수)",
+            description = """
+                    배터리 원자재 7종(알루미늄·코발트·구리·흑연·리튬·망간·니켈) 각각에 대해
+                    점수 상위 3건의 procurement_risk_score 평균과 그중 최고 등급을 반환합니다.
+                    이 점수는 외부신호·ERP노출·계약공백을 모두 합친 최종 합성 점수로,
+                    /dashboard/materials 의 ERP 노출도 단독 점수와 다릅니다.
+
+                    score_delta는 24시간 전까지 쌓여 있던 평가만으로 같은 계산을 한 값과의 차이입니다.
+                    그때까지 평가가 없던 자재는 null이며, 화면은 증감을 표시하지 않습니다.
+
+                    latest_assessment_id는 완료 처리(POST /api/v1/multi-agent/assessments/{id}/acknowledge)
+                    대상입니다 — KPI 건수가 세는 "대분류별 최신 1건"이라 상위 3건과는 기준이 다릅니다.
+
+                    평가가 0건인 자재도 행을 반환합니다(점수·등급 null).""")
+    @GetMapping("/purchasing-dashboard/material-risk-summary")
+    public ApiResponse<List<DashboardDto.MaterialRiskSummaryItem>> materialRiskSummary() {
+        return ApiResponse.ok(dashboardService.materialRiskSummary());
+    }
+
+    @Operation(
             summary = "자재별 현재 리스크 목록",
             description = "자재별 최신 Severity를 심각도 순으로 반환합니다. 리스크 게이지·스코어 카드용입니다.")
     @GetMapping("/dashboard/materials")

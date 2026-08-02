@@ -95,6 +95,60 @@ public final class DashboardDto {
             List<ImportDependencyItem> breakdown
     ) {}
 
+    /**
+     * 원자재 리스크 요약 한 줄(대시보드 "원자재별 리스크 요약").
+     *
+     * <p><b>모집단이 {@link ProcurementRiskSummary}와 다르다.</b> KPI는 대분류별 <i>최신</i>
+     * 평가 1건을 보지만 이쪽은 대분류별 <i>점수 상위 3건</i>을 본다 — 한 자재에 뉴스가 여러 건
+     * 들어왔을 때 가장 최근 것 하나만으로 등급을 정하면, 바로 앞에 들어온 더 심각한 뉴스가
+     * 화면에서 사라진다.
+     *
+     * <p>{@code riskScore}는 상위 3건의 평균, {@code riskLevel}은 그 3건 중 <b>가장 높은</b>
+     * 등급이다. 평균 등급을 따로 계산하지 않는 이유는 "평균 45점이라 주의"인데 그 안에 심각
+     * 1건이 섞여 있으면 그 심각이 묻히기 때문이다.
+     *
+     * <p>점수는 {@code procurement_risk_score}, 즉 외부신호·ERP노출·계약공백을 모두 합친
+     * <b>최종 합성 점수</b>다({@code MaterialRiskService}의 ERP 노출도 단독 점수가 아니다).
+     *
+     * <p>평가가 한 건도 없는 자재도 행을 만든다 — 7종을 항상 같은 자리에 보여줘야 "이 자재는
+     * 아직 확인 못 했다"가 드러난다. 그 경우 점수·등급·{@code latestAssessmentId}가 전부 null이다.
+     */
+    public record MaterialRiskSummaryItem(
+            String materialCategory,
+            String materialName,
+            /** 상위 3건 평균(0~100). 평가 0건이면 null. */
+            BigDecimal riskScore,
+            /** 상위 3건 중 최고 등급(CRITICAL/WARNING/NORMAL). 평가 0건이면 null. */
+            String riskLevel,
+            /**
+             * 24시간 전 시점의 같은 계산값. 그때까지 쌓인 평가가 없으면 null이고, 그러면
+             * {@code scoreDelta}도 null이라 화면이 ▲▼를 그리지 않는다.
+             *
+             * <p>{@code @JsonProperty} 명시 필요: 전역 SNAKE_CASE 전략이 문자→숫자 경계
+             * ({@code Score|24h})에 언더스코어를 안 넣어 {@code risk_score24h_ago}로 잘못
+             * 직렬화된다({@link ProcurementRiskSummary}의 24h 필드와 같은 문제 — 실측 확인).
+             */
+            @JsonProperty("risk_score_24h_ago") BigDecimal riskScore24hAgo,
+            /** {@code riskScore - riskScore24hAgo}. 한쪽이라도 null이면 null. */
+            BigDecimal scoreDelta,
+            /**
+             * 완료 처리 대상. 이 자재 대분류의 <b>최신</b> 미완료 평가 id다 — KPI 건수가 세는
+             * 바로 그 행이라, 이걸 완료 처리해야 KPI에서 빠진다(상위 3건 중 아무거나가 아니다).
+             */
+            java.util.UUID latestAssessmentId,
+            /** 상위 3건. 화면의 "주요 이슈" 칸. */
+            List<MaterialRiskNewsItem> topNews
+    ) {}
+
+    /** {@link MaterialRiskSummaryItem}의 상위 뉴스 1건. */
+    public record MaterialRiskNewsItem(
+            java.util.UUID assessmentId,
+            String title,
+            BigDecimal score,
+            String level,
+            OffsetDateTime assessedAt
+    ) {}
+
     /** 계약 목록 항목. */
     public record ContractItem(
             Long contractId,
