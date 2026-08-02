@@ -66,14 +66,33 @@ def extract_ts_from_url(url: str) -> str:
     return fname.split(".", 1)[0]
 
 
+def _align_to_grid(dt: datetime) -> datetime:
+    """GDELT v2 파일은 매시 :00/:15/:30/:45에만 존재한다. 커서를 그 격자로 내림한다.
+
+    커서가 격자에서 한 번이라도 벗어나면(예: 14:09) 아래 루프가 15분씩 더해도 어긋남이
+    그대로 유지돼(:24 → :39 → :54 → :09) 만들어지는 URL이 **전부** 404가 된다. 게다가
+    fetch_events_for_ts가 404를 None으로 조용히 삼키므로 예외도 안 나고, Spring은 커서를
+    정상 전진시키며 "성공"으로 기록한다 — 실제로는 한 건도 못 받는데 매 주기 성공 로그만
+    남는 상태가 된다(2026-08-03 확인: 커서 20260801140900으로 33시간째 수집 0건).
+
+    올림이 아니라 내림이다. 커서가 14:09라는 건 "14:09까지 처리했다"는 뜻인데 그 구간에 실재하는
+    마지막 파일은 14:00이므로, 내림하면 다음 대상이 14:15가 되어 실제로 밀린 지점에서 정확히
+    이어진다(재수집도 누락도 없다). 올림하면 14:15가 되고 다음 대상이 14:30이 되어 14:15 한
+    구간을 영영 건너뛴다.
+    """
+    return dt.replace(minute=dt.minute // 15 * 15, second=0, microsecond=0)
+
+
 def compute_pending_timestamps(last_ts: str | None, latest_ts: str) -> list[str]:
     """last_ts 이후부터 latest_ts까지 15분 간격 타임스탬프 목록. 최대 PENDING_SLOTS_CAP개만 반환
     (한 번의 HTTP 호출 안에서 끝나야 하므로 완전 백필은 하지 않고, 나머지는 다음 호출에서 이어감)."""
-    latest_dt = datetime.strptime(latest_ts, "%Y%m%d%H%M%S")
+    latest_dt = _align_to_grid(datetime.strptime(latest_ts, "%Y%m%d%H%M%S"))
     if last_ts is None:
-        return [latest_ts]
+        # 격자 정렬한 값을 돌려준다. latest_ts는 GDELT의 lastupdate.txt에서 온 값이라 원래
+        # 격자 위에 있지만, 여기서만 원본을 쓰면 아래 경로와 규칙이 달라진다.
+        return [latest_dt.strftime("%Y%m%d%H%M%S")]
 
-    last_dt = datetime.strptime(last_ts, "%Y%m%d%H%M%S")
+    last_dt = _align_to_grid(datetime.strptime(last_ts, "%Y%m%d%H%M%S"))
     if last_dt >= latest_dt:
         return []
 
