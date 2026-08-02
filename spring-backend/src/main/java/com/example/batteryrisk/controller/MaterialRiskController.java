@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -24,10 +25,15 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>ERP 내부 상세(재고 수량·공급사 의존도·계약 조항)를 그대로 노출하므로 인증(Bearer)을 요구한다.
  * 비로그인 화면에는 이에 대응하는 축약 응답이 없다 — 조달 구조는 공개 대상이 아니다.
  */
+/*
+ * 권한 정책(2026-08-02): 클래스 단위는 <b>조회</b> 기준이라 구매팀 + 경영기획팀을 허용하고,
+ * 실행·생성 계열 메서드만 구매팀으로 좁힌다. 근거는 RiskMonitoringController의 같은 주석 참고.
+ */
 @RestController
 @RequestMapping("/api/v1/material-risk")
 @SecurityRequirement(name = "bearerAuth")
 @Validated
+@PreAuthorize("hasAnyRole('PURCHASING','STRATEGY')")
 public class MaterialRiskController {
     private final MaterialRiskService materialRiskService;
 
@@ -44,10 +50,15 @@ public class MaterialRiskController {
                     점수·등급은 멀티에이전트의 ERP Exposure Agent가 계산한 값이다. 재고 데이터가
                     없거나 Agent 호출이 실패한 자재는 목록에서 빠지지 않고 score=null과
                     unavailable_reason을 달고 맨 뒤에 온다.
+
+                    자재 수만큼 ERP Exposure Agent를 호출하므로 60초 캐시가 붙어 있다. 계산 시각은
+                    응답의 as_of에 담겨 있고, 화면의 "새로고침"은 refresh=true로 캐시를 건너뛴다.
                     """)
     @GetMapping("/overview")
-    public ApiResponse<MaterialRiskDto.Overview> overview() {
-        return ApiResponse.ok(materialRiskService.overview());
+    public ApiResponse<MaterialRiskDto.Overview> overview(
+            @Parameter(description = "캐시를 건너뛰고 다시 계산할지. 화면의 새로고침 버튼이 쓴다.")
+            @RequestParam(defaultValue = "false") boolean refresh) {
+        return ApiResponse.ok(materialRiskService.overview(refresh));
     }
 
     @Operation(
@@ -78,24 +89,16 @@ public class MaterialRiskController {
         return ApiResponse.ok(materialRiskService.contractEvidence(erpMaterialId));
     }
 
-    @Operation(
-            summary = "AI 브리핑 생성 (구매팀)",
-            description = """
-                    이 자재에 대해 멀티에이전트(ERP Agent · 계약 RAG Agent · 위험도 합산 · 브리핑 ·
-                    검증)를 실행하고 결과를 반환한다. 결과는 procurement_risk_assessments에 저장된다.
-
-                    이 화면에는 뉴스가 없으므로 외부신호는 DB에 이미 저장된 같은 자재 대분류의 최신
-                    분석(analyses)에서 끌어온다. 응답의 source_analysis_id·source_headline이 그 출처다.
-                    쓸 분석이 없으면 422와 함께 사유를 돌려준다 — 상세 응답의 briefing_available로
-                    미리 알 수 있다.
-                    """)
-    @PostMapping("/materials/{erpMaterialId}/briefing")
-    public ApiResponse<MaterialRiskDto.Briefing> briefing(
-            @Parameter(description = "목록의 erp_material_id", example = "MAT-CO-SULF")
-            @PathVariable String erpMaterialId,
-
-            @Parameter(description = "브리핑 문구 생성에 LLM을 쓸지. 등급 산출에는 필요 없어 기본 false다.")
-            @RequestParam(defaultValue = "false") boolean useLlm) {
-        return ApiResponse.ok(materialRiskService.briefing(erpMaterialId, useLlm));
-    }
+    /*
+     * AI 브리핑 생성은 여기에 없다(2026-08-02 제거). 화면의 "AI 브리핑 생성" 버튼은
+     * /purchasing/ai-briefing?source=MATERIAL&ref={erpMaterialId} 로 이동하고, 실행·저장·근거
+     * 표시는 전부 AiBriefingController(POST /api/v1/ai-briefing/briefings)가 맡는다.
+     *
+     * 예전에는 이 컨트롤러에도 같은 일을 하는 POST .../briefing이 있었는데, 화면이 중앙 브리핑
+     * 화면으로 옮겨간 뒤 호출자가 하나도 없었다. 브리핑 API가 둘로 보이면 "어느 쪽이 진짜인지"가
+     * 계속 헷갈리고, 저장 경로가 갈라져 같은 자재의 브리핑이 두 군데에 남을 수 있다.
+     *
+     * 실행 가능 여부만 상세 응답의 briefing_available로 계속 내려준다 — 못 돌릴 대상으로
+     * 이동시키면 빈 화면만 보여주는 셈이기 때문이다.
+     */
 }

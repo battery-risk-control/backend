@@ -189,16 +189,68 @@ public class ProcurementRiskRepository {
             return Map.of();
         }
         List<Map.Entry<UUID, String>> rows = jdbc.query("""
+                WITH per_material AS (
+                    SELECT DISTINCT ON (analysis_id, erp_material_id)
+                           analysis_id, procurement_risk_level, procurement_risk_score
+                    FROM procurement_risk_assessments
+                    WHERE analysis_id IN (:analysisIds)
+                      AND erp_exposure_score IS NOT NULL
+                    ORDER BY analysis_id, erp_material_id, created_at DESC
+                )
                 SELECT DISTINCT ON (analysis_id) analysis_id, procurement_risk_level
-                FROM procurement_risk_assessments
-                WHERE analysis_id IN (:analysisIds)
-                  AND erp_exposure_score IS NOT NULL
-                ORDER BY analysis_id, created_at DESC
-                """, new MapSqlParameterSource("analysisIds", analysisIds),
+                FROM per_material
+                ORDER BY analysis_id, %s, procurement_risk_score DESC
+                """.formatted(SEVERITY_RANK_SQL),
+                new MapSqlParameterSource("analysisIds", analysisIds),
                 (rs, rowNumber) -> Map.entry(
                         rs.getObject("analysis_id", UUID.class),
                         rs.getString("procurement_risk_level")));
         return rows.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    /**
+     * 등급 정렬용 severity 순위. 낮을수록 심각하다 — {@code ORDER BY}에 그대로 끼워 쓴다.
+     * 화면 카드가 대분류 단위라 자재별 결과를 "가장 심한 쪽"으로 접을 때 쓰인다.
+     */
+    private static final String SEVERITY_RANK_SQL = """
+            CASE procurement_risk_level
+                WHEN 'CRITICAL' THEN 1
+                WHEN 'WARNING' THEN 2
+                WHEN 'NORMAL' THEN 3
+                ELSE 4
+            END""";
+
+    /**
+     * 분석 1건의 <b>자재별 현재 평가</b>. 자재마다 정확히 한 행씩 돌려준다.
+     *
+     * <p>한 분석이 자재 여러 개로 펼쳐진다 — {@code analyses}에는 대분류만 있고 LITHIUM·GRAPHITE는
+     * ERP 자재가 2개씩이라, 점수화 스케줄러가 자재마다 따로 평가한다
+     * ({@code MultiAgentOrchestrationService.scoreNewAnalyses}). 화면 카드는 대분류 하나이므로
+     * 자재별 결과를 접어야 하는데, 접기 전 원자료가 이 목록이다.
+     *
+     * <p><b>자재마다 유효 평가를 우선 고른다</b>({@code (erp_exposure_score IS NOT NULL) DESC}).
+     * 같은 자재를 재실행해 최근 시도가 KG 게이트에서 조기 종료됐더라도, 과거에 성공한 종합 평가가
+     * 있으면 그쪽을 현재 값으로 본다 — 실제로 ERP·계약을 본 것은 그쪽뿐이라 "판정 없음"보다 낫다.
+     * 유효 평가가 한 번도 없던 자재는 최근 조기 종료 행이 대신 올라온다(화면이 사유를 보여준다).
+     */
+    public List<ProcurementRiskDto.Assessment> findMaterialAssessments(UUID analysisId) {
+        return jdbc.query("""
+                SELECT DISTINCT ON (erp_material_id) *
+                FROM procurement_risk_assessments
+                WHERE analysis_id = :analysisId
+                ORDER BY erp_material_id, (erp_exposure_score IS NOT NULL) DESC, created_at DESC
+                """, new MapSqlParameterSource("analysisId", analysisId),
+                (rs, rowNumber) -> mapAssessment(rs));
+    }
+
+    /** 분석 1건의 가장 최근 평가 시각. 등급과 무관하게 "마지막으로 언제 돌았나"를 보여준다. */
+    public Optional<OffsetDateTime> findLatestAttemptAt(UUID analysisId) {
+        List<OffsetDateTime> values = jdbc.query("""
+                SELECT MAX(created_at) AS latest FROM procurement_risk_assessments
+                WHERE analysis_id = :analysisId
+                """, new MapSqlParameterSource("analysisId", analysisId),
+                (rs, rowNumber) -> rs.getObject("latest", OffsetDateTime.class));
+        return values.isEmpty() ? Optional.empty() : Optional.ofNullable(values.get(0));
     }
 
     /**

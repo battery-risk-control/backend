@@ -131,7 +131,7 @@ public class AiBriefingRepository {
      */
     public List<AiBriefingDto.BriefingListItem> findRecent(int limit) {
         return jdbc.query("""
-                SELECT briefing_id, source_type, subject_title, news_id,
+                SELECT briefing_id, source_type, source_ref, subject_title, news_id,
                        procurement_risk_level, procurement_risk_score, composite,
                        review_passed, created_at
                 FROM ai_briefings
@@ -141,6 +141,7 @@ public class AiBriefingRepository {
                 (rs, rowNumber) -> new AiBriefingDto.BriefingListItem(
                         rs.getObject("briefing_id", UUID.class),
                         rs.getString("source_type"),
+                        rs.getString("source_ref"),
                         rs.getString("subject_title"),
                         rs.getString("news_id"),
                         rs.getString("procurement_risk_level"),
@@ -148,6 +149,36 @@ public class AiBriefingRepository {
                         rs.getBoolean("composite"),
                         nullableBoolean(rs, "review_passed"),
                         rs.getObject("created_at", OffsetDateTime.class)));
+    }
+
+    /**
+     * 같은 대상·같은 분석으로 <b>방금</b> 만든 브리핑. 재시도로 인한 중복 실행을 막는 데 쓴다.
+     *
+     * <p>완전한 멱등성 키가 아니라 <b>짧은 시간창</b>이다. 막으려는 것은 "저장은 됐는데 응답이
+     * 유실돼 사용자가 다시 누르는" 경우와 그때 다시 나가는 LLM 비용이며, 한참 뒤에 같은 대상을
+     * 다시 평가하는 것은 정상적인 요구라 막지 않는다.
+     *
+     * <p>{@code created_at}은 실행 <b>시작</b> 시각({@code asOf})이므로 시간창은 시작 기준으로
+     * 비교된다 — 실행에 걸린 시간만큼 창이 짧아지는 셈이라 안전한 쪽이다.
+     */
+    public Optional<AiBriefingDto.BriefingDetail> findRecentDuplicate(
+            String sourceType, String sourceRef, UUID analysisId, OffsetDateTime since) {
+        List<AiBriefingDto.BriefingDetail> rows = jdbc.query("""
+                SELECT *
+                FROM ai_briefings
+                WHERE source_type = :sourceType
+                  AND source_ref = :sourceRef
+                  AND analysis_id IS NOT DISTINCT FROM :analysisId
+                  AND created_at >= :since
+                ORDER BY created_at DESC
+                LIMIT 1
+                """, new MapSqlParameterSource()
+                        .addValue("sourceType", sourceType)
+                        .addValue("sourceRef", sourceRef)
+                        .addValue("analysisId", analysisId)
+                        .addValue("since", since),
+                (rs, rowNumber) -> mapDetail(rs));
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
     /**

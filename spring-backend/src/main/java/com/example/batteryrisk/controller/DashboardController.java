@@ -44,11 +44,24 @@ public class DashboardController {
         return ApiResponse.ok(dashboardService.summary());
     }
 
+    /**
+     * 1계층 구매팀 대시보드 상단 KPI 5칸(심각·주의 건수, ERP 영향도, 외부 위험, 검증 브리핑).
+     *
+     * <p>경로를 {@code /dashboard/procurement-risk-summary}에서 옮겼다 — 나머지 1계층 화면 API가
+     * 화면 단위로 이름을 갖는데({@code /risk-monitoring/**}, {@code /material-risk/**},
+     * {@code /ai-briefing/**}) 이것만 계층 구분 없는 {@code /dashboard/**} 아래 있어,
+     * 어느 화면이 쓰는 집계인지 경로만 봐서는 알 수 없었다. 같은 {@code /dashboard/**}에 있는
+     * {@code summary}는 {@code severity_assessments} 기반이라 모집단부터 다르다.
+     *
+     * <p>구 경로도 함께 매핑해 둔다. 이미 Postman·문서·팀원 코드가 그 경로를 부르고 있어
+     * 한쪽만 남기면 조용히 404가 나기 때문이다. 신규 호출은 새 경로를 쓴다.
+     */
     @Operation(
-            summary = "구매 리스크 KPI 요약(멀티에이전트)",
+            summary = "구매팀 대시보드 KPI 요약(멀티에이전트)",
             description = "자재 대분류(8종)별 최신 구매 리스크 평가 1건을 기준으로 등급별 건수, "
-                    + "ERP노출도·외부신호 평균 점수, 검증 통과 브리핑 건수를 반환합니다.")
-    @GetMapping("/dashboard/procurement-risk-summary")
+                    + "ERP노출도·외부신호 평균 점수, 검증 통과 브리핑 건수를 반환합니다. "
+                    + "구 경로 /api/v1/dashboard/procurement-risk-summary 도 같은 결과를 반환합니다(하위 호환).")
+    @GetMapping({"/purchasing-dashboard/kpi-summary", "/dashboard/procurement-risk-summary"})
     public ApiResponse<DashboardDto.ProcurementRiskSummary> procurementRiskSummary() {
         return ApiResponse.ok(dashboardService.procurementRiskSummary());
     }

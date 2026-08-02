@@ -86,7 +86,20 @@ public final class AiBriefingDto {
 
             @Schema(description = "LLM으로 브리핑 문구를 생성할지. 버튼 이름이 'LLM 브리핑 생성'이라 "
                     + "생략하면 true다 — 다른 화면들(기본 false)과 반대인 점에 주의.")
-            Boolean useLlm
+            Boolean useLlm,
+
+            /**
+             * 프리필({@code GET /context})이 돌려준 외부신호 분석을 <b>고정</b>한다.
+             *
+             * <p>보내지 않으면 서버가 그 자리에서 다시 고르는데, 자재·계약 경로는 "같은 대분류의
+             * 가장 최신 분석"을 고르므로 <b>프리필과 생성 사이에 수집 스케줄러가 새 분석을 넣으면
+             * 다른 뉴스로 실행된다.</b> 화면이 "외부신호 60.9"를 보여주고 실제로는 다른 기사로 돌면
+             * 상단과 결과가 어긋난다. 화면은 항상 프리필의 analysis_id를 그대로 실어 보낸다.
+             *
+             * <p>대상과 무관한 분석을 지정하면 400이다 — 고정이 곧 우회로가 되면 안 된다.
+             */
+            @Schema(description = "프리필이 돌려준 analysis_id. 생략하면 서버가 다시 고른다.")
+            UUID analysisId
     ) {}
 
     // ---------------------------------------------------------------- 저장된 브리핑
@@ -95,6 +108,11 @@ public final class AiBriefingDto {
     public record BriefingListItem(
             UUID briefingId,
             @Schema(example = "NEWS") String sourceType,
+
+            @Schema(example = "252", description = "이 브리핑이 어떤 대상으로 생성됐는지. 화면이 "
+                    + "상세를 열 때 상단 '분석 대상'까지 함께 맞추려면 source_type과 이 값이 필요하다.")
+            String sourceRef,
+
             String subjectTitle,
             String newsId,
             @Schema(example = "CRITICAL") String procurementRiskLevel,

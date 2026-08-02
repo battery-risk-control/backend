@@ -2,7 +2,6 @@ package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.dto.ContractRagDto;
 import com.example.batteryrisk.dto.DocumentDto;
-import com.example.batteryrisk.dto.MultiAgentDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.exception.GlobalExceptionHandler.RagSearchException;
@@ -18,7 +17,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,13 +27,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 1계층 구매팀 "계약 · RAG 검색" 화면의 조항 검색 · 계약 문서 조회 · 업로드 · 재처리 ·
- * "이 근거로 AI 브리핑 생성"을 담당한다.
+ * 1계층 구매팀 "계약 · RAG 검색" 화면의 조항 검색 · 계약 문서 조회 · 업로드 · 재처리를 담당한다.
  *
- * <p><b>기존 RAG · 멀티에이전트 코드는 건드리지 않는다.</b> 검색은 FastAPI에 새로 만든
+ * <p><b>여기서 멀티에이전트는 돌지 않는다.</b> 이 서비스가 하는 일은 RAG 검색과 문서 관리까지다 —
+ * supervisor · ERP Agent · 계약 RAG Agent는 {@link AiBriefingService}(화면의 "AI 브리핑")가 실행한다.
+ * 2026-08-02에 여기 있던 {@code briefing()}을 걷어냈다: 같은 멀티에이전트를 두 서비스가 각자 부르면
+ * 이쪽 결과만 {@code ai_briefings}에 안 남아 실행 이력이 갈라졌다. 브리핑에 필요한 계약 판정
+ * ({@link #contract})과 관련 뉴스 조회({@link ContractRagRepository#findLatestRelatedNews})는
+ * {@code AiBriefingService}가 이 서비스·리포지토리를 <b>재사용</b>하므로 규칙은 한 벌만 남는다.
+ *
+ * <p><b>기존 RAG 코드는 건드리지 않는다.</b> 검색은 FastAPI에 새로 만든
  * {@code /api/v1/contract-rag/search}를 부르고(필터 없이 전체 계약 검색이 가능한 경로),
- * 적재·재처리는 {@link DocumentService}를, 브리핑은 {@link MultiAgentOrchestrationService}를
- * <b>있는 그대로 호출만</b> 한다.
+ * 적재·재처리는 {@link DocumentService}를 <b>있는 그대로 호출만</b> 한다.
  *
  * <p>화면이 요구하지만 저장소에는 없는 값이 하나 있다 — <b>조항 제목</b>이다. ChromaDB 청크에는
  * 제목 필드가 없어서 청크 본문 머리(“Article 4 / DELIVERY AND PENALTY”)에서 뽑아 만든다.
@@ -103,17 +106,14 @@ public class ContractRagService {
 
     private final ContractRagRepository repository;
     private final DocumentService documentService;
-    private final MultiAgentOrchestrationService multiAgentOrchestrationService;
     private final RestClient fastApiRestClient;
 
     public ContractRagService(
             ContractRagRepository repository,
             DocumentService documentService,
-            MultiAgentOrchestrationService multiAgentOrchestrationService,
             RestClient fastApiRestClient) {
         this.repository = repository;
         this.documentService = documentService;
-        this.multiAgentOrchestrationService = multiAgentOrchestrationService;
         this.fastApiRestClient = fastApiRestClient;
     }
 
@@ -266,79 +266,6 @@ public class ContractRagService {
                 contractId, documents.size(), success, documents.size() - success, items);
     }
 
-    // ---------------------------------------------------------------- AI 브리핑
-
-    /**
-     * "이 근거로 AI 브리핑 생성".
-     *
-     * <p>흐름: 계약 → 자재 대분류·공급사 국가 → <b>DB에 저장된 가장 최신 관련 뉴스 분석</b> →
-     * 멀티에이전트 실행 → 결과 반환. 뉴스를 새로 수집하거나 분석하지 않는다 — 이미 쌓여 있는
-     * 분석 결과를 계약 관점에서 다시 읽는 화면이기 때문이다.
-     *
-     * <p>외부신호는 {@code analysisId} 경로로 넘긴다. 그래야 화면이 보여준 뉴스의 severity가
-     * 그대로 종합 점수의 입력이 되어 두 숫자가 어긋나지 않는다
-     * ({@code RiskMonitoringService.runErpImpact}와 같은 방식).
-     *
-     * <p><b>알려진 한계</b> — 멀티에이전트가 RAG로 뒤질 계약은 요청이 아니라 ERP 컨텍스트가
-     * 정한다(그래프·오케스트레이션 코드를 건드리지 않기로 했으므로 그대로 둔다). 그래서 고른
-     * 계약과 실제 검색된 계약이 다를 수 있다. 화면이 알 수 있도록 요청한 계약과 선택한 근거를
-     * 응답에 그대로 실어 보낸다.
-     */
-    public ContractRagDto.BriefingResponse briefing(ContractRagDto.BriefingRequest request) {
-        if (request == null || request.contractId() == null) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "contract_id가 필요합니다.");
-        }
-        ContractRagDto.ContractSummary contract = findContract(request.contractId());
-
-        // 계약 메타 판정과 뉴스 조회를 나눠 부른다 — briefingBlockedReason을 그대로 쓰면
-        // 같은 뉴스 쿼리가 두 번 나간다(판정 한 번, 실제 사용 한 번).
-        String metadataReason = contractMetadataBlockedReason(contract);
-        if (metadataReason != null) {
-            throw new BusinessException(ErrorCode.MATERIAL_BRIEFING_NOT_AVAILABLE, metadataReason);
-        }
-
-        ContractRagDto.SourceNews news = repository
-                .findLatestRelatedNews(contract.materialCategory(), contract.countryCode())
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCode.MATERIAL_BRIEFING_NOT_AVAILABLE, noRelatedNewsReason(contract)));
-
-        MultiAgentDto.GenerateRequest generateRequest = new MultiAgentDto.GenerateRequest(
-                news.analysisId().toString(),
-                news.analysisId(),
-                news.title(),
-                news.summaryKr() == null ? "" : news.summaryKr(),
-                news.summaryKr() == null ? "" : news.summaryKr(),
-                news.impactDomain(),
-                news.impactDomain(),
-                null, null,
-                contract.erpMaterialId(),
-                contract.erpSupplierId(),
-                news.countryCode(),
-                OffsetDateTime.now(),
-                request.useLlm());
-
-        MultiAgentDto.Response response = multiAgentOrchestrationService.generate(generateRequest);
-        log.info("계약 기반 AI 브리핑 생성: contractId={}, analysisId={}, level={}, evidence={}",
-                contract.contractId(), news.analysisId(), response.procurementRiskLevel(),
-                request.evidence() == null ? 0 : request.evidence().size());
-
-        return new ContractRagDto.BriefingResponse(
-                response.assessmentId(),
-                contract,
-                news,
-                isComposite(response),
-                response.procurementRiskLevel(),
-                response.procurementRiskScore(),
-                response.riskReasons() == null ? List.of() : response.riskReasons(),
-                response.briefing(),
-                response.recommendedActions() == null ? List.of() : response.recommendedActions(),
-                response.contractFindings() == null ? List.of() : response.contractFindings(),
-                request.evidence() == null ? List.of() : request.evidence(),
-                response.llmUsed(),
-                response.reviewPassed(),
-                response.warnings() == null ? List.of() : response.warnings());
-    }
-
     // ---------------------------------------------------------------- 내부 helper
 
     private ContractRagDto.ContractSummary findContract(long contractId) {
@@ -378,19 +305,6 @@ public class ContractRagService {
     private static String noRelatedNewsReason(ContractRagDto.ContractSummary contract) {
         return "자재 " + contract.materialCategory()
                 + "에 대해 분석이 끝난 뉴스가 아직 없습니다. 수집·분석이 돈 뒤에 다시 시도하세요.";
-    }
-
-    /**
-     * ERP·계약 노드까지 실제로 돈 실행인지.
-     *
-     * <p>LangGraph는 KG 게이트에서 매칭이 없으면 ERP·계약 노드를 건너뛰고 조기 종료하는데,
-     * 그때도 등급 NORMAL · 0점으로 응답이 나온다. 그 0을 종합 판정으로 읽으면 안 되므로
-     * ERP 노출도 점수의 존재로 구분한다 — 조기 종료 경로는 erp_assessment가 비어 있다.
-     * ({@code RiskMonitoringService.isComposite}와 같은 판별 기준)
-     */
-    private static boolean isComposite(MultiAgentDto.Response response) {
-        Map<String, Object> erpAssessment = response.erpAssessment();
-        return erpAssessment != null && erpAssessment.get("erp_exposure_score") instanceof Number;
     }
 
     private static boolean isMockEmbedding(String embeddingType) {

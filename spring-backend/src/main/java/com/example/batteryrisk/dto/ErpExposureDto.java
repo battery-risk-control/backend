@@ -67,6 +67,11 @@ public class ErpExposureDto {
             @JsonProperty("erpAnalysisRequired") boolean erpAnalysisRequired,
             @JsonProperty("materialContext") MaterialContext materialContext,
             @JsonProperty("purchaseOrders") List<PurchaseOrderContext> purchaseOrders,
+            /**
+             * 대체 공급사가 채워줘야 할 수량(= 안전재고 부족분). Agent의 supplier assessment가
+             * 후보별 capacity 충족도를 계산할 때 쓴다. 없으면 capacity 판정이 "필요량 미상"이 된다.
+             */
+            @JsonProperty("requiredQuantity") BigDecimal requiredQuantity,
             @JsonProperty("alternativeSuppliers") List<AlternativeSupplierContext> alternativeSuppliers) {
     }
 

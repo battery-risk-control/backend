@@ -87,7 +87,11 @@ public class ErpExposureRequestService {
                 trigger.externalSignalScore(), trigger.externalSignalLevel(),
                 erpAnalysisRequired ? materialCode : null, resolvedErpSupplierId, trigger.affectedCountryCode(),
                 materialContext != null ? materialContext.primaryContractId() : null,
-                trigger.eventSummary(), erpAnalysisRequired, materialContext, purchaseOrders, alternativeSuppliers);
+                trigger.eventSummary(), erpAnalysisRequired, materialContext, purchaseOrders,
+                // requiredQuantity: 이 경로는 ErpService.buildContext를 타지 않아 안전재고 부족분을
+                // 모른다. Agent는 없으면 capacity 판정을 "필요량 미상"으로 낮춰 잡는다.
+                null,
+                alternativeSuppliers);
 
         ExposureResponse response = fastApiRestClient.post()
                 .uri(FASTAPI_EXPOSURE_PATH)

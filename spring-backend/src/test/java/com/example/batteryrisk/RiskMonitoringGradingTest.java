@@ -18,8 +18,10 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -142,6 +144,74 @@ class RiskMonitoringGradingTest {
         assertThat(detail.procurementRisk().completed()).isTrue();
     }
 
+    /**
+     * <b>한 분석이 자재 여러 개로 펼쳐지면 가장 심한 자재가 카드 등급이 된다.</b>
+     *
+     * <p>"최신"으로 고르면 저장 순서라는 우연이 등급을 정한다 — 수산화리튬이 심각인데 탄산리튬이
+     * 나중에 저장됐다는 이유로 정상이 뜨면 담당자가 심각 건을 놓친다.
+     */
+    @Test
+    void worstMaterialDrivesCardGrade() {
+        Analysis analysis = completed("CL", "NORMAL", 54.1);
+        stubDetail(newsEvent(1L, "CL"), analysis,
+                assessment("MAT-LI-CARB", BigDecimal.valueOf(19), "NORMAL", BigDecimal.valueOf(33)),
+                assessment("MAT-LI-OH", BigDecimal.valueOf(82), "CRITICAL", BigDecimal.valueOf(82)));
+
+        EventDetail detail = service.detail(1L);
+
+        assertThat(detail.grade()).isEqualTo("심각");
+        assertThat(detail.procurementRisk().representativeMaterialId()).isEqualTo("MAT-LI-OH");
+        assertThat(detail.procurementRisk().validMaterialCount()).isEqualTo(2);
+        assertThat(detail.procurementRisk().targetMaterialCount()).isEqualTo(2);
+        assertThat(detail.latestAttemptStatus()).isEqualTo("COMPLETED");
+    }
+
+    /**
+     * 자재 일부만 성공하면 등급은 성공한 쪽에서 나오되 커버리지를 따로 알린다.
+     * 등급 신뢰도(multiAgentCompleted)와 "전부 돌았는가"(latestAttemptStatus)는 다른 축이다.
+     */
+    @Test
+    void partialSuccessKeepsGradeButReportsCoverage() {
+        Analysis analysis = completed("CL", "NORMAL", 54.1);
+        stubDetail(newsEvent(1L, "CL"), analysis,
+                assessment("MAT-LI-CARB", null, "NORMAL", BigDecimal.ZERO),
+                assessment("MAT-LI-OH", BigDecimal.valueOf(82), "CRITICAL", BigDecimal.valueOf(82)));
+
+        EventDetail detail = service.detail(1L);
+
+        assertThat(detail.grade()).isEqualTo("심각");
+        assertThat(detail.multiAgentCompleted()).isTrue();
+        assertThat(detail.latestAttemptStatus()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(detail.procurementRisk().validMaterialCount()).isEqualTo(1);
+        assertThat(detail.procurementRisk().targetMaterialCount()).isEqualTo(2);
+    }
+
+    /**
+     * <b>목록과 상세가 같은 집계를 써야 한다.</b> 예전에는 목록만 "최신 유효 평가"를, 상세는
+     * "최신 행 아무거나"를 봐서, 재실행이 조기 종료되면 목록은 확정인데 상세는 잠정으로 갈렸다
+     * (2026-08-02 실측 재현). 자재별 최신 유효 평가를 고르므로 조기 종료가 더 최신이어도 살아남는다.
+     */
+    @Test
+    void listAndDetailAgreeWhenLatestAttemptTerminatedEarly() {
+        Analysis analysis = completed("CL", "NORMAL", 54.1);
+        RawEvent event = newsEvent(1L, "CL");
+        // 같은 자재의 유효 평가가 이미 있으므로, 리포지토리는 조기 종료 행이 아니라 이쪽을 돌려준다.
+        stubDetail(event, analysis,
+                assessment("MAT-LI-CARB", BigDecimal.valueOf(19), "CRITICAL", BigDecimal.valueOf(82)));
+        when(rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(any(), any()))
+                .thenReturn(List.of(event));
+        when(analysisRepository.findAllById(any())).thenReturn(List.of(analysis));
+        when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any()))
+                .thenReturn(Map.of(analysis.getAnalysisId(), "CRITICAL"));
+
+        EventItem item = service.list(null, null, null, 7, 50).get(0);
+        EventDetail detail = service.detail(1L);
+
+        assertThat(item.grade()).isEqualTo(detail.grade());
+        assertThat(item.confidenceLabel()).isEqualTo(detail.confidenceLabel());
+        assertThat(item.multiAgentCompleted()).isEqualTo(detail.multiAgentCompleted());
+    }
+
     /** 분석 전 기사에는 "ERP·계약 영향 분석"을 실행할 수 없고 사유가 함께 내려간다. */
     @Test
     void erpImpactIsBlockedWithReasonWhenAnalysisMissing() {
@@ -161,7 +231,7 @@ class RiskMonitoringGradingTest {
                 1L, 1L, "Chile lithium mine strike", "lithium 본문", "GDELT", "CL", null);
         analysis.markCompleted("PRODUCTION", null, "NORMAL", 20.0,
                 "NOT_RELEVANT", "severity-rule-v1", false);
-        stubDetail(newsEvent(1L, "CL"), analysis, null);
+        stubDetail(newsEvent(1L, "CL"), analysis);
 
         EventDetail detail = service.detail(1L);
 
@@ -187,18 +257,28 @@ class RiskMonitoringGradingTest {
     }
 
     private void stubDetail(
-            RawEvent event, Analysis analysis, ProcurementRiskDto.Assessment assessment) {
+            RawEvent event, Analysis analysis, ProcurementRiskDto.Assessment... assessments) {
         linkAnalysis(event, analysis);
         when(rawEventRepository.findById(1L)).thenReturn(Optional.of(event));
         when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));
-        when(procurementRiskRepository.findLatestByAnalysisId(analysis.getAnalysisId()))
-                .thenReturn(Optional.ofNullable(assessment));
+        List<ProcurementRiskDto.Assessment> rows =
+                Arrays.stream(assessments).filter(Objects::nonNull).toList();
+        when(procurementRiskRepository.findMaterialAssessments(analysis.getAnalysisId()))
+                .thenReturn(rows);
+        when(procurementRiskRepository.findLatestAttemptAt(analysis.getAnalysisId()))
+                .thenReturn(rows.isEmpty() ? Optional.empty() : Optional.of(OffsetDateTime.now()));
     }
 
     private static ProcurementRiskDto.Assessment assessment(
             BigDecimal erpExposureScore, String level, BigDecimal score) {
+        return assessment("MAT-LI-CARB", erpExposureScore, level, score);
+    }
+
+    /** {@code erpExposureScore}가 null이면 KG 게이트 조기 종료 행(유효하지 않은 평가)을 뜻한다. */
+    private static ProcurementRiskDto.Assessment assessment(
+            String erpMaterialId, BigDecimal erpExposureScore, String level, BigDecimal score) {
         return new ProcurementRiskDto.Assessment(
-                UUID.randomUUID(), UUID.randomUUID(), "news-1", 1L, "MAT-LI-CARB", "SUP-CHL-01",
+                UUID.randomUUID(), UUID.randomUUID(), "news-1", 1L, erpMaterialId, "SUP-CHL-01",
                 "LITHIUM", "PRODUCTION", OffsetDateTime.now(), BigDecimal.valueOf(54), "NORMAL",
                 erpExposureScore, erpExposureScore == null ? null : BigDecimal.valueOf(30),
                 score, level, List.of("근거"), Map.of(), Map.of(),

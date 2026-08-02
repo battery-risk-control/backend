@@ -57,6 +57,14 @@ services:
       # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 host.docker.internal로 접근한다.
       # (spring 서비스의 KG_SERVICE_BASE_URL과 동일한 값 — .env에서 한 번만 설정)
       KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
+      # KG 게이트 on/off. 기본 true(운영 동작 그대로).
+      # kg_service가 안 떠 있으면 리졸버가 "매칭 없음"으로 폴백하고 게이트가 모든 건을 조기
+      # 종료시켜, procurement_risk_assessments에 erp_exposure_score=NULL·NORMAL만 쌓인다.
+      # false로 두면 게이트를 통과시켜 ERP·계약·위험도·브리핑 노드를 그대로 태운다.
+      #   ⚠️ 우회한 실행은 KG가 확정한 결과가 아니다 — warnings에 그 사실이 남는다.
+      #   ⚠️ 게이트를 열면 모든 건이 LLM 노드를 타므로 호출 비용이 실제로 발생한다.
+      #      확인이 끝나면 다시 true로 되돌릴 것.
+      KG_GATE_ENABLED: ${KG_GATE_ENABLED:-true}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
       # LLM 추출을 mock으로 대체할지. 기본 true — 켜면 /analyze 한 건마다 실제 OpenAI 추출이
       # 나가므로, COLLECTION_ANALYSIS_ENABLED·RISK_SCORING_ENABLED와 같은 방침으로 기본 off다.
@@ -121,6 +129,15 @@ services:
       # USD 경유로 계산한다. 키 불필요하지만 화면에 "Rates By Exchange Rate API" 표기가 필요하다.
       EXCHANGE_RATE_CROSS_ENABLED: ${EXCHANGE_RATE_CROSS_ENABLED:-true}
       EXCHANGE_RATE_CROSS_CURRENCIES: ${EXCHANGE_RATE_CROSS_CURRENCIES:-CLP,ARS,CDF,ZAR,BRL,PHP}
+      # 원자재 가격(공개 대시보드 가격 추이). yfinance는 인증키가 없는 비공식 경로라 비용은 0이지만
+      # Yahoo가 호출 빈도를 조일 수 있다. 두 스케줄러를 따로 끌 수 있게 나눠 둔다.
+      #   SCHEDULER_ENABLED  매일 07:00 전체 갱신(180일). 끄면 가격 수집이 통째로 멈춘다.
+      #   INTRADAY_ENABLED   15분 장중 갱신(최근 5일). 끄면 하루 1회 갱신으로 돌아간다.
+      #                      호출량 종목 7개 × 96회 = 약 672회/일. 429가 잦으면 여기부터 끈다.
+      #   INTRADAY_CRON      빈도 조절용. 예: 30분 주기는 "0 */30 * * * *"
+      MARKET_PRICE_SCHEDULER_ENABLED: ${MARKET_PRICE_SCHEDULER_ENABLED:-true}
+      MARKET_PRICE_INTRADAY_ENABLED: ${MARKET_PRICE_INTRADAY_ENABLED:-true}
+      MARKET_PRICE_INTRADAY_CRON: ${MARKET_PRICE_INTRADAY_CRON:-0 */15 * * * *}
       # 구매 리스크 점수 자동 축적 스케줄러(F5, 비로그인 대시보드용). 켜는 걸 깜빡하면 점수가
       # 안 쌓일 뿐이지만 끄는 걸 깜빡하면 LLM 비용이 실제로 나가고 되돌릴 수 없다 — 기본 off.
       # 수동 트리거(POST /api/v1/multi-agent/risk-scoring/run)는 이 플래그와 무관하게 항상 가능.

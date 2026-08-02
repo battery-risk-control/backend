@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -81,6 +82,9 @@ class AiBriefingServiceTest {
         erpService = mock(ErpService.class);
         multiAgentOrchestrationService = mock(MultiAgentOrchestrationService.class);
         repository = mock(AiBriefingRepository.class);
+        // 중복 차단 조회의 기본값. Mockito는 Optional 반환에 null을 주므로 여기서 비워 둔다 —
+        // 이걸 빼면 "중복 아님"이 아니라 NPE가 난다.
+        when(repository.findRecentDuplicate(any(), any(), any(), any())).thenReturn(Optional.empty());
         service = new AiBriefingService(
                 riskMonitoringService, materialRiskService, contractRagService, contractRagRepository,
                 rawEventRepository, analysisRepository, erpExposureRequestService, erpService,
@@ -101,7 +105,7 @@ class AiBriefingServiceTest {
         assertThat(context.generateBlockedReason()).isEqualTo("공급망과 무관한 뉴스로 판정되었습니다.");
 
         assertThatThrownBy(() -> service.generate(
-                new AiBriefingDto.GenerateRequest("NEWS", "252", true)))
+                new AiBriefingDto.GenerateRequest("NEWS", "252", true, null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("공급망과 무관한 뉴스");
 
@@ -164,7 +168,7 @@ class AiBriefingServiceTest {
         when(multiAgentOrchestrationService.generate(any())).thenReturn(compositeResponse());
 
         AiBriefingDto.BriefingDetail detail = service.generate(
-                new AiBriefingDto.GenerateRequest("MATERIAL", "MAT-CO-SULF", null));
+                new AiBriefingDto.GenerateRequest("MATERIAL", "MAT-CO-SULF", null, null));
 
         assertThat(detail.composite()).isTrue();
         assertThat(detail.procurementRiskLevel()).isEqualTo("CRITICAL");
@@ -207,7 +211,7 @@ class AiBriefingServiceTest {
         when(erpService.buildContext(any())).thenReturn(erpContext());
         when(multiAgentOrchestrationService.generate(any())).thenReturn(compositeResponse());
 
-        service.generate(new AiBriefingDto.GenerateRequest("MATERIAL", "MAT-CO-SULF", null));
+        service.generate(new AiBriefingDto.GenerateRequest("MATERIAL", "MAT-CO-SULF", null, null));
 
         ArgumentCaptor<MultiAgentDto.GenerateRequest> captor =
                 ArgumentCaptor.forClass(MultiAgentDto.GenerateRequest.class);
@@ -226,12 +230,80 @@ class AiBriefingServiceTest {
         when(multiAgentOrchestrationService.generate(any())).thenReturn(earlyExitResponse());
 
         AiBriefingDto.BriefingDetail detail = service.generate(
-                new AiBriefingDto.GenerateRequest("MATERIAL", "MAT-CO-SULF", false));
+                new AiBriefingDto.GenerateRequest("MATERIAL", "MAT-CO-SULF", false, null));
 
         assertThat(detail.composite()).isFalse();
         assertThat(detail.erpEvidence().exposureScore()).isNull();
         // 조기 종료 사유는 risk_reasons로 화면에 그대로 전달돼야 한다.
         assertThat(detail.riskReasons()).contains("공급망 경로 매칭이 없어 조기 종료했습니다.");
+    }
+
+    // ------------------------------------------------------------ 외부신호 고정
+
+    @Test
+    void 프리필이_준_analysis_id로_외부신호를_고정한다() {
+        // 자재·계약 경로는 "같은 대분류의 최신 분석"을 그때그때 고른다. 프리필을 받은 뒤 수집
+        // 스케줄러가 새 분석을 넣으면, 고정하지 않는 한 화면이 보여준 뉴스와 다른 뉴스로 돈다.
+        Analysis newer = completedAnalysis("COBALT");
+        Analysis shownOnScreen = completedAnalysis("COBALT");
+        givenMaterial("MAT-CO-SULF", true, null);
+        givenExternalSignalNews("COBALT", null, newer);
+        when(analysisRepository.findById(shownOnScreen.getAnalysisId()))
+                .thenReturn(Optional.of(shownOnScreen));
+        when(erpService.buildContext(any())).thenReturn(erpContext());
+        when(multiAgentOrchestrationService.generate(any())).thenReturn(compositeResponse());
+
+        service.generate(new AiBriefingDto.GenerateRequest(
+                "MATERIAL", "MAT-CO-SULF", true, shownOnScreen.getAnalysisId()));
+
+        ArgumentCaptor<MultiAgentDto.GenerateRequest> captor =
+                ArgumentCaptor.forClass(MultiAgentDto.GenerateRequest.class);
+        verify(multiAgentOrchestrationService).generate(captor.capture());
+        assertThat(captor.getValue().analysisId()).isEqualTo(shownOnScreen.getAnalysisId());
+        assertThat(captor.getValue().analysisId()).isNotEqualTo(newer.getAnalysisId());
+    }
+
+    @Test
+    void 대상과_무관한_analysis_id는_거절한다() {
+        // 고정이 "아무 뉴스나 지정하는 우회로"가 되면 저장된 브리핑의 계보를 믿을 수 없다.
+        Analysis cobalt = completedAnalysis("COBALT");
+        Analysis lithium = completedAnalysis("LITHIUM");
+        givenMaterial("MAT-CO-SULF", true, null);
+        givenExternalSignalNews("COBALT", null, cobalt);
+        when(analysisRepository.findById(lithium.getAnalysisId())).thenReturn(Optional.of(lithium));
+
+        assertThatThrownBy(() -> service.generate(new AiBriefingDto.GenerateRequest(
+                "MATERIAL", "MAT-CO-SULF", true, lithium.getAnalysisId())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("일치하지 않습니다");
+
+        verify(multiAgentOrchestrationService, never()).generate(any());
+    }
+
+    // ------------------------------------------------------------ 중복 실행 차단
+
+    @Test
+    void 짧은_시간에_같은_요청이_다시_오면_그래프를_다시_돌리지_않는다() {
+        Analysis analysis = completedAnalysis("COBALT");
+        givenMaterial("MAT-CO-SULF", true, null);
+        givenExternalSignalNews("COBALT", null, analysis);
+        when(erpService.buildContext(any())).thenReturn(erpContext());
+        when(multiAgentOrchestrationService.generate(any())).thenReturn(compositeResponse());
+
+        AiBriefingDto.BriefingDetail first = service.generate(
+                new AiBriefingDto.GenerateRequest("MATERIAL", "MAT-CO-SULF", true, null));
+
+        // 저장은 됐는데 응답이 유실돼 사용자가 다시 누른 상황.
+        when(repository.findRecentDuplicate(eq("MATERIAL"), eq("MAT-CO-SULF"),
+                eq(analysis.getAnalysisId()), any())).thenReturn(Optional.of(first));
+
+        AiBriefingDto.BriefingDetail second = service.generate(
+                new AiBriefingDto.GenerateRequest("MATERIAL", "MAT-CO-SULF", true, null));
+
+        assertThat(second.briefingId()).isEqualTo(first.briefingId());
+        // 그래프도 저장도 한 번뿐이어야 한다 — 재시도가 LLM 비용을 두 번 태우면 안 된다.
+        verify(multiAgentOrchestrationService, times(1)).generate(any());
+        verify(repository, times(1)).save(any(), any());
     }
 
     // ------------------------------------------------------------ 준비 helper
@@ -269,7 +341,10 @@ class AiBriefingServiceTest {
                 252L, "주의", "잠정", false, "코발트 공급사의 납기 지연",
                 "Cobalt supplier delays shipment", true, "납기 지연 요약", "코발트",
                 "PRODUCTION", "CD", "콩고민주공화국", null, Instant.now(), "GDELT",
-                "https://example.test/a", null, null, available, blockedReason);
+                "https://example.test/a", null, null, available, blockedReason,
+                // 평가 실행 이력 2개(EventDetail에 나중에 추가된 필드). 이 테스트는 브리핑 대상
+                // 해석만 검증하므로 "한 번도 안 돌았음"으로 둔다.
+                "NOT_RUN", null);
     }
 
     private static MaterialRiskDto.MaterialDetail materialDetail(

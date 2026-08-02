@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,16 +27,27 @@ import java.util.List;
  *
  * <p>검색창에 문장을 넣으면 ChromaDB에 적재된 계약 조항을 의미검색해 유사도 순으로 보여주고,
  * 조항을 고르면 그 계약의 원본 문서·임베딩 상태를 내려준다. 화면에서 계약서를 추가로 올리거나
- * 다시 임베딩할 수 있고, 고른 조항을 근거로 AI 브리핑을 돌릴 수 있다.
+ * 다시 임베딩할 수 있다.
+ *
+ * <p><b>여기는 RAG 검색·문서 관리까지만 한다.</b> 멀티에이전트(supervisor·ERP·계약 RAG Agent)는
+ * 돌지 않는다 — 화면의 "AI 브리핑 생성"은 실행이 아니라 {@code /purchasing/ai-briefing?source=CONTRACT}
+ * 로의 <b>이동</b>이고, 실제 분석은 {@link AiBriefingController}가 맡는다. 2026-08-02에 여기 있던
+ * {@code POST /briefings}를 걷어냈다 — 같은 멀티에이전트를 두 경로가 각자 부르면서 이쪽 결과만
+ * {@code ai_briefings}에 안 남아, 실행 이력이 "최근 브리핑" 목록에서 사라지는 문제가 있었다.
  *
  * <p>계약 내부 정보(단가·물량 조항 원문)를 그대로 노출하므로 인증(Bearer)을 요구한다.
  * 경로를 {@code /api/v1/contract-rag}로 둔 것은 {@code /api/v1/contracts}(대시보드 계약 목록)와
  * {@code /api/v1/rag}(멀티에이전트 검색)를 각각 그대로 두기 위해서다.
  */
+/*
+ * 권한 정책(2026-08-02): 클래스 단위는 <b>조회</b> 기준이라 구매팀 + 경영기획팀을 허용하고,
+ * 실행·생성 계열 메서드만 구매팀으로 좁힌다. 근거는 RiskMonitoringController의 같은 주석 참고.
+ */
 @RestController
 @RequestMapping("/api/v1/contract-rag")
 @SecurityRequirement(name = "bearerAuth")
 @Validated
+@PreAuthorize("hasAnyRole('PURCHASING','STRATEGY')")
 public class ContractRagController {
     private final ContractRagService contractRagService;
 
@@ -86,6 +98,7 @@ public class ContractRagController {
             description = "PDF/TXT 계약 문서를 이 계약에 붙여 청킹·임베딩한 뒤 ChromaDB에 적재한다. "
                     + "공급사·자재 ID는 계약에서 자동으로 채우므로 화면은 파일만 보내면 된다. "
                     + "같은 계약에 같은 내용이 이미 있으면 duplicate=true로 돌아오고 재적재하지 않는다.")
+    @PreAuthorize("hasRole('PURCHASING')")
     @PostMapping(value = "/contracts/{contractId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<ContractRagDto.UploadResponse> upload(
             @Parameter(description = "내부 계약 PK", example = "11")
@@ -99,6 +112,7 @@ public class ContractRagController {
             description = "이 계약에 달린 문서를 전부 다시 임베딩해 ChromaDB에 올린다. 임베딩 모델을 "
                     + "바꿨거나 적재가 깨졌을 때 쓴다. 일부 문서가 실패해도 나머지는 계속 처리하고 "
                     + "문서별 성공/실패를 함께 반환한다.")
+    @PreAuthorize("hasRole('PURCHASING')")
     @PostMapping("/contracts/{contractId}/reprocess")
     public ApiResponse<ContractRagDto.ReprocessResponse> reprocess(
             @Parameter(description = "내부 계약 PK", example = "11")
@@ -106,22 +120,4 @@ public class ContractRagController {
         return ApiResponse.ok(contractRagService.reprocess(contractId));
     }
 
-    @Operation(
-            summary = "이 근거로 AI 브리핑 생성 (구매팀 계약·RAG)",
-            description = """
-                    이 계약의 자재와 관련된, **DB에 이미 저장돼 있는 가장 최신 뉴스 분석**을 찾아
-                    멀티에이전트(ERP Agent · 계약 RAG Agent · 위험도 합산 · 브리핑 · 검증)를 실행한다.
-                    뉴스를 새로 수집하거나 분석하지 않는다.
-
-                    관련 뉴스가 없거나 계약에 ERP 자재·공급사가 연결돼 있지 않으면 422와 사유를 반환한다
-                    (계약 상세의 briefing_available로 미리 알 수 있다).
-
-                    화면에서 "근거로 사용하기"로 고른 조항은 evidence로 보내면 응답에 그대로 실려 온다.
-                    현재 멀티에이전트 그래프에는 외부 근거 주입 입구가 없어 판정에는 아직 반영되지 않는다.
-                    """)
-    @PostMapping("/briefings")
-    public ApiResponse<ContractRagDto.BriefingResponse> briefing(
-            @Valid @RequestBody ContractRagDto.BriefingRequest request) {
-        return ApiResponse.ok(contractRagService.briefing(request));
-    }
 }

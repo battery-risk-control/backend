@@ -2,16 +2,13 @@ package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.domain.Analysis;
 import com.example.batteryrisk.dto.ErpDto;
-import com.example.batteryrisk.dto.ErpExposureDto;
 import com.example.batteryrisk.dto.ErpExposureDto.ExposureRequest;
 import com.example.batteryrisk.dto.ErpExposureDto.ExposureResponse;
 import com.example.batteryrisk.dto.MaterialRiskDto;
-import com.example.batteryrisk.dto.MultiAgentDto;
 import com.example.batteryrisk.dto.RagDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.repository.AnalysisRepository;
-import com.example.batteryrisk.repository.ErpRepository;
 import com.example.batteryrisk.repository.MaterialRiskRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +18,10 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -29,31 +29,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-
-/*
- * (설계 메모) 대체 공급사를 Agent에 넘기는 두 가지 경로 중 "요약 상태" 쪽을 골랐다.
- *
- * Agent의 adaptErpExposureRequest()는 두 경로를 지원한다.
- *   ① alternativeSuppliers 원본 목록을 주면 → Agent가 alternativeSupplierStatus를 다시 판정한다.
- *   ② 목록 없이 materialContext.alternativeSupplierStatus만 주면 → 그 값을 그대로 쓴다.
- *
- * ②를 쓴다. ①의 판정(deriveAlternativeSupplierStatus)이 APPROVED로 인정하려면
- * availableCapacityQuantity > 0 이어야 하는데, 그 컬럼은 우리 ERP 스키마에 존재하지 않는다
- * (erp_rules.yaml의 supplierAssessmentRisk.weights.capacity가 같은 이유로 0이다). 그래서 ①로 보내면
- * 승인된 대체 공급사가 있는 자재까지 전부 CONDITIONAL로 강등되고, forcedWarningRules의
- * conditionalAlternativeSupplier가 걸려 10종 <b>전부가 WARNING 이상</b>이 된다 — 실제로 그렇게 나왔다.
- * 등급 열이 전부 "주의"면 화면이 아무것도 못 걸러낸다.
- *
- * ②의 값(ErpService.buildContext → ErpRepository.findAlternativeSupplierStatus)은
- * supplier_materials.approved_status를 그대로 읽은 ERP 사실이다. 우리가 실제로 아는 것만 말한다.
- *
- * 다시 ①로 바꾸려면 buildExposureRequest의 마지막 인자를 대체 공급사 목록으로 채우면 된다.
- * 단 그때는 상세 응답의 alternative_supplier_status(우리 값)와 alternative_supplier_risk_score
- * (Agent가 덮어쓴 값)가 어긋나므로 표시도 함께 손봐야 한다.
- */
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 1계층 구매팀 "원자재 위험" 화면 — 자재별 ERP 노출도 목록·상세, 계약 RAG 근거, AI 브리핑.
+ * 1계층 구매팀 "원자재 위험" 화면 — 자재별 ERP 노출도 목록·상세, 계약 RAG 근거.
  *
  * <p><b>원천은 ERP 테이블이다.</b> 뉴스가 한 건도 수집되지 않아도 이 화면은 값을 낸다 —
  * "우리 재고·발주·공급사 구조가 지금 얼마나 위태로운가"만 보기 때문이다. 뉴스가 원천인
@@ -64,21 +43,15 @@ import java.util.UUID;
  * ({@code fastapi-ai/app/config/erp_rules.yaml})을 Java로 한 벌 더 두면, 나중에 멀티에이전트 쪽
  * 가중치가 바뀔 때 화면과 브리핑이 같은 자재를 다른 점수로 부르게 된다.
  *
- * <p><b>FastAPI 쪽은 한 줄도 고치지 않는다.</b> 대신 Agent가 요구하는 계약을 Spring에서 맞춘다.
- * 아래 세 가지가 그 조정이고, 각각 안 하면 화면이 통째로 UNKNOWN이 되는 것들이다.
- * <ol>
- *   <li>{@code alternativeSupplierStatus} — {@link ErpService#buildContext}가 계산한 값을 보낸다.
- *       {@link ErpExposureRequestService}는 이 자리를 null로 보내는데, 그러면 Agent가
- *       {@code INCOMPLETE}로 판정해 점수를 아예 만들지 않는다.</li>
- *   <li>{@code eligibleForEta} — 납기가 지난 발주도 포함시킨다. 제외하면 {@code nextEtaDays}가
- *       null이 되어 역시 {@code INCOMPLETE}인데, "납기가 지났다"는 건 위험이 <b>더</b> 크다는
- *       뜻이라 화면이 정반대로 나온다. 포함시키면 Agent가 알아서 {@code DELAYED}로 승격한다.</li>
- *   <li>{@code inventorySnapshotAt} — 보내지 않는다. Agent는 재고 스냅샷이 24시간을 넘으면
- *       {@code STALE}로 보고 점수를 만들지 않는데, 우리 ERP는 고정된 mock CSV 시드라 시간이
- *       지나면 전 자재가 자동으로 STALE이 된다. 신선도를 속이는 대신 스냅샷 시각을 상세 응답의
- *       {@code inventory_snapshot_at}으로 그대로 내보내 화면이 직접 판단하게 한다
- *       (Agent도 "신선도를 확인하지 못했다"는 경고를 {@code warnings}에 남긴다).</li>
- * </ol>
+ * <p><b>Agent에 보낼 입력은 {@link ErpExposureContextFactory}가 만든다.</b> 멀티에이전트 브리핑과
+ * 똑같은 입력을 보내야 같은 자재가 두 화면에서 같은 점수를 갖는다 — 조립 규칙과 그렇게 정한
+ * 근거는 그 클래스의 javadoc에 있다.
+ *
+ * <p><b>AI 브리핑은 이 서비스가 실행하지 않는다.</b> 화면의 "AI 브리핑 생성" 버튼은
+ * {@code /purchasing/ai-briefing} 화면으로 이동시키고, 실행·저장·근거 표시는 전부
+ * {@link AiBriefingService}가 맡는다. 여기서는 {@link #detail}이 <b>실행할 수 있는지만</b>
+ * 판정해 내려준다({@code briefing_available}) — 못 돌릴 대상으로 이동시키면 빈 화면만 보여주는
+ * 셈이기 때문이다.
  */
 @Service
 public class MaterialRiskService {
@@ -105,9 +78,33 @@ public class MaterialRiskService {
     private static final String NOT_RELEVANT_REASON_CODE = "NOT_RELEVANT";
     private static final String IRRELEVANT_IMPACT_DOMAIN = "IRRELEVANT";
 
-    /** 계약 검토 질문이 하나도 없을 때 쓰는 기본 질의. */
+    /**
+     * 계약 검토 질문이 하나도 없을 때 쓰는 기본 질의.
+     *
+     * <p>응답의 {@code questions}에도 이 코드로 넣어 보낸다 — 화면이 "무엇을 검색했는지" 늘 알 수
+     * 있어야 어떤 조항이 왜 걸렸는지 읽을 수 있다.
+     */
+    private static final String DEFAULT_CONTRACT_QUESTION_CODE = "DEFAULT_CONTRACT_REVIEW";
     private static final String DEFAULT_CONTRACT_QUERY =
             "납기 지연 통보 의무, 지연 위약금, 불가항력, 대체 공급사 사용 제한 조항";
+
+    /**
+     * 재고 스냅샷을 "오래됐다"고 볼 기준.
+     *
+     * <p>{@code erp_rules.yaml}의 {@code dataQualityRules.maximumInventoryAgeHours}와 같은 값이다.
+     * Agent에는 스냅샷 시각을 보내지 않으므로({@link ErpExposureContextFactory} javadoc 3번)
+     * 노후 판정은 Spring이 직접 한다 — 안 하면 고정 mock 시드가 몇 달이 지나도 화면에서 계속
+     * "데이터 품질 VALID"로 보인다.
+     */
+    private static final long INVENTORY_SNAPSHOT_MAX_AGE_HOURS = 24;
+
+    private static final String STALE = "STALE";
+
+    /**
+     * 개요 캐시 수명. ERP 스냅샷이 하루 단위로 갱신되는 데이터라 초 단위 신선도는 의미가 없고,
+     * 짧게 잡아 "새로고침을 눌렀는데 옛 숫자"가 오래 남지 않게 한다.
+     */
+    private static final long OVERVIEW_CACHE_TTL_SECONDS = 60;
 
     /** 나쁠수록 큰 값. 요약의 "전체 데이터 품질"은 자재별 품질 중 가장 나쁜 것을 쓴다. */
     private static final Map<String, Integer> DATA_QUALITY_RANK =
@@ -126,28 +123,32 @@ public class MaterialRiskService {
                     Comparator.nullsLast(Comparator.reverseOrder()))
             .thenComparing(MaterialRiskDto.MaterialItem::erpMaterialId);
 
+    /**
+     * 개요 캐시. 자재 목록이 통째로 한 덩어리라 항목별 캐시가 필요 없고, 참조 교체만 하므로
+     * 락 없이 {@link AtomicReference} 하나로 충분하다. 동시에 두 요청이 들어오면 둘 다 계산하고
+     * 나중 것이 남는데, 결과가 같으므로 문제되지 않는다(계산이 부수효과가 없다).
+     */
+    private final AtomicReference<CachedOverview> overviewCache = new AtomicReference<>();
+
     private final MaterialRiskRepository repository;
-    private final ErpRepository erpRepository;
     private final ErpService erpService;
+    private final ErpExposureContextFactory contextFactory;
     private final RagService ragService;
     private final AnalysisRepository analysisRepository;
-    private final MultiAgentOrchestrationService multiAgentOrchestrationService;
     private final RestClient fastApiRestClient;
 
     public MaterialRiskService(
             MaterialRiskRepository repository,
-            ErpRepository erpRepository,
             ErpService erpService,
+            ErpExposureContextFactory contextFactory,
             RagService ragService,
             AnalysisRepository analysisRepository,
-            MultiAgentOrchestrationService multiAgentOrchestrationService,
             RestClient fastApiRestClient) {
         this.repository = repository;
-        this.erpRepository = erpRepository;
         this.erpService = erpService;
+        this.contextFactory = contextFactory;
         this.ragService = ragService;
         this.analysisRepository = analysisRepository;
-        this.multiAgentOrchestrationService = multiAgentOrchestrationService;
         this.fastApiRestClient = fastApiRestClient;
     }
 
@@ -157,12 +158,30 @@ public class MaterialRiskService {
      * <p>자재 하나가 실패해도 목록 전체를 죽이지 않는다. 재고 행이 없거나 Agent 호출이 실패한
      * 자재는 점수 없이 사유만 담아 맨 뒤로 보낸다 — 10종 중 1종의 데이터가 빠졌다고 화면이
      * 통째로 빈 것보다, 9종을 보여주고 1종은 왜 못 봤는지 말하는 편이 쓸모 있다.
+     *
+     * <p><b>{@value #OVERVIEW_CACHE_TTL_SECONDS}초 캐시가 붙어 있다.</b> 한 번 부를 때 자재 수만큼
+     * ERP Exposure Agent를 호출하므로(현재 10종 · 실측 0.8초), 여러 사용자가 화면을 열거나 탭을
+     * 오갈 때마다 그대로 다시 도는 것을 막는다. 캐시된 응답인지는 {@code as_of}로 알 수 있다 —
+     * 계산 시각을 응답에 담아 보내므로 화면이 "언제 기준 숫자인지"를 감추지 않는다.
+     *
+     * @param refresh 화면의 "새로고침"이 누르는 경로. true면 캐시를 건너뛰고 다시 계산한다 —
+     *                새로고침을 눌렀는데 같은 숫자가 나오면 버튼이 고장 난 것으로 보인다.
      */
-    public MaterialRiskDto.Overview overview() {
+    public MaterialRiskDto.Overview overview(boolean refresh) {
+        CachedOverview cached = overviewCache.get();
+        if (!refresh && cached != null && cached.isFresh()) {
+            return cached.overview();
+        }
+        MaterialRiskDto.Overview computed = computeOverview();
+        overviewCache.set(new CachedOverview(computed, Instant.now()));
+        return computed;
+    }
+
+    private MaterialRiskDto.Overview computeOverview() {
         OffsetDateTime asOf = OffsetDateTime.now();
         List<MaterialRiskDto.MaterialItem> items = repository.findAssessableMaterials().stream()
                 .map(material -> assess(material, asOf))
-                .map(MaterialRiskService::toItem)
+                .map(assessment -> toItem(assessment, asOf))
                 .sorted(DISPLAY_ORDER)
                 .toList();
         return new MaterialRiskDto.Overview(summarize(items, asOf), items);
@@ -172,7 +191,7 @@ public class MaterialRiskService {
     public MaterialRiskDto.MaterialDetail detail(String erpMaterialId) {
         OffsetDateTime asOf = OffsetDateTime.now();
         Assessment assessment = assess(findMaterial(erpMaterialId), asOf);
-        MaterialRiskDto.MaterialItem item = toItem(assessment);
+        MaterialRiskDto.MaterialItem item = toItem(assessment, asOf);
 
         if (assessment.failed()) {
             return unavailableDetail(item, asOf);
@@ -202,14 +221,14 @@ public class MaterialRiskService {
                 erp.nextInboundDate(),
                 erp.nextEtaDays(),
                 round(erp.expectedSupplyGapDays(), 1),
-                repository.findInventorySnapshotAt(erp.materialId(), asOf),
+                assessment.inventorySnapshotAt(),
                 toPrimarySupplier(erp),
                 linkedContract(erp),
                 toRiskComponents(exposure),
                 exposure.forcedCritical(),
                 exposure.contractReviewRequired(),
                 toContractQuestions(exposure),
-                nullToEmpty(exposure.warnings()),
+                warnings(exposure, assessment.inventorySnapshotAt(), asOf),
                 blockedReason == null,
                 blockedReason,
                 asOf);
@@ -237,10 +256,15 @@ public class MaterialRiskService {
                     "이 자재의 주 공급사와 연결된 계약이 없어 계약 근거를 찾을 수 없습니다.");
         }
 
-        List<MaterialRiskDto.ContractQuestion> questions = toContractQuestions(assessment.exposure());
-        String query = questions.isEmpty()
-                ? DEFAULT_CONTRACT_QUERY
-                : String.join(" ", questions.stream().map(MaterialRiskDto.ContractQuestion::question).toList());
+        // 질문이 없으면 기본 질의로 검색하되, 그 기본 질의도 questions에 담아 내보낸다.
+        // 빈 배열로 두면 화면이 "무엇을 검색했는지" 알 수 없어 결과를 해석할 수 없다.
+        List<MaterialRiskDto.ContractQuestion> agentQuestions = toContractQuestions(assessment.exposure());
+        List<MaterialRiskDto.ContractQuestion> questions = agentQuestions.isEmpty()
+                ? List.of(new MaterialRiskDto.ContractQuestion(
+                        DEFAULT_CONTRACT_QUESTION_CODE, DEFAULT_CONTRACT_QUERY))
+                : agentQuestions;
+        String query = String.join(
+                " ", questions.stream().map(MaterialRiskDto.ContractQuestion::question).toList());
 
         RagDto.SearchResult result = ragService.search(new RagDto.SearchRequest(
                 query,
@@ -252,73 +276,6 @@ public class MaterialRiskService {
                 erp.erpMaterialId(), linkedContract(erp), questions, query, result.results(), result.mock());
     }
 
-    /**
-     * "AI 브리핑 생성" — 이 자재에 대해 멀티에이전트를 실행한다.
-     *
-     * <p>멀티에이전트는 외부신호(가중치 0.35)를 필수로 요구하는데 이 화면에는 뉴스가 없다.
-     * 그래서 <b>DB에 이미 저장된</b> {@code analyses} 중 같은 자재 대분류의 가장 최신 분석을
-     * 끌어와 그 {@code analysisId}를 넘긴다 — 새로 수집하거나 분석을 돌리지 않는다.
-     *
-     * <p>쓸 분석이 없으면 422로 막는다. 외부신호를 0점으로 밀어 넣으면 종합 점수가 최대 35점
-     * 낮게 나오는데 응답은 200이라, 화면에서는 "위험하지 않다"로 읽히기 때문이다.
-     *
-     * @param useLlm 브리핑 문구 생성에 LLM을 쓸지. 버튼 한 번이 곧 비용이라 기본은 false다.
-     */
-    public MaterialRiskDto.Briefing briefing(String erpMaterialId, boolean useLlm) {
-        MaterialRiskRepository.MaterialRow material = findMaterial(erpMaterialId);
-        OffsetDateTime asOf = OffsetDateTime.now();
-
-        ErpDto.ContextResponse erp = erpService.buildContext(
-                new ErpDto.ContextRequest(material.erpMaterialId(), null, asOf));
-
-        Analysis analysis = findExternalSignalAnalysis(material.materialCategory())
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCode.MATERIAL_BRIEFING_NOT_AVAILABLE,
-                        briefingBlockedReason(material.materialCategory())));
-
-        MultiAgentDto.GenerateRequest request = new MultiAgentDto.GenerateRequest(
-                analysis.getAnalysisId().toString(),
-                analysis.getAnalysisId(),
-                analysis.getEventTitle(),
-                analysis.getEventContent() == null ? "" : analysis.getEventContent(),
-                analysis.getSummaryKr() == null ? "" : analysis.getSummaryKr(),
-                analysis.getImpactDomain(),
-                analysis.getImpactDomain(),
-                null, null,
-                erp.erpMaterialId(),
-                erp.erpSupplierId(),
-                analysis.getCountryCode(),
-                asOf,
-                useLlm);
-
-        MultiAgentDto.Response response = multiAgentOrchestrationService.generate(request);
-
-        // ERP 노출도 점수의 존재로 조기 종료를 판별한다(RiskMonitoringService.isComposite와 같은 기준).
-        // 조기 종료 경로는 erpAssessment를 빈 dict로 두므로 이 값이 반드시 없고, 정상 실행은 반드시 있다.
-        boolean completed = numeric(response.erpAssessment(), "erp_exposure_score") != null;
-        log.info("원자재 위험 AI 브리핑 생성: material={}, analysisId={}, level={}, completed={}",
-                erp.erpMaterialId(), analysis.getAnalysisId(), response.procurementRiskLevel(), completed);
-
-        return new MaterialRiskDto.Briefing(
-                response.assessmentId(),
-                erp.erpMaterialId(),
-                erp.materialName(),
-                analysis.getAnalysisId(),
-                analysis.getEventTitle(),
-                analysis.getCountryCode(),
-                analysis.getSeverityScore(),
-                completed,
-                upperOrNull(response.procurementRiskLevel()),
-                response.procurementRiskScore(),
-                nullToEmpty(response.riskReasons()),
-                nullToEmpty(response.recommendedActions()),
-                response.briefing(),
-                response.llmUsed(),
-                response.llmError(),
-                response.reviewPassed(),
-                nullToEmpty(response.warnings()));
-    }
-
     // --- ERP Exposure Agent 호출 ---------------------------------------------------------------
 
     /** 자재 1건 평가. 실패해도 예외를 밖으로 던지지 않고 사유를 담아 돌려준다(목록이 죽지 않게). */
@@ -326,15 +283,39 @@ public class MaterialRiskService {
         try {
             ErpDto.ContextResponse erp = erpService.buildContext(
                     new ErpDto.ContextRequest(material.erpMaterialId(), null, asOf));
-            return new Assessment(material, erp, callExposureAgent(erp, asOf), null);
+            // 스냅샷 시각은 Agent에 보내지 않지만 노후 판정과 화면 표기에 쓰므로 여기서 같이 읽는다.
+            Instant snapshotAt = repository.findInventorySnapshotAt(erp.materialId(), asOf);
+            return new Assessment(material, erp, callExposureAgent(erp, asOf), snapshotAt, null);
         } catch (BusinessException exception) {
             log.info("자재 {} ERP Context 구성 실패: {}", material.erpMaterialId(), exception.getMessage());
-            return new Assessment(material, null, null, exception.getMessage());
+            return new Assessment(material, null, null, null, exception.getMessage());
         } catch (Exception exception) {
             log.warn("자재 {} ERP 노출도 계산 실패", material.erpMaterialId(), exception);
-            return new Assessment(material, null, null,
+            return new Assessment(material, null, null, null,
                     "ERP 노출도 분석 서버에 연결할 수 없어 점수를 계산하지 못했습니다.");
         }
+    }
+
+    /**
+     * 재고 스냅샷이 오래됐는지. 스냅샷 시각을 모르면 "판정 불가"라 false로 둔다 — 모르는 것을
+     * 오래됐다고 단정하지 않는다.
+     */
+    private static boolean staleSnapshot(Instant snapshotAt, OffsetDateTime asOf) {
+        return snapshotAt != null
+                && Duration.between(snapshotAt, asOf.toInstant()).toHours() > INVENTORY_SNAPSHOT_MAX_AGE_HOURS;
+    }
+
+    /**
+     * 화면에 내보낼 데이터 품질. Agent 판정과 Spring의 재고 노후 판정 중 <b>나쁜 쪽</b>을 쓴다.
+     *
+     * <p>Agent는 스냅샷 시각을 받지 않아 신선도를 볼 수 없으므로, 그 자리를 Spring이 메운다.
+     */
+    private static String dataQualityOf(ExposureResponse exposure, Instant snapshotAt, OffsetDateTime asOf) {
+        String agentStatus = nullToUnknown(exposure.dataQualityStatus());
+        if (!staleSnapshot(snapshotAt, asOf)) {
+            return agentStatus;
+        }
+        return dataQualityRank(STALE) > dataQualityRank(agentStatus) ? STALE : agentStatus;
     }
 
     private ExposureResponse callExposureAgent(ErpDto.ContextResponse erp, OffsetDateTime asOf) {
@@ -349,6 +330,10 @@ public class MaterialRiskService {
         return response;
     }
 
+    /**
+     * Agent 요청 조립. ERP에서 읽어오는 부분은 전부 {@link ErpExposureContextFactory}에 맡긴다 —
+     * 멀티에이전트 브리핑과 같은 입력이어야 같은 자재가 같은 점수를 갖는다.
+     */
     private ExposureRequest buildExposureRequest(ErpDto.ContextResponse erp, OffsetDateTime asOf) {
         return new ExposureRequest(
                 "MATERIAL-RISK-" + UUID.randomUUID(),
@@ -363,64 +348,15 @@ public class MaterialRiskService {
                 erp.erpContractId(),
                 NEUTRAL_EVENT_SUMMARY,
                 true,
-                buildMaterialContext(erp),
-                buildPurchaseOrders(erp, asOf),
-                // 대체 공급사는 "요약 상태" 경로로 보낸다 — 바로 아래 주석 참고.
-                List.of());
-    }
-
-    private static ErpExposureDto.MaterialContext buildMaterialContext(ErpDto.ContextResponse erp) {
-        return new ErpExposureDto.MaterialContext(
-                erp.erpMaterialId(),
-                erp.materialName(),
-                erp.unit(),
-                erp.onHandQuantity(),
-                erp.reservedQuantity(),
-                erp.blockedQuantity(),
-                erp.qualityHoldQuantity(),
-                erp.averageDailyUsage(),
-                erp.safetyStockQuantity(),
-                erp.supplierDependencyRatio(),
-                erp.alternativeSupplierStatus(),
-                mapSupplierStatus(erp.supplierStatus()),
-                erp.erpSupplierId(),
-                erp.erpContractId(),
-                // 재고 신선도 검사를 태우지 않는다 — 클래스 javadoc 3번 참고.
-                null);
-    }
-
-    /**
-     * 미입고 발주 목록.
-     *
-     * <p>{@code eligibleForEta}에 납기 경과 여부를 넣지 않는다(클래스 javadoc 2번). Agent의
-     * {@code normalizePurchaseOrderStatus()}가 "도착 예정일이 지났는데 잔여 수량이 남았다"를
-     * {@code DELAYED}로 승격시키고, 그게 곧 발주지연 위험점수 100점이 된다.
-     */
-    private List<ErpExposureDto.PurchaseOrderContext> buildPurchaseOrders(
-            ErpDto.ContextResponse erp, OffsetDateTime asOf) {
-        return erpRepository.findOpenPurchaseOrders(erp.materialId(), asOf.toLocalDate()).stream()
-                .filter(row -> row.effectiveArrivalDate() != null)
-                .map(row -> new ErpExposureDto.PurchaseOrderContext(
-                        row.erpPurchaseOrderItemId(),
-                        row.erpPurchaseOrderId(),
-                        row.erpMaterialId(),
-                        row.erpSupplierId(),
-                        row.erpContractId(),
-                        row.remainingQuantity(),
-                        row.orderStatus(),
-                        row.effectiveArrivalDate().toString(),
-                        !"CLOSED".equals(row.orderStatus())))
-                .toList();
-    }
-
-    /** 우리 supplier_status(ACTIVE/UNDER_REVIEW/INACTIVE)를 Agent 계약(…/SUSPENDED/TERMINATED)에 맞춘다. */
-    private static String mapSupplierStatus(String supplierStatus) {
-        return "INACTIVE".equals(supplierStatus) ? "SUSPENDED" : supplierStatus;
+                contextFactory.materialContext(erp),
+                contextFactory.purchaseOrders(erp, asOf.toLocalDate()),
+                contextFactory.requiredQuantity(erp),
+                contextFactory.alternativeSuppliers(erp, asOf.toLocalDate()));
     }
 
     // --- 응답 조립 ------------------------------------------------------------------------------
 
-    private static MaterialRiskDto.MaterialItem toItem(Assessment assessment) {
+    private static MaterialRiskDto.MaterialItem toItem(Assessment assessment, OffsetDateTime asOf) {
         MaterialRiskRepository.MaterialRow material = assessment.material();
         if (assessment.failed()) {
             return new MaterialRiskDto.MaterialItem(
@@ -444,8 +380,8 @@ public class MaterialRiskService {
                 score,
                 round(erp.inventoryDays(), 1),
                 round(erp.safetyStockDays(), 1),
-                round(erp.supplierDependencyRatio(), 4),
-                nullToUnknown(exposure.dataQualityStatus()),
+                ratio(erp.supplierDependencyRatio()),
+                dataQualityOf(exposure, assessment.inventorySnapshotAt(), asOf),
                 score == null ? scoreMissingReason(exposure) : null);
     }
 
@@ -478,7 +414,9 @@ public class MaterialRiskService {
                 : inventoryDays.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
                         .divide(BigDecimal.valueOf(inventoryDays.size()), 1, RoundingMode.HALF_UP);
 
-        String dataQuality = assessed.stream()
+        // 평가된 자재만 보면 "데이터 품질 VALID · 평가 불가 2종"처럼 앞뒤가 안 맞는 KPI가 나온다.
+        // 평가하지 못한 자재야말로 품질이 가장 나쁜 쪽이므로 전체를 대상으로 최악값을 쓴다.
+        String dataQuality = items.stream()
                 .map(MaterialRiskDto.MaterialItem::dataQualityStatus)
                 .max(Comparator.comparingInt(MaterialRiskService::dataQualityRank))
                 .orElse("UNKNOWN");
@@ -527,6 +465,23 @@ public class MaterialRiskService {
                 numeric(components, "dependencyRiskScore"),
                 numeric(components, "purchaseOrderDelayRiskScore"),
                 numeric(components, "alternativeSupplierRiskScore"));
+    }
+
+    /**
+     * 화면에 보여줄 경고. Agent가 남긴 것에 Spring의 재고 노후 판정을 더한다.
+     *
+     * <p>Agent의 "신선도를 확인하지 못했다"는 <b>보내지 않았기 때문에</b> 늘 붙는 문구라 그것만으론
+     * 실제로 오래됐는지 알 수 없다. 며칠 지났는지는 Spring만 알고 있으므로 여기서 덧붙인다.
+     */
+    private static List<String> warnings(
+            ExposureResponse exposure, Instant snapshotAt, OffsetDateTime asOf) {
+        List<String> warnings = new ArrayList<>(nullToEmpty(exposure.warnings()));
+        if (staleSnapshot(snapshotAt, asOf)) {
+            long days = Duration.between(snapshotAt, asOf.toInstant()).toDays();
+            warnings.add("재고 스냅샷이 " + days + "일 경과했습니다(기준 "
+                    + INVENTORY_SNAPSHOT_MAX_AGE_HOURS + "시간). 재고 수치가 현재와 다를 수 있습니다.");
+        }
+        return List.copyOf(warnings);
     }
 
     private static List<MaterialRiskDto.ContractQuestion> toContractQuestions(ExposureResponse exposure) {
@@ -623,13 +578,21 @@ public class MaterialRiskService {
         return value == null ? null : value.setScale(scale, RoundingMode.HALF_UP);
     }
 
-    private static String nullToUnknown(String value) {
-        return value == null || value.isBlank() ? "UNKNOWN" : value;
+    /**
+     * 0~1 비율. 소수 4자리에서 자르되 뒤따르는 0은 떼어 낸다 — {@code 0.9100} 대신 {@code 0.91}로
+     * 나가게 하려는 것이다. {@code stripTrailingZeros()}는 정수에서 지수 표기(1E+2)를 만들 수 있어
+     * 음수 scale을 되돌린다({@code ErpService.normalize()}와 같은 처리).
+     */
+    private static BigDecimal ratio(BigDecimal value) {
+        if (value == null) {
+            return null;
+        }
+        BigDecimal stripped = value.setScale(4, RoundingMode.HALF_UP).stripTrailingZeros();
+        return stripped.scale() < 0 ? stripped.setScale(0) : stripped;
     }
 
-    /** FastAPI는 등급을 소문자로 돌려준다. 화면·필터가 대소문자를 신경 쓰지 않도록 여기서 통일한다. */
-    private static String upperOrNull(String value) {
-        return value == null ? null : value.toUpperCase(java.util.Locale.ROOT);
+    private static String nullToUnknown(String value) {
+        return value == null || value.isBlank() ? "UNKNOWN" : value;
     }
 
     private static <T> List<T> nullToEmpty(List<T> values) {
@@ -637,16 +600,27 @@ public class MaterialRiskService {
     }
 
     /**
-     * 자재 1건의 평가 결과. {@code failureReason}이 있으면 {@code erp}·{@code exposure}는 null이다.
+     * 자재 1건의 평가 결과. {@code failureReason}이 있으면 나머지 셋은 null이다.
+     *
+     * @param inventorySnapshotAt 계산에 쓰인 재고 스냅샷 시각. Agent에는 보내지 않고 노후 판정과
+     *                            화면 표기에만 쓴다. 스냅샷이 없으면 null
      */
     private record Assessment(
             MaterialRiskRepository.MaterialRow material,
             ErpDto.ContextResponse erp,
             ExposureResponse exposure,
+            Instant inventorySnapshotAt,
             String failureReason) {
 
         boolean failed() {
             return failureReason != null;
+        }
+    }
+
+    /** 캐시된 개요 1건. */
+    private record CachedOverview(MaterialRiskDto.Overview overview, Instant computedAt) {
+        boolean isFresh() {
+            return Duration.between(computedAt, Instant.now()).toSeconds() < OVERVIEW_CACHE_TTL_SECONDS;
         }
     }
 }

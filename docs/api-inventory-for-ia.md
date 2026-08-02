@@ -160,29 +160,42 @@ Spring으로 콜백하기 때문**(`SecurityConfig`의 `permitAll`)이지 공개
 | GET | `/api/v1/risk-monitoring/events` | 1계층 구매팀 — 리스크 모니터링 목록 | 토큰 |
 | GET | `/api/v1/risk-monitoring/events/{eventId}` | 1계층 구매팀 — 이벤트 상세 | 토큰 |
 | POST | `/api/v1/risk-monitoring/events/{eventId}/erp-impact` | 1계층 구매팀 — ERP·계약 영향 분석 실행 | 토큰 |
-| GET | `/api/v1/contract-rag/contracts` | 1계층 구매팀 — 계약 목록(적재된 계약만) | 토큰 |
+| GET | `/api/v1/contract-rag/contracts` | 1계층 구매팀 — 계약 목록(`include_unindexed`로 미적재 포함) | 토큰 |
 | POST | `/api/v1/contract-rag/search` | 1계층 구매팀 — 계약 조항 의미검색 | 토큰 |
 | GET | `/api/v1/contract-rag/contracts/{contractId}` | 1계층 구매팀 — 계약 문서 상세·임베딩 상태 | 토큰 |
 | POST | `/api/v1/contract-rag/contracts/{contractId}/documents` | 1계층 구매팀 — 계약서 추가 업로드 | 토큰 |
 | POST | `/api/v1/contract-rag/contracts/{contractId}/reprocess` | 1계층 구매팀 — 문서 재처리 | 토큰 |
-| POST | `/api/v1/contract-rag/briefings` | 1계층 구매팀 — 계약 근거 기반 AI 브리핑 | 토큰 |
 | GET | `/api/v1/ai-briefing/context` | 1계층 구매팀 — AI 브리핑 대상 프리필 | 토큰 |
 | POST | `/api/v1/ai-briefing/briefings` | 1계층 구매팀 — LLM 브리핑 생성·저장 | 토큰 |
 | GET | `/api/v1/ai-briefing/briefings` | 1계층 구매팀 — 최근 브리핑 목록 | 토큰 |
 | GET | `/api/v1/ai-briefing/briefings/{briefingId}` | 1계층 구매팀 — 브리핑 상세 보기 | 토큰 |
 
-**계약·RAG 6종(2026-08-01 신설)** — 기존 `/api/v1/rag/search`(멀티에이전트용, 필터 필수)와
-**경로를 분리했다.** 화면은 검색창에 문장만 넣고 전체 계약을 훑는 흐름이라 필터를 강제할 수
-없어서, FastAPI에 `/api/v1/contract-rag/search`를 따로 두고 필터 없이도 컬렉션 전체를 조회한다
-(기존 검색 규칙·멀티에이전트 경로는 그대로다).
+**계약·RAG 5종(2026-08-01 신설 · 08-02 개정)** — 기존 `/api/v1/rag/search`(멀티에이전트용,
+필터 필수)와 **경로를 분리했다.** 화면은 검색창에 문장만 넣고 전체 계약을 훑는 흐름이라 필터를
+강제할 수 없어서, FastAPI에 `/api/v1/contract-rag/search`를 따로 두고 필터 없이도 컬렉션 전체를
+조회한다(기존 검색 규칙·멀티에이전트 경로는 그대로다).
+
+⚠️ **여기서 멀티에이전트는 돌지 않는다.** 이 5개는 `Spring → FastAPI → 임베딩 → ChromaDB 검색`과
+문서 관리까지다. supervisor·ERP Agent·계약 RAG Agent가 실행되는 곳은 `/api/v1/ai-briefing/briefings`
+하나뿐이다. 화면의 "AI 브리핑 생성" 버튼은 실행이 아니라 `?source=CONTRACT&ref={contractId}`로의
+**이동**이다.
 
 조항 제목(`clause_title`)은 ChromaDB에 저장된 값이 아니라 청크 본문 머리에서 뽑아 만든다 —
 ERP 연결 시드가 영문 계약서라 `Article 4 / DELIVERY AND PENALTY`가 들어오고, 화면에는
 `제4조 · 납기 및 지연 위약금`으로 보인다(`ContractRagService.CLAUSE_LABELS_KO`).
 
-`/briefings`는 뉴스를 새로 수집하지 않는다. 계약의 자재 대분류로 **이미 저장된 최신 분석**을
-찾아 멀티에이전트를 실행하며, 관련 뉴스가 없으면 422다(계약 상세의 `briefing_available`로
-미리 알 수 있다). 응답의 `composite=false`는 KG 게이트 조기 종료라 점수가 무의미하다는 뜻이다.
+계약 목록은 화면이 `include_unindexed=true`로 부른다 — 문서가 0건인 신규 계약은 검색 결과에
+나올 수가 없어서, 목록에서까지 빠지면 **첫 문서를 올릴 진입로가 사라진다.**
+
+**2026-08-02에 `POST /contract-rag/briefings`를 폐기했다.** AI 브리핑 화면이 생기면서 프론트가
+호출을 멈췄는데, 같은 멀티에이전트를 두 경로가 각자 부르면 이쪽 결과만 `ai_briefings`에 안 남아
+**실행 이력이 "최근 브리핑" 목록에서 사라진다.** 계약 기반 브리핑은 `/api/v1/ai-briefing/briefings`
+(`source=CONTRACT`)로 일원화했고, 그쪽이 `ContractRagService.contract()`와
+`ContractRagRepository.findLatestRelatedNews()`를 재사용하므로 판정 규칙은 한 벌만 남는다.
+
+⚠️ 그 관련 뉴스 조회는 **"가장 최신"이 아니라 "가장 관련 깊은"** 것을 고른다 — 1순위가 공급사
+국적 일치이고 최신순은 그 안의 동점 처리다. 하루 늦은 콩고 기사가 오늘 나온 칠레 기사보다
+콩고 공급사 계약의 ERP 노출도 계산에 맞기 때문이다.
 
 **리스크 모니터링 3종(2026-08-01 신설)** — 원천이 **수집 뉴스(`raw_events`)** 라서 식별자가
 `RISK-YYYY-...`가 아니라 `raw_events.id`(숫자)다. 분석(F3)이 안 붙은 기사도 목록에 나와야 하기
@@ -203,6 +216,21 @@ ERP 연결 시드가 영문 계약서라 `Article 4 / DELIVERY AND PENALTY`가 �
 브리핑 본문·권고조치·ERP 노출 근거·계약 근거는 새 테이블 `ai_briefings`(V23)에 저장된다.
 점수 이력은 기존대로 `procurement_risk_assessments`에 남고 `assessment_id`로 연결된다 —
 그쪽은 스케줄러·타 화면 실행까지 섞이는 이력이라 "최근 브리핑" 목록의 원천으로 쓸 수 없다.
+
+**2026-08-02 보완 3가지**
+
+`POST /briefings`가 `analysis_id`(선택)를 받는다. 자재·계약 대상은 서버가 "같은 대분류의 최신
+분석"을 그때그때 고르므로, 프리필과 생성 사이에 수집 스케줄러가 새 분석을 넣으면 **화면이 보여준
+외부신호와 다른 뉴스로 실행된다.** 화면은 `/context`가 준 값을 그대로 실어 보내 그 창을 닫는다.
+대상과 무관한 분석을 지정하면 400이다 — 고정이 우회로가 되면 저장된 계보를 믿을 수 없다.
+
+같은 `source`·`ref`·`analysis_id`로 **60초 안에** 다시 오면 그래프를 돌리지 않고 방금 만든 브리핑을
+그대로 돌려준다. 완전한 멱등성 키가 아니라 짧은 시간창이며, 막으려는 것은 "저장은 됐는데 응답이
+유실돼 사용자가 다시 누르는" 경우와 그때 다시 나가는 LLM 비용이다. 한참 뒤의 재평가는 정상 요구라
+막지 않는다.
+
+목록 응답에 `source_ref`가 추가됐다. 화면이 "브리핑 상세 보기"로 저장된 브리핑을 열 때 상단
+"분석 대상 · ERP 연결"까지 함께 맞추려면 `source_type`만으로는 부족하다.
 
 ### 4-2. 업무 조회 — 12개 (IA 핵심 대상)
 

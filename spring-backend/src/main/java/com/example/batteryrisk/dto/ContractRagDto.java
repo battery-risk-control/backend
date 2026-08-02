@@ -10,7 +10,6 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -158,53 +157,16 @@ public final class ContractRagDto {
             @JsonProperty("error_message") String errorMessage
     ) {}
 
-    // ---------------------------------------------------------------- AI 브리핑
+    // ---------------------------------------------------------------- 브리핑 대상 뉴스
 
     /**
-     * "이 근거로 AI 브리핑 생성" 요청.
+     * 이 계약과 관련된, DB에 이미 저장된 최신 뉴스 분석.
      *
-     * <p>{@code evidence}는 화면에서 "근거로 사용하기"로 고른 조항들이다. 현재 멀티에이전트
-     * 그래프에는 외부 근거를 주입하는 입구가 없어서(병합 진행 중) 검색어 보강과 응답 echo에만
-     * 쓴다 — 그래프가 준비되면 그때 실제 주입으로 바꾼다.
+     * <p>계약·RAG 화면 자체는 브리핑을 실행하지 않는다(2026-08-02에 {@code POST /briefings} 폐기).
+     * 이 레코드가 남아 있는 것은 두 곳이 쓰기 때문이다 —
+     * {@link ContractDetail#briefingAvailable}를 판정할 때, 그리고 {@code AiBriefingService}가
+     * {@code source=CONTRACT} 브리핑의 외부신호로 삼을 분석을 고를 때.
      */
-    public record BriefingRequest(
-            @JsonProperty("contract_id") @Positive Long contractId,
-            List<EvidenceRef> evidence,
-            @JsonProperty("use_llm") boolean useLlm
-    ) {}
-
-    public record EvidenceRef(
-            @JsonProperty("document_id") String documentId,
-            @JsonProperty("chunk_index") Integer chunkIndex,
-            @JsonProperty("clause_title") String clauseTitle
-    ) {}
-
-    public record BriefingResponse(
-            @JsonProperty("assessment_id") UUID assessmentId,
-            ContractSummary contract,
-            /** 브리핑의 입력이 된, DB에 저장돼 있던 가장 최신 관련 뉴스. */
-            @JsonProperty("source_news") SourceNews sourceNews,
-            /**
-             * ERP·계약 노드까지 실제로 돌아 종합 점수가 나온 실행인지.
-             *
-             * <p>false면 KG 게이트에서 조기 종료된 실행이라 등급이 항상 "정상 · 0점"으로 남는다 —
-             * "평가해보니 정상"이 아니라 <b>"평가하지 못했다"</b>는 뜻이므로 화면은 이 값을 보고
-             * 점수를 그대로 보여주지 말아야 한다({@code RiskMonitoringService.isComposite}와 같은 규칙).
-             */
-            boolean composite,
-            @JsonProperty("procurement_risk_level") String procurementRiskLevel,
-            @JsonProperty("procurement_risk_score") int procurementRiskScore,
-            @JsonProperty("risk_reasons") List<String> riskReasons,
-            String briefing,
-            @JsonProperty("recommended_actions") List<String> recommendedActions,
-            @JsonProperty("contract_findings") List<Map<String, Object>> contractFindings,
-            @JsonProperty("used_evidence") List<EvidenceRef> usedEvidence,
-            @JsonProperty("llm_used") boolean llmUsed,
-            @JsonProperty("review_passed") boolean reviewPassed,
-            List<String> warnings
-    ) {}
-
-    /** 브리핑의 근거가 된 뉴스. 화면이 "무엇을 보고 이렇게 판단했는지" 되짚을 수 있게 한다. */
     public record SourceNews(
             @JsonProperty("analysis_id") UUID analysisId,
             @JsonProperty("event_id") Long eventId,

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -38,10 +39,15 @@ import java.util.UUID;
  * <p>ERP 내부 상세(재고·의존도)와 계약 조항 원문을 그대로 노출하므로 인증(Bearer)을 요구한다.
  * 판정과 실행 흐름은 {@link AiBriefingService} 참고.
  */
+/*
+ * 권한 정책(2026-08-02): 클래스 단위는 <b>조회</b> 기준이라 구매팀 + 경영기획팀을 허용하고,
+ * 실행·생성 계열 메서드만 구매팀으로 좁힌다. 근거는 RiskMonitoringController의 같은 주석 참고.
+ */
 @RestController
 @RequestMapping("/api/v1/ai-briefing")
 @SecurityRequirement(name = "bearerAuth")
 @Validated
+@PreAuthorize("hasAnyRole('PURCHASING','STRATEGY')")
 public class AiBriefingController {
     private final AiBriefingService aiBriefingService;
 
@@ -82,6 +88,7 @@ public class AiBriefingController {
                     실행할 수 없는 대상은 422와 함께 사유를 돌려준다. GET /context의
                     generate_blocked_reason으로 미리 알 수 있다.
                     """)
+    @PreAuthorize("hasRole('PURCHASING')")
     @PostMapping("/briefings")
     public ApiResponse<AiBriefingDto.BriefingDetail> generate(
             @Valid @RequestBody AiBriefingDto.GenerateRequest request) {

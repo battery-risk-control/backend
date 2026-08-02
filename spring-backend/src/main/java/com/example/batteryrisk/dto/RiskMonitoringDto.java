@@ -105,7 +105,56 @@ public final class RiskMonitoringDto {
             boolean erpImpactAvailable,
 
             @Schema(example = "공급망과 무관한 뉴스로 판정되었습니다.", description = "실행 불가 사유. 가능하면 null")
-            String erpImpactBlockedReason
+            String erpImpactBlockedReason,
+
+            @Schema(example = "PARTIAL_SUCCESS",
+                    description = "NOT_RUN / COMPLETED / PARTIAL_SUCCESS / EARLY_TERMINATED. "
+                            + "등급의 신뢰도(multi_agent_completed)와 별개로 '평가가 어디까지 돌았나'를 말한다.")
+            String latestAttemptStatus,
+
+            @Schema(description = "가장 최근 평가 실행 시각. 한 번도 안 돌았으면 null")
+            OffsetDateTime latestAttemptAt
+    ) {}
+
+    /**
+     * 평가 실행 상태. {@code multi_agent_completed}(=유효 종합평가가 하나라도 있는가)와 축이 다르다 —
+     * 이쪽은 <b>대상 자재 전부가 평가됐는가</b>를 말한다.
+     *
+     * <p>둘을 나눈 이유: 리튬처럼 ERP 자재가 2개인 대분류는 한쪽만 성공할 수 있다. 그때 등급은
+     * 믿을 수 있지만(유효 평가 존재) 커버리지는 절반이라, 하나의 불리언으로는 두 사실을 다 담지 못한다.
+     */
+    public enum AttemptStatus {
+        /** 평가가 한 번도 실행되지 않음. */
+        NOT_RUN,
+        /** 대상 자재 전부에 유효한 종합 평가가 있음. */
+        COMPLETED,
+        /** 일부 자재만 유효 — 나머지는 KG 게이트 조기 종료. 등급은 성공한 쪽에서 나온다. */
+        PARTIAL_SUCCESS,
+        /** 실행은 됐으나 유효한 종합 평가가 하나도 없음(전부 조기 종료). */
+        EARLY_TERMINATED
+    }
+
+    /**
+     * 자재 1개의 평가 결과. 화면 카드는 대분류 단위로 접히므로, 접기 전 근거를 상세에서 펼쳐 보여준다.
+     *
+     * <p>{@code valid=false}면 KG 게이트에서 조기 종료된 자재라 {@code riskLevel}·{@code riskScore}는
+     * 의미가 없다(항상 NORMAL·0). 사유는 {@code reasons}에 담긴다.
+     */
+    public record MaterialAssessment(
+            @Schema(example = "MAT-LI-OH") String erpMaterialId,
+
+            @Schema(description = "ERP·계약 노드까지 실제로 돈 자재인지")
+            boolean valid,
+
+            @Schema(example = "CRITICAL") String riskLevel,
+            @Schema(example = "82.0") BigDecimal riskScore,
+            @Schema(example = "45.0") BigDecimal erpExposureScore,
+            @Schema(example = "30.0") BigDecimal contractGapScore,
+
+            @Schema(description = "판단 근거. 조기 종료된 자재는 그 사유가 담긴다.")
+            List<String> reasons,
+
+            OffsetDateTime assessedAt
     ) {}
 
     /**
@@ -169,6 +218,19 @@ public final class RiskMonitoringDto {
             @Schema(description = "reviewer 노드의 근거·금지표현 검증 통과 여부")
             Boolean reviewPassed,
 
-            OffsetDateTime assessedAt
+            OffsetDateTime assessedAt,
+
+            @Schema(example = "MAT-LI-OH",
+                    description = "이 등급을 만든 자재. 대분류에 자재가 여럿이면 그중 가장 심한 쪽이다.")
+            String representativeMaterialId,
+
+            @Schema(example = "1", description = "유효한 종합 평가가 나온 자재 수")
+            int validMaterialCount,
+
+            @Schema(example = "2", description = "평가가 시도된 자재 수. valid보다 크면 일부만 성공한 것")
+            int targetMaterialCount,
+
+            @Schema(description = "자재별 결과 전체. 카드에 접힌 근거를 펼쳐 보여준다.")
+            List<MaterialAssessment> materialAssessments
     ) {}
 }

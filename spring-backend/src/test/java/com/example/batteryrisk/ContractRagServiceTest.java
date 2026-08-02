@@ -6,7 +6,6 @@ import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.repository.ContractRagRepository;
 import com.example.batteryrisk.service.ContractRagService;
 import com.example.batteryrisk.service.DocumentService;
-import com.example.batteryrisk.service.MultiAgentOrchestrationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
@@ -46,7 +45,6 @@ class ContractRagServiceTest {
         service = new ContractRagService(
                 repository,
                 mock(DocumentService.class),
-                mock(MultiAgentOrchestrationService.class),
                 mock(RestClient.class));
     }
 
@@ -170,17 +168,6 @@ class ContractRagServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.ERP_CONTRACT_NOT_FOUND);
-    }
-
-    @Test
-    void 관련_뉴스가_없으면_브리핑_대신_사유를_돌려준다() {
-        when(repository.findContract(11L)).thenReturn(Optional.of(contract("MAT-CO-SULF", "SUP-COD-01", "COBALT")));
-        when(repository.findLatestRelatedNews(any(), any())).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.briefing(
-                new ContractRagDto.BriefingRequest(11L, List.of(), false)))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("분석이 끝난 뉴스가 아직 없습니다");
     }
 
     @Test

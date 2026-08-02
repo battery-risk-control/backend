@@ -4,6 +4,7 @@ import com.example.batteryrisk.domain.Analysis;
 import com.example.batteryrisk.domain.RawEvent;
 import com.example.batteryrisk.dto.MultiAgentDto;
 import com.example.batteryrisk.dto.ProcurementRiskDto;
+import com.example.batteryrisk.dto.RiskMonitoringDto;
 import com.example.batteryrisk.dto.RiskMonitoringDto.EventDetail;
 import com.example.batteryrisk.dto.RiskMonitoringDto.EventItem;
 import com.example.batteryrisk.dto.RiskMonitoringDto.ExternalSignal;
@@ -18,10 +19,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -146,8 +149,7 @@ public class RiskMonitoringService {
     public EventDetail detail(long eventId) {
         RawEvent event = findNewsEvent(eventId);
         Analysis analysis = findAnalysis(event);
-        ProcurementRiskDto.Assessment assessment = findAssessment(analysis);
-        return toDetail(event, analysis, assessment);
+        return toDetail(event, analysis, loadComposite(analysis));
     }
 
     /**
@@ -203,7 +205,7 @@ public class RiskMonitoringService {
         log.info("리스크 모니터링 ERP·계약 영향 분석 완료: eventId={}, analysisId={}, level={}, kgMatched={}",
                 eventId, analysis.getAnalysisId(), response.procurementRiskLevel(), target.kgMatched());
 
-        return toDetail(event, analysis, findAssessment(analysis));
+        return toDetail(event, analysis, loadComposite(analysis));
     }
 
     /**
@@ -284,10 +286,72 @@ public class RiskMonitoringService {
                 : analysisRepository.findById(event.getTriggeredAnalysisId()).orElse(null);
     }
 
-    private ProcurementRiskDto.Assessment findAssessment(Analysis analysis) {
-        return analysis == null
-                ? null
-                : procurementRiskRepository.findLatestByAnalysisId(analysis.getAnalysisId()).orElse(null);
+    /**
+     * 분석 1건의 자재별 평가를 <b>대분류 카드 하나로 접은</b> 결과.
+     *
+     * <p>한 분석이 자재 여러 개로 펼쳐진다 — LITHIUM·GRAPHITE는 ERP 자재가 2개씩이라 점수화
+     * 스케줄러가 자재마다 따로 평가한다. 화면 카드는 대분류 하나이므로 접어야 하는데,
+     * <b>가장 심한 자재를 대표로 삼는다</b>. "최신"으로 고르면 저장 순서라는 우연이 등급을
+     * 정하게 되고, 수산화리튬이 심각인데 탄산리튬이 나중에 저장됐다는 이유로 정상이 떠버린다.
+     */
+    private record CompositeView(
+            /** 유효 평가 중 가장 심한 것. 하나도 없으면 null이라 등급은 외부신호 기준을 유지한다. */
+            ProcurementRiskDto.Assessment representative,
+            List<ProcurementRiskDto.Assessment> materials,
+            int validCount,
+            RiskMonitoringDto.AttemptStatus status,
+            OffsetDateTime latestAttemptAt) {
+
+        static final CompositeView NONE = new CompositeView(
+                null, List.of(), 0, RiskMonitoringDto.AttemptStatus.NOT_RUN, null);
+
+        String riskLevel() {
+            return representative == null ? null : representative.procurementRiskLevel();
+        }
+    }
+
+    /** 등급 정렬: 심한 것 먼저, 같으면 점수 높은 것 먼저. 리포지토리의 SEVERITY_RANK_SQL과 같은 순서다. */
+    private static final Map<String, Integer> SEVERITY_RANK =
+            Map.of("CRITICAL", 1, "WARNING", 2, "NORMAL", 3);
+
+    private static int severityRank(String riskLevel) {
+        // Map.of는 불변 맵이라 get(null)이 NPE를 던진다 — 먼저 막는다.
+        return riskLevel == null ? 4 : SEVERITY_RANK.getOrDefault(riskLevel, 4);
+    }
+
+    private static final Comparator<ProcurementRiskDto.Assessment> WORST_FIRST =
+            Comparator.<ProcurementRiskDto.Assessment>comparingInt(
+                            assessment -> severityRank(assessment.procurementRiskLevel()))
+                    .thenComparing(
+                            assessment -> assessment.procurementRiskScore() == null
+                                    ? BigDecimal.ZERO : assessment.procurementRiskScore(),
+                            Comparator.reverseOrder());
+
+    private CompositeView loadComposite(Analysis analysis) {
+        if (analysis == null) {
+            return CompositeView.NONE;
+        }
+        List<ProcurementRiskDto.Assessment> materials =
+                procurementRiskRepository.findMaterialAssessments(analysis.getAnalysisId());
+        if (materials.isEmpty()) {
+            return CompositeView.NONE;
+        }
+        List<ProcurementRiskDto.Assessment> valid =
+                materials.stream().filter(RiskMonitoringService::isComposite).toList();
+        RiskMonitoringDto.AttemptStatus status;
+        if (valid.isEmpty()) {
+            status = RiskMonitoringDto.AttemptStatus.EARLY_TERMINATED;
+        } else if (valid.size() == materials.size()) {
+            status = RiskMonitoringDto.AttemptStatus.COMPLETED;
+        } else {
+            status = RiskMonitoringDto.AttemptStatus.PARTIAL_SUCCESS;
+        }
+        return new CompositeView(
+                valid.stream().min(WORST_FIRST).orElse(null),
+                materials,
+                valid.size(),
+                status,
+                procurementRiskRepository.findLatestAttemptAt(analysis.getAnalysisId()).orElse(null));
     }
 
     /**
@@ -333,12 +397,12 @@ public class RiskMonitoringService {
                 event.getSource());
     }
 
-    private static EventDetail toDetail(
-            RawEvent event, Analysis analysis, ProcurementRiskDto.Assessment assessment) {
-        // 조기 종료된 실행의 등급(항상 NORMAL·0점)은 판정으로 쓰지 않는다 — isComposite 참고.
-        String riskLevel = assessment != null && isComposite(assessment)
-                ? assessment.procurementRiskLevel()
-                : null;
+    /**
+     * 상세 조립. <b>목록과 같은 집계(대표 자재의 유효 평가)를 쓴다</b> — 예전에는 상세만
+     * "최신 행 아무거나"를 봐서, 재실행이 조기 종료되면 목록은 확정인데 상세는 잠정으로 갈렸다.
+     */
+    private static EventDetail toDetail(RawEvent event, Analysis analysis, CompositeView composite) {
+        String riskLevel = composite.riskLevel();
         Headline headline = Headline.of(event);
         String blockedReason = erpImpactBlockedReason(analysis);
         return new EventDetail(
@@ -359,9 +423,11 @@ public class RiskMonitoringService {
                 event.getSource(),
                 RiskEventService.linkableUrl(event.getSourceUrl()),
                 toExternalSignal(event, analysis),
-                toProcurementRisk(assessment),
+                toProcurementRisk(composite),
                 blockedReason == null,
-                blockedReason);
+                blockedReason,
+                composite.status().name(),
+                composite.latestAttemptAt());
     }
 
     /**
@@ -404,20 +470,51 @@ public class RiskMonitoringService {
                 reasonCodes(analysis));
     }
 
-    private static ProcurementRisk toProcurementRisk(ProcurementRiskDto.Assessment assessment) {
-        if (assessment == null) {
+    /**
+     * 종합 평가 블록. <b>대표 자재의 값</b>을 헤드라인 점수로 쓰고, 접히기 전 자재별 결과를 함께 싣는다.
+     *
+     * <p>유효 평가가 하나도 없으면(전부 조기 종료) 대표가 없으므로 가장 최근 시도를 헤드라인에
+     * 두되 {@code completed=false}로 내린다 — 점수는 의미가 없지만 사유는 보여줘야 하기 때문이다.
+     */
+    private static ProcurementRisk toProcurementRisk(CompositeView composite) {
+        if (composite.materials().isEmpty()) {
             return null;
         }
+        ProcurementRiskDto.Assessment head = composite.representative() != null
+                ? composite.representative()
+                : composite.materials().get(0);
         return new ProcurementRisk(
-                assessment.assessmentId(),
-                isComposite(assessment),
-                assessment.procurementRiskLevel(),
-                assessment.procurementRiskScore(),
-                assessment.externalSignalScore(),
+                head.assessmentId(),
+                composite.representative() != null,
+                head.procurementRiskLevel(),
+                head.procurementRiskScore(),
+                head.externalSignalScore(),
+                head.erpExposureScore(),
+                head.contractGapScore(),
+                head.riskReasons() == null ? List.of() : head.riskReasons(),
+                head.reviewPassed(),
+                head.assessedAt(),
+                composite.representative() == null ? null : head.erpMaterialId(),
+                composite.validCount(),
+                composite.materials().size(),
+                composite.materials().stream()
+                        .sorted(WORST_FIRST)
+                        .map(RiskMonitoringService::toMaterialAssessment)
+                        .toList());
+    }
+
+    private static RiskMonitoringDto.MaterialAssessment toMaterialAssessment(
+            ProcurementRiskDto.Assessment assessment) {
+        boolean valid = isComposite(assessment);
+        return new RiskMonitoringDto.MaterialAssessment(
+                assessment.erpMaterialId(),
+                valid,
+                // 조기 종료 행의 등급·점수(항상 NORMAL·0)는 판정이 아니라 잡음이라 내보내지 않는다.
+                valid ? assessment.procurementRiskLevel() : null,
+                valid ? assessment.procurementRiskScore() : null,
                 assessment.erpExposureScore(),
                 assessment.contractGapScore(),
                 assessment.riskReasons() == null ? List.of() : assessment.riskReasons(),
-                assessment.reviewPassed(),
                 assessment.assessedAt());
     }
 

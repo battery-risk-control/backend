@@ -59,6 +59,17 @@ public class AiBriefingService {
     private static final int DEFAULT_RECENT_LIMIT = 5;
 
     /**
+     * 같은 대상·같은 분석의 재요청을 "재시도"로 볼 시간창(초).
+     *
+     * <p>브리핑 한 건은 LLM 호출을 태우므로 응답이 유실돼 사용자가 다시 누르면 비용이 두 번 나간다.
+     * 화면은 실행 중 버튼을 잠그지만 그것만으로는 네트워크 실패 후 재시도를 막을 수 없다.
+     *
+     * <p>60초인 이유는 실행이 보통 10~20초라 재시도가 그 안에 들어오고, 결과를 읽어 본 뒤
+     * "다시 돌려보자"는 <b>의도적인</b> 재생성은 그보다 오래 걸리기 때문이다.
+     */
+    private static final long DUPLICATE_WINDOW_SECONDS = 60;
+
+    /**
      * 저장에 남길 가중치 조합 버전. {@link MultiAgentOrchestrationService}가 쓰는 값과 같아야 한다 —
      * 같은 실행 결과를 두 테이블에 남기는데 버전이 어긋나면 과거 점수를 해석할 수 없다.
      */
@@ -157,8 +168,20 @@ public class AiBriefingService {
                     ErrorCode.MATERIAL_BRIEFING_NOT_AVAILABLE, resolved.blockedReason());
         }
 
-        Analysis analysis = resolved.analysis();
+        Analysis analysis = pinAnalysis(resolved, request.analysisId());
         OffsetDateTime asOf = OffsetDateTime.now();
+
+        // 재시도로 인한 중복 실행 차단. 그래프를 태우기 <b>전</b>에 본다 — 저장 직전에 보면
+        // 이미 LLM 비용이 나간 뒤라 막는 의미가 없다.
+        Optional<AiBriefingDto.BriefingDetail> duplicate = repository.findRecentDuplicate(
+                resolved.sourceType(), resolved.sourceRef(), analysis.getAnalysisId(),
+                asOf.minusSeconds(DUPLICATE_WINDOW_SECONDS));
+        if (duplicate.isPresent()) {
+            log.info("AI 브리핑 중복 요청 — 방금 만든 브리핑을 그대로 반환: source={}/{}, briefingId={}",
+                    resolved.sourceType(), resolved.sourceRef(), duplicate.get().briefingId());
+            return duplicate.get();
+        }
+
         ErpDto.ContextResponse erp = erpService.buildContext(new ErpDto.ContextRequest(
                 resolved.erpMaterialId(), resolved.erpSupplierId(), asOf));
 
@@ -346,6 +369,43 @@ public class AiBriefingService {
                 contract.materialName(), contract.materialCategory(),
                 contract.erpMaterialId(), contract.erpSupplierId(), contract.contractId(),
                 analysis.get(), null);
+    }
+
+    /**
+     * 프리필이 보여준 분석으로 고정한다. 지정이 없으면 방금 해석한 것을 그대로 쓴다.
+     *
+     * <p>자재·계약 경로는 "같은 대분류의 가장 최신 분석"을 고르므로, 프리필과 생성 사이에 수집
+     * 스케줄러가 새 분석을 넣으면 <b>화면이 보여준 외부신호와 다른 뉴스로</b> 그래프가 돈다.
+     * 화면이 프리필의 analysis_id를 그대로 실어 보내면 그 창이 닫힌다.
+     *
+     * <p>아무 분석이나 받아주지는 않는다 — 대상과 무관한 id를 넣어 다른 뉴스로 실행하는 우회로가
+     * 되면 저장된 브리핑의 계보를 믿을 수 없게 된다. 뉴스 경로는 기사에 묶인 분석이 유일하므로
+     * 정확히 일치해야 하고, 자재·계약 경로는 같은 자재 대분류여야 한다.
+     *
+     * <p>고정한 분석이 실제로 쓸 수 있는지(완료·점수 존재·공급망 관련)는 여기서 보지 않는다 —
+     * {@link MultiAgentOrchestrationService}가 같은 조건을 이미 검사하고 거절한다.
+     */
+    private Analysis pinAnalysis(ResolvedSource resolved, UUID requestedAnalysisId) {
+        Analysis resolvedAnalysis = resolved.analysis();
+        if (requestedAnalysisId == null
+                || requestedAnalysisId.equals(resolvedAnalysis.getAnalysisId())) {
+            return resolvedAnalysis;
+        }
+        Analysis pinned = analysisRepository.findById(requestedAnalysisId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        boolean sameTarget = !SOURCE_NEWS.equals(resolved.sourceType())
+                && resolved.materialCategory() != null
+                && resolved.materialCategory().equals(pinned.getMaterialCategory());
+        if (!sameTarget) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST,
+                    "analysis_id가 이 대상의 분석과 일치하지 않습니다. 프리필(GET /context)이 "
+                            + "돌려준 값을 그대로 보내세요.");
+        }
+        log.info("AI 브리핑 외부신호 고정: source={}/{}, 프리필={}, 해석={}",
+                resolved.sourceType(), resolved.sourceRef(),
+                requestedAnalysisId, resolvedAnalysis.getAnalysisId());
+        return pinned;
     }
 
     /**
