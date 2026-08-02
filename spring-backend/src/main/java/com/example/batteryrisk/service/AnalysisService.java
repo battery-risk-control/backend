@@ -138,6 +138,12 @@ public class AnalysisService {
      * 멀티에이전트(LangGraph) 브리핑 생성을 자동으로 호출한다 — 매칭 없음/재고충분 뉴스까지
      * 전부 태우면 비싼 LLM 다단계가 낭비되므로, KG 게이트를 통과한 것만 자동화한다.
      * 실패해도 분석 생성 자체를 막으면 안 되므로 여기서 흡수한다.
+     *
+     * <p>useLlm=true(2026-08-02 전환) — 실사용자가 보는 브리핑이 규칙기반 조립문이 아니라
+     * Claude Sonnet 5가 작성한 실제 문서(TL;DR·불릿·아웃바운드 배상책임 표)로 나가야 하므로.
+     * KG 게이트를 이미 통과한 뉴스만 여기까지 오기 때문에(위 주석 참고) 무제한으로 LLM이
+     * 도는 게 아니라 "재고부족이 확정된 뉴스"로 이미 좁혀진 상태 — F5 스케줄러(무인 반복
+     * 배치, 여전히 false)와는 트리거 빈도 자체가 다르다.
      */
     private void triggerMultiAgentBriefingSafely(
             Analysis analysis, AnalysisDto.FastApiAnalyzeData data, ErpExposureContext erpContext) {
@@ -154,7 +160,7 @@ public class AnalysisService {
                     data.classification().impactDomain(), data.classification().impactDomain(),
                     data.severity().severity(), (int) Math.round(data.severity().score()),
                     erpContext.resolvedErpMaterialId(), erpContext.resolvedErpSupplierId(),
-                    analysis.getCountryCode(), OffsetDateTime.now(), false);
+                    analysis.getCountryCode(), OffsetDateTime.now(), true);
             multiAgentOrchestrationService.generate(request);
         } catch (RuntimeException exception) {
             log.warn("멀티에이전트 브리핑 자동 생성 실패 (analysisId={}): {}",
