@@ -52,8 +52,21 @@ public class ErpSeedConfig {
             List<ManifestEntry> manifest = readManifest(root);
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
             transaction.executeWithoutResult(status -> loadAll(jdbc, root, manifest));
+            recordSeedCompletion(jdbc);
             log.info("F6 ERP CSV seed completed: {} files from {}", manifest.size(), root);
         };
+    }
+
+    /**
+     * 2계층 "데이터 품질" 탭의 erp_sync_status/last_updated_label용 기록. 실제로는
+     * 주기적 동기화가 아니라 이 컨테이너 시작 시 1회성 CSV 적재라는 점을 그대로 남긴다.
+     */
+    private static void recordSeedCompletion(JdbcTemplate jdbc) {
+        jdbc.update("""
+                INSERT INTO pipeline_health_log (component, status, last_run_at)
+                VALUES ('erp_seed', 'OK', now())
+                ON CONFLICT (component) DO UPDATE SET status = EXCLUDED.status, last_run_at = EXCLUDED.last_run_at
+                """);
     }
 
     private static void loadAll(JdbcTemplate jdbc, Path root, List<ManifestEntry> manifest) {
@@ -127,6 +140,25 @@ public class ErpSeedConfig {
                         "Unsupported ERP seed file in manifest: " + entry.fileName());
             }
         }
+        backfillBusinessUnits(jdbc);
+    }
+
+    /**
+     * 2계층(경영기획팀) 대시보드의 사업부(business_unit) 매핑(V22)을 자재 대분류
+     * 8종 기준으로 채운다. 마이그레이션 시점이 아니라 여기서 해야 하는 이유: V22가
+     * 실행되는 시점엔 materials 테이블이 비어 있다(ERP CSV 시드는 애플리케이션 기동 후
+     * ApplicationRunner로 실행되므로 항상 마이그레이션보다 늦다). 매 시드 실행마다 다시
+     * 계산하므로 재시드해도 항상 최신 상태로 유지된다.
+     */
+    private static void backfillBusinessUnits(JdbcTemplate jdbc) {
+        jdbc.update("""
+                UPDATE materials SET business_unit_id = 'BU-CELL'
+                WHERE material_category IN ('LITHIUM', 'NICKEL', 'COBALT', 'MANGANESE', 'GRAPHITE')
+                """);
+        jdbc.update("""
+                UPDATE materials SET business_unit_id = 'BU-MATERIAL'
+                WHERE material_category IN ('COPPER', 'ALUMINUM', 'RARE_EARTH')
+                """);
     }
 
     private static void seedMaterials(JdbcTemplate jdbc, List<Map<String, String>> rows) {
