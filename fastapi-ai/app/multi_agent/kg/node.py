@@ -1,5 +1,17 @@
+import logging
+
+from app.core.config import get_settings
 from app.multi_agent.graph.state import BriefingState
 from app.services.kg_service_client import resolve_kg_context
+
+logger = logging.getLogger(__name__)
+
+# 게이트를 우회했을 때 warnings에 남기는 문구. 이 문자열이 평가에 붙어 있으면
+# "KG가 확정한 결과"가 아니라는 뜻이다 — 화면·감사에서 구분할 수 있어야 한다.
+KG_GATE_BYPASSED_WARNING = (
+    "KG 게이트를 우회한 실행입니다(KG_GATE_ENABLED=false). "
+    "KG가 확정한 공급사 없이 ERP 노드를 태웠으므로 공급사 지목의 근거가 없습니다."
+)
 
 
 def extract_kg_fields(response: dict) -> dict:
@@ -129,12 +141,32 @@ def analyze_kg_context_node(
         **kg_fields,
     }
 
-    if not kg_fields["kg_shortage_detected"]:
-        result.update(
-            build_no_shortage_briefing(
-                state,
-                kg_fields,
-            ),
+    if kg_fields["kg_shortage_detected"]:
+        return result
+
+    # 게이트 미통과. 평소에는 여기서 경량 종료하지만, KG_GATE_ENABLED=false면 통과시켜
+    # 뒷단(ERP·계약·위험도·브리핑)을 그대로 태운다 — kg_service가 없을 때 파이프라인을
+    # 확인하기 위한 통로다. 우회 사실은 warnings에 남겨 결과와 함께 따라다니게 한다.
+    if not get_settings().kg_gate_enabled:
+        logger.warning(
+            "KG 게이트 우회 (country=%s, affected_materials=%s, matched=%s) "
+            "— KG_GATE_ENABLED=false",
+            country,
+            affected_materials,
+            kg_fields["kg_matched"],
         )
+        result["kg_gate_bypassed"] = True
+        result["warnings"] = [
+            *state.get("warnings", []),
+            KG_GATE_BYPASSED_WARNING,
+        ]
+        return result
+
+    result.update(
+        build_no_shortage_briefing(
+            state,
+            kg_fields,
+        ),
+    )
 
     return result
