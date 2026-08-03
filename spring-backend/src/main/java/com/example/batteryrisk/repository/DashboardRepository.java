@@ -41,16 +41,35 @@ public class DashboardRepository {
      * 자체가 자연스럽게 집계에서 빠지고, 새 평가(새 assessment_id)가 들어오면 로그에 없으므로
      * 자동으로 다시 잡힌다.
      *
+     * <p><b>{@link NewsEventSql 완결 NEWS 사건}으로 원천을 좁힌다.</b> 좁히지 않으면 계약·자재
+     * 화면이 만든 평가와 리스크 모니터링의 ERP 영향 분석 결과가 같은 테이블에 섞여 들어와,
+     * 그중 가장 최근 것이 그 자재의 뉴스 등급을 덮어쓴다(실측 2026-08-03: 리튬의 뉴스 브리핑은
+     * 주의 48점인데 3시간 뒤 만들어진 계약 브리핑 정상 23점이 KPI를 차지해 지도는 주의 3,
+     * KPI는 주의 2가 됐다).
+     *
+     * <p><b>사건으로 접지 않는다.</b> 여기서 세는 단위는 사건이 아니라 자재 대분류이고 어차피
+     * 대분류당 1건만 남으므로 접을 필요가 없다. 오히려 먼저 접으면 대표로 뽑힌 분석에 평가 행이
+     * 없을 때 그 자재가 통째로 빠진다(실측: 코발트의 최신 분석 a391238a에는 평가 행이 없다).
+     * 사건 단위로 세는 것은 지도와 주요 알림이고, 그쪽과 숫자가 달라도 정상이다 — 라벨을
+     * "심각/주의 <b>원자재 N종</b>"으로 두는 이유다.
+     *
      * <p>{@code recent_24h}는 시간 윈도우만 걸고 카테고리로 접지 않은 별개 모집단이다 —
      * "오늘 무슨 일이 있었나"를 보여주는 용도라 완료 처리 여부와 무관하게 원본 행 전체를 본다.
+     * 다만 원천 제한은 {@code latest}와 같이 건다. 두 줄이 같은 칸에 위아래로 붙어 나가는데
+     * 모집단의 정의까지 다르면 비교할 수 없는 숫자가 된다.
      */
-    private static final String LATEST_PROCUREMENT_ASSESSMENT_CTE = """
-            WITH latest AS (
+    private static final String LATEST_PROCUREMENT_ASSESSMENT_CTE = "WITH "
+            + NewsEventSql.COMPLETED_NEWS_CTE + """
+            ,
+            latest AS (
                 SELECT DISTINCT ON (p.material_category)
                     p.material_category, p.procurement_risk_level, p.erp_exposure_score,
                     p.external_signal_score, p.review_passed, p.assessed_at, p.created_at
                 FROM procurement_risk_assessments p
                 WHERE p.material_category IS NOT NULL
+                  AND EXISTS (
+                      SELECT 1 FROM completed_news cn WHERE cn.analysis_id = p.analysis_id
+                  )
                   AND NOT EXISTS (
                       SELECT 1 FROM procurement_risk_acknowledgements a
                       WHERE a.assessment_id = p.assessment_id
@@ -58,10 +77,50 @@ public class DashboardRepository {
                 ORDER BY p.material_category, p.created_at DESC
             ),
             recent_24h AS (
-                SELECT procurement_risk_level, erp_exposure_score, external_signal_score
-                FROM procurement_risk_assessments
-                WHERE material_category IS NOT NULL
-                  AND created_at >= NOW() - INTERVAL '24 hours'
+                SELECT p.procurement_risk_level, p.erp_exposure_score, p.external_signal_score
+                FROM procurement_risk_assessments p
+                WHERE p.material_category IS NOT NULL
+                  AND EXISTS (
+                      SELECT 1 FROM completed_news cn WHERE cn.analysis_id = p.analysis_id
+                  )
+                  AND p.created_at >= NOW() - INTERVAL '24 hours'
+            )
+            """;
+
+    /**
+     * <b>완결 NEWS 사건별 대표 평가 1건.</b> 원자재 점수와 "주요 이슈"가 같은 모집단을 쓰게 하는
+     * 공통 CTE다 — 둘을 따로 조회하던 때는 점수가 평가 행 단위, 이슈가 뉴스 단위라 "48.0점인데
+     * 근거 뉴스는 1건"처럼 서로 설명하지 못하는 조합이 나왔다.
+     *
+     * <p><b>사건당 1건으로 접는 것이 핵심이다.</b> 같은 뉴스가 자동 트리거·스케줄러·수동 실행으로
+     * 여러 번 평가되므로 평가 행을 그대로 쓰면 한 사건이 상위 3칸을 독점해 평균을 혼자 결정한다
+     * (실측 2026-08-03: 리튬 48.0은 "lithium mine halt in Chile" 한 건의 평가 3개 평균이었고,
+     * 코발트 57.0도 같은 DRC-르완다 기사 2개 평균이었다). 접고 나면 중복 수집이 늘어도 점수가
+     * 움직이지 않고, 서로 다른 사건이 들어와야 움직인다.
+     *
+     * <p>사건 안에서는 <b>가장 최근 평가</b>를 대표로 남긴다. 같은 사건을 다시 평가했다면 그건
+     * 대안이 아니라 같은 것의 새 판이다.
+     *
+     * <p>{@code completed_news}를 접기 전 상태로 조인하는 이유는 {@link NewsEventSql}에 적어 뒀다 —
+     * 사건의 대표 분석에 평가 행이 없을 수 있어서다.
+     */
+    private static final String NEWS_EVENT_ASSESSMENT_CTE = "WITH "
+            + NewsEventSql.COMPLETED_NEWS_CTE + """
+            ,
+            live_events AS (
+                SELECT DISTINCT ON (cn.event_key)
+                       cn.event_key, cn.display_title, cn.collected_at,
+                       p.assessment_id, p.material_category, p.procurement_risk_score,
+                       p.procurement_risk_level, p.assessed_at, p.created_at
+                FROM completed_news cn
+                JOIN procurement_risk_assessments p ON p.analysis_id = cn.analysis_id
+                WHERE p.material_category IS NOT NULL
+                  AND p.procurement_risk_score IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM procurement_risk_acknowledgements a
+                      WHERE a.assessment_id = p.assessment_id
+                  )
+                ORDER BY cn.event_key, p.created_at DESC
             )
             """;
 
@@ -145,38 +204,33 @@ public class DashboardRepository {
      * <p>대분류당 <b>점수 상위 3건</b>을 골라 평균을 내고 등급은 그중 최고를 쓴다. 완료 처리된
      * 평가({@code procurement_risk_acknowledgements})는 KPI와 같은 기준으로 제외한다.
      *
+     * <p>세는 단위는 평가 행이 아니라 <b>사건</b>이다 — {@link #NEWS_EVENT_ASSESSMENT_CTE} 참고.
+     * "주요 이슈"({@link #findMaterialRiskTopNews})와 같은 CTE를 쓰므로 표에 보이는 뉴스와 점수를
+     * 만든 뉴스가 항상 일치한다.
+     *
      * <p>{@code risk_score_24h_ago}는 24시간 전까지 쌓여 있던 평가만으로 같은 계산을 한 값이다.
      * "어제 같은 시각의 스냅샷"이 따로 저장되지 않으므로 이 방식으로 재구성한다 — 그때까지
      * 평가가 없던 자재는 null이 되고, 화면은 증감을 그리지 않는다(0으로 채우면 "변화 없음"으로
-     * 잘못 읽힌다).
+     * 잘못 읽힌다). 여기도 사건 단위로 접는다. 접기 기준이 현재 값과 다르면 증감이 "점수가
+     * 변했다"가 아니라 "세는 방법이 변했다"를 보여주게 된다.
      */
     public List<DashboardDto.MaterialRiskSummaryItem> findMaterialRiskSummary() {
-        return jdbc.query("""
-                WITH categories(material_category, material_name) AS (
+        return jdbc.query(NEWS_EVENT_ASSESSMENT_CTE + """
+                ,
+                categories(material_category, material_name) AS (
                     VALUES ('ALUMINUM','알루미늄'), ('COBALT','코발트'), ('COPPER','구리'),
                            ('GRAPHITE','흑연'), ('LITHIUM','리튬'), ('MANGANESE','망간'),
                            ('NICKEL','니켈')
                 ),
-                live AS (
-                    SELECT p.assessment_id, p.material_category, p.procurement_risk_score,
-                           p.procurement_risk_level, p.assessed_at, p.created_at, p.analysis_id
-                    FROM procurement_risk_assessments p
-                    WHERE p.material_category IS NOT NULL
-                      AND p.procurement_risk_score IS NOT NULL
-                      AND NOT EXISTS (
-                          SELECT 1 FROM procurement_risk_acknowledgements a
-                          WHERE a.assessment_id = p.assessment_id
-                      )
-                ),
                 ranked AS (
-                    SELECT live.*, ROW_NUMBER() OVER (
+                    SELECT live_events.*, ROW_NUMBER() OVER (
                                PARTITION BY material_category
                                ORDER BY procurement_risk_score DESC, created_at DESC
                            ) AS score_rank,
                            ROW_NUMBER() OVER (
                                PARTITION BY material_category ORDER BY created_at DESC
                            ) AS recency_rank
-                    FROM live
+                    FROM live_events
                 ),
                 top3 AS (SELECT * FROM ranked WHERE score_rank <= 3),
                 agg AS (
@@ -186,6 +240,16 @@ public class DashboardRepository {
                                    WHEN 'CRITICAL' THEN 3 WHEN 'WARNING' THEN 2 ELSE 1 END) AS level_rank
                     FROM top3 GROUP BY material_category
                 ),
+                past_events AS (
+                    SELECT DISTINCT ON (cn.event_key)
+                           cn.event_key, p.material_category, p.procurement_risk_score, p.created_at
+                    FROM completed_news cn
+                    JOIN procurement_risk_assessments p ON p.analysis_id = cn.analysis_id
+                    WHERE p.material_category IS NOT NULL
+                      AND p.procurement_risk_score IS NOT NULL
+                      AND p.created_at <= NOW() - INTERVAL '24 hours'
+                    ORDER BY cn.event_key, p.created_at DESC
+                ),
                 past AS (
                     SELECT material_category, AVG(procurement_risk_score) AS risk_score
                     FROM (
@@ -194,15 +258,11 @@ public class DashboardRepository {
                                    PARTITION BY material_category
                                    ORDER BY procurement_risk_score DESC, created_at DESC
                                ) AS score_rank
-                        FROM procurement_risk_assessments
-                        WHERE material_category IS NOT NULL
-                          AND procurement_risk_score IS NOT NULL
-                          AND created_at <= NOW() - INTERVAL '24 hours'
+                        FROM past_events
                     ) old WHERE score_rank <= 3
                     GROUP BY material_category
                 ),
-                -- 완료 처리 버튼이 걸릴 행. KPI 건수가 세는 것과 같은 "대분류별 최신 1건"이라
-                -- 점수 상위 3건과는 다른 기준이다.
+                -- 완료 처리 버튼이 걸릴 행. 표가 보여주는 사건들 중 가장 최근 것이다.
                 newest AS (
                     SELECT material_category, assessment_id
                     FROM ranked WHERE recency_rank = 1
@@ -243,41 +303,16 @@ public class DashboardRepository {
      * <p>요약 조회와 쿼리를 나눈 이유는 1:N 조인 결과를 한 번에 매핑하면 집계 행이 뉴스 수만큼
      * 복제돼 평균이 어긋나기 때문이다. 대분류 7개 × 최대 3건이라 두 번째 조회는 21행이 상한이다.
      *
-     * <p><b>뉴스당 1건으로 접는다.</b> 이 자리는 평가 이력이 아니라 "지금 무슨 일이 벌어지고
-     * 있는가"를 보여주는 이슈 목록이다. 같은 뉴스는 자동 트리거·스케줄러·수동 실행으로 여러 번
-     * 평가되므로 평가 행을 그대로 뽑으면 같은 제목이 3줄로 채워져 다른 이슈를 밀어낸다
-     * (실측: 리튬의 "lithium mine halt in Chile" 한 건이 48.0점 평가 5행으로 쌓여 상위 3칸을
-     * 전부 차지했다). 뉴스 안에서는 점수가 높고 최신인 평가를 남긴다.
-     *
-     * <p>접는 키는 <b>표시되는 제목</b>이다. {@code analysis_id}로 접으면 부족하다 — 같은 기사가
-     * 여러 번 재분석되면 {@code analyses} 행 자체가 따로 생기고, 실측에서도 리튬 5개 평가가
-     * 서로 다른 분석 3건에서 나왔다(제목은 전부 같다). 화면에서 같아 보이는 것이 곧 중복이므로
-     * 렌더링에 쓰는 값을 그대로 키로 삼는 게 정확하다. 제목이 없는 행은 서로 합쳐지지 않도록
-     * {@code assessment_id}로 떨어진다.
+     * <p><b>{@link #findMaterialRiskSummary()}의 상위 3건과 같은 CTE·같은 정렬을 쓴다.</b> 쿼리는
+     * 나뉘어 있지만 고르는 대상은 한 벌이어야 한다 — 다르면 "점수를 만든 뉴스"와 "근거로 보여주는
+     * 뉴스"가 어긋나 표를 설명할 수 없게 된다. 사건 단위로 접는 규칙도 그 CTE에 있다.
      */
     public List<DashboardDto.MaterialRiskNewsItem> findMaterialRiskTopNews(String materialCategory) {
-        return jdbc.query("""
-                WITH per_news AS (
-                    SELECT DISTINCT ON (
-                               COALESCE(r.title_ko, an.event_title, p.assessment_id::TEXT))
-                           p.assessment_id, p.procurement_risk_score, p.procurement_risk_level,
-                           p.assessed_at, p.created_at,
-                           COALESCE(r.title_ko, an.event_title) AS title
-                    FROM procurement_risk_assessments p
-                    LEFT JOIN analyses an ON an.analysis_id = p.analysis_id
-                    LEFT JOIN raw_events r ON r.triggered_analysis_id = p.analysis_id
-                    WHERE p.material_category = :materialCategory
-                      AND p.procurement_risk_score IS NOT NULL
-                      AND NOT EXISTS (
-                          SELECT 1 FROM procurement_risk_acknowledgements a
-                          WHERE a.assessment_id = p.assessment_id
-                      )
-                    ORDER BY COALESCE(r.title_ko, an.event_title, p.assessment_id::TEXT),
-                             p.procurement_risk_score DESC, p.created_at DESC
-                )
+        return jdbc.query(NEWS_EVENT_ASSESSMENT_CTE + """
                 SELECT assessment_id, procurement_risk_score, procurement_risk_level,
-                       assessed_at, title
-                FROM per_news
+                       assessed_at, display_title AS title
+                FROM live_events
+                WHERE material_category = :materialCategory
                 ORDER BY procurement_risk_score DESC, created_at DESC
                 LIMIT 3
                 """,
@@ -288,6 +323,31 @@ public class DashboardRepository {
                         rs.getBigDecimal("procurement_risk_score"),
                         rs.getString("procurement_risk_level"),
                         rs.getObject("assessed_at", OffsetDateTime.class)));
+    }
+
+    /**
+     * 수집 이벤트에 연결되지 않은 완결 NEWS 브리핑 수. <b>데이터 품질 점검용</b>이다.
+     *
+     * <p>{@link NewsEventSql}이 이런 브리핑을 운영 화면에서 제외하는데, 조용히 빼면 "화면에 왜
+     * 없는지"를 알 방법이 없다. 제외한 만큼을 여기서 세어 {@code DashboardService}가 로그로
+     * 남긴다 — 시연 시드나 수동 {@code /analyze} 호출로 만들어진 분석이 쌓이고 있다는 신호다.
+     *
+     * <p>실측 2026-08-03 기준 4건이며 전부 LITHIUM/CL이다. 이것들 때문에 지도에는 리튬 주의가
+     * 뜨는데 목록·알림에는 없는 상태가 만들어졌다.
+     */
+    public long countOrphanNewsBriefings() {
+        Long count = jdbc.queryForObject("""
+                SELECT COUNT(*)
+                FROM ai_briefings b
+                WHERE b.source_type = 'NEWS'
+                  AND b.composite = TRUE
+                  AND NULLIF(BTRIM(b.briefing_text), '') IS NOT NULL
+                  AND b.review_passed = TRUE
+                  AND NOT EXISTS (
+                      SELECT 1 FROM raw_events r WHERE r.triggered_analysis_id = b.analysis_id
+                  )
+                """, new MapSqlParameterSource(), Long.class);
+        return count == null ? 0L : count;
     }
 
     /**
