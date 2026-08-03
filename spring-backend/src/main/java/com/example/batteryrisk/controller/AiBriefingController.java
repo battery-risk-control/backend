@@ -2,6 +2,7 @@ package com.example.batteryrisk.controller;
 
 import com.example.batteryrisk.dto.AiBriefingDto;
 import com.example.batteryrisk.dto.ApiResponse;
+import com.example.batteryrisk.dto.PageResponse;
 import com.example.batteryrisk.service.AiBriefingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -98,12 +98,26 @@ public class AiBriefingController {
     @Operation(
             summary = "최근 브리핑 목록 (구매팀 AI 브리핑)",
             description = "저장된 브리핑을 최신순으로 반환한다. 누가 만들었든 팀 전체가 같은 목록을 본다. "
-                    + "카드에 필요한 값만 담겨 있어 본문·근거는 오지 않는다 — 상세는 briefing_id로 따로 조회한다.")
+                    + "카드에 필요한 값만 담겨 있어 본문·근거는 오지 않는다 — 상세는 briefing_id로 따로 조회한다. "
+                    + "필터와 페이징은 모두 서버에서 적용된다. 화면에서 거르면 '먼저 자르고 그 안에서 "
+                    + "필터'가 되어 뒷 페이지 항목이 사라진다.")
     @GetMapping("/briefings")
-    public ApiResponse<List<AiBriefingDto.BriefingListItem>> recent(
-            @Parameter(description = "노출 건수(1~50)", example = "5")
-            @RequestParam(required = false) @Min(1) @Max(50) Integer limit) {
-        return ApiResponse.ok(aiBriefingService.recent(limit));
+    public ApiResponse<PageResponse<AiBriefingDto.BriefingListItem>> recent(
+            @Parameter(description = "대상 유형. NEWS/MATERIAL/CONTRACT. 생략하면 전체", example = "NEWS")
+            @RequestParam(required = false) String source,
+            @Parameter(description = "위험 등급. CRITICAL/WARNING/NORMAL. 생략하면 전체. "
+                    + "평가 미완료(composite=false) 브리핑은 어느 등급으로도 걸리지 않는다.")
+            @RequestParam(required = false) String level,
+            @Parameter(description = "검증 상태. PASSED(검증 통과)/FAILED(검토 필요)/PENDING(미검증). 생략하면 전체")
+            @RequestParam(required = false) String reviewStatus,
+            @Parameter(description = "최근 N일. 생략하면 기간 제한 없음", example = "7")
+            @RequestParam(required = false) @Min(1) Integer days,
+            @Parameter(description = "0부터 시작하는 페이지 번호", example = "0")
+            @RequestParam(required = false) @Min(0) Integer page,
+            @Parameter(description = "페이지 크기(1~50)", example = "5")
+            @RequestParam(required = false) @Min(1) @Max(50) Integer size) {
+        return ApiResponse.ok(
+                aiBriefingService.recent(source, level, reviewStatus, days, page, size));
     }
 
     @Operation(

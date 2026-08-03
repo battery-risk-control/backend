@@ -7,6 +7,7 @@ import com.example.batteryrisk.dto.ContractRagDto;
 import com.example.batteryrisk.dto.ErpDto;
 import com.example.batteryrisk.dto.MaterialRiskDto;
 import com.example.batteryrisk.dto.MultiAgentDto;
+import com.example.batteryrisk.dto.PageResponse;
 import com.example.batteryrisk.dto.RiskMonitoringDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.repository.AiBriefingRepository;
@@ -35,6 +36,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -304,6 +306,81 @@ class AiBriefingServiceTest {
         // 그래프도 저장도 한 번뿐이어야 한다 — 재시도가 LLM 비용을 두 번 태우면 안 된다.
         verify(multiAgentOrchestrationService, times(1)).generate(any());
         verify(repository, times(1)).save(any(), any());
+    }
+
+    // ------------------------------------------------------------ 목록 필터·페이징
+
+    /**
+     * 화면이 고른 필터가 <b>그대로 질의로</b> 내려가야 한다. 서비스가 값을 흘리면 화면은 걸렀다고
+     * 믿는데 목록은 안 걸린 채로 온다 — 화면만 봐서는 알아챌 수 없는 종류의 어긋남이다.
+     */
+    @Test
+    void 필터_네_축을_그대로_질의에_넘긴다() {
+        when(repository.countPage(any())).thenReturn(9L);
+        when(repository.findPage(any(), anyInt(), anyInt())).thenReturn(List.of());
+
+        service.recent("NEWS", "WARNING", "PASSED", 7, 1, 4);
+
+        ArgumentCaptor<AiBriefingRepository.BriefingListFilter> filter =
+                ArgumentCaptor.forClass(AiBriefingRepository.BriefingListFilter.class);
+        verify(repository).findPage(filter.capture(), eq(1), eq(4));
+        assertThat(filter.getValue().sourceType()).isEqualTo("NEWS");
+        assertThat(filter.getValue().riskLevel()).isEqualTo("WARNING");
+        assertThat(filter.getValue().reviewStatus()).isEqualTo("PASSED");
+        assertThat(filter.getValue().days()).isEqualTo(7);
+    }
+
+    /** 건수는 같은 조건으로 따로 센다 — 목록만 필터하고 총계를 전체로 세면 페이저가 어긋난다. */
+    @Test
+    void 총건수를_같은_조건으로_센다() {
+        when(repository.countPage(any())).thenReturn(9L);
+        when(repository.findPage(any(), anyInt(), anyInt())).thenReturn(List.of());
+
+        PageResponse<AiBriefingDto.BriefingListItem> page =
+                service.recent("NEWS", null, null, null, 0, 4);
+
+        ArgumentCaptor<AiBriefingRepository.BriefingListFilter> counted =
+                ArgumentCaptor.forClass(AiBriefingRepository.BriefingListFilter.class);
+        verify(repository).countPage(counted.capture());
+        assertThat(counted.getValue().sourceType()).isEqualTo("NEWS");
+        assertThat(page.totalElements()).isEqualTo(9L);
+        assertThat(page.totalPages()).isEqualTo(3);   // 9건 / 4건 = 3페이지
+    }
+
+    /** "전체"는 필터 없음이다. 화면이 셀렉트 값을 그대로 실어 보내도 받아준다. */
+    @Test
+    void 전체와_빈값은_필터_없음으로_본다() {
+        when(repository.countPage(any())).thenReturn(0L);
+        when(repository.findPage(any(), anyInt(), anyInt())).thenReturn(List.of());
+
+        service.recent("ALL", "", "  ", null, null, null);
+
+        ArgumentCaptor<AiBriefingRepository.BriefingListFilter> filter =
+                ArgumentCaptor.forClass(AiBriefingRepository.BriefingListFilter.class);
+        verify(repository).findPage(filter.capture(), eq(0), eq(5));
+        assertThat(filter.getValue().sourceType()).isNull();
+        assertThat(filter.getValue().riskLevel()).isNull();
+        assertThat(filter.getValue().reviewStatus()).isNull();
+        assertThat(filter.getValue().days()).isNull();
+    }
+
+    /**
+     * 모르는 값은 조용히 무시하지 않는다. 무시하면 화면은 걸렀다고 믿고 사용자는 안 걸린 목록을
+     * 보는데, 오타 하나로 만들어지는 상태라 눈치채기 어렵다.
+     */
+    @Test
+    void 모르는_필터_값은_거절한다() {
+        assertThatThrownBy(() -> service.recent("NEWSPAPER", null, null, null, 0, 5))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("NEWS");
+
+        assertThatThrownBy(() -> service.recent(null, "위험", null, null, 0, 5))
+                .isInstanceOf(BusinessException.class);
+
+        assertThatThrownBy(() -> service.recent(null, null, "DONE", null, 0, 5))
+                .isInstanceOf(BusinessException.class);
+
+        verify(repository, never()).findPage(any(), anyInt(), anyInt());
     }
 
     // ------------------------------------------------------------ 준비 helper

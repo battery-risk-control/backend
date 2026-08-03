@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -241,21 +242,73 @@ public class AiBriefingRepository {
     }
 
     /**
-     * "최근 브리핑" 목록. 팀 전체 공용이라 {@code created_by}로 거르지 않는다.
+     * "최근 브리핑" 필터 조건. 전부 null이면 전체다.
+     *
+     * <p>네 축 모두 SQL로 내려간다. 앱에서 거르면 "상한만큼 먼저 자르고 그 안에서 필터"가 되어,
+     * 뒷 페이지에 있어야 할 항목이 앞에서 걸러져 통째로 사라진다 — 리스크 모니터링 목록이 정확히
+     * 그래서 16건 중 4건만 보였다(2026-08-03 수정).
+     */
+    public record BriefingListFilter(
+            /** {@code NEWS}/{@code MATERIAL}/{@code CONTRACT}. */
+            String sourceType,
+            /** {@code CRITICAL}/{@code WARNING}/{@code NORMAL}. */
+            String riskLevel,
+            /** {@code PASSED}(검증 통과)/{@code FAILED}(검토 필요)/{@code PENDING}(미검증). */
+            String reviewStatus,
+            /** 최근 N일. null이면 기간 제한 없음. */
+            Integer days) {
+
+        static final BriefingListFilter ALL = new BriefingListFilter(null, null, null, null);
+    }
+
+    /**
+     * 목록 조회 공통 조건. 건수 세기와 페이지 조회가 <b>같은 문자열</b>을 쓴다 — 두 벌로 두면
+     * 한쪽만 고쳐졌을 때 "전체 17건인데 3페이지를 넘겨도 5건뿐"처럼 총계와 내용이 어긋난다.
+     *
+     * <p>등급 필터에 {@code composite = TRUE}를 함께 거는 이유: 조기 종료된 실행도
+     * {@code procurement_risk_level}에 값이 남아 있지만(0점·NORMAL) 화면은 그걸 등급으로 읽지
+     * 않고 "평가 미완료"로 표시한다. 이 조건이 없으면 "정상"으로 걸렀는데 목록에는 "평가 미완료"
+     * 카드가 나오는, 화면이 설명할 수 없는 결과가 된다.
+     *
+     * <p>검증상태 셋은 서로 배타적이고 {@code review_passed}의 세 가지 상태(TRUE·FALSE·NULL)를
+     * 빠짐없이 덮는다. NULL을 "미검증"으로 따로 두지 않으면 reviewer를 아직 안 거친 브리핑을
+     * 찾을 방법이 없다.
+     */
+    private static final String LIST_CONDITIONS = """
+            WHERE (CAST(:sourceType AS VARCHAR) IS NULL
+                   OR source_type = CAST(:sourceType AS VARCHAR))
+              AND (CAST(:riskLevel AS VARCHAR) IS NULL
+                   OR (composite = TRUE
+                       AND procurement_risk_level = CAST(:riskLevel AS VARCHAR)))
+              AND (CAST(:reviewStatus AS VARCHAR) IS NULL
+                   OR (CAST(:reviewStatus AS VARCHAR) = 'PASSED'  AND review_passed = TRUE)
+                   OR (CAST(:reviewStatus AS VARCHAR) = 'FAILED'  AND review_passed = FALSE)
+                   OR (CAST(:reviewStatus AS VARCHAR) = 'PENDING' AND review_passed IS NULL))
+              AND (CAST(:days AS INTEGER) IS NULL
+                   OR created_at >= NOW() - make_interval(days => CAST(:days AS INTEGER)))
+            """;
+
+    /**
+     * "최근 브리핑" 한 페이지. 팀 전체 공용이라 {@code created_by}로 거르지 않는다.
      *
      * <p>본문·근거 JSONB를 열지 않는다 — 카드에 필요한 건 제목·등급·검증 결과·시각뿐인데
      * 전체를 읽으면 목록 N건마다 JSONB 5개를 헛되이 파싱한다
      * ({@code ProcurementRiskRepository.findLatestRiskLevelsByAnalysisIds}와 같은 방침).
      */
-    public List<AiBriefingDto.BriefingListItem> findRecent(int limit) {
+    public List<AiBriefingDto.BriefingListItem> findPage(
+            BriefingListFilter filter, int page, int size) {
         return jdbc.query("""
                 SELECT briefing_id, source_type, source_ref, subject_title, news_id,
                        procurement_risk_level, procurement_risk_score, composite,
                        review_passed, trigger_type, created_at
                 FROM ai_briefings
+                """ + LIST_CONDITIONS + """
                 ORDER BY created_at DESC
-                LIMIT :limit
-                """, new MapSqlParameterSource("limit", limit),
+                LIMIT :size OFFSET :offset
+                """,
+                listParams(filter)
+                        .addValue("size", size)
+                        .addValue("offset", (long) page * size),
                 (rs, rowNumber) -> new AiBriefingDto.BriefingListItem(
                         rs.getObject("briefing_id", UUID.class),
                         rs.getString("source_type"),
@@ -268,6 +321,23 @@ public class AiBriefingRepository {
                         nullableBoolean(rs, "review_passed"),
                         rs.getString("trigger_type"),
                         rs.getObject("created_at", OffsetDateTime.class)));
+    }
+
+    /** 같은 조건의 전체 건수. 화면이 마지막 페이지에서 "다음"을 잠그는 데 쓴다. */
+    public long countPage(BriefingListFilter filter) {
+        Long count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ai_briefings\n" + LIST_CONDITIONS,
+                listParams(filter), Long.class);
+        return count == null ? 0L : count;
+    }
+
+    private static MapSqlParameterSource listParams(BriefingListFilter filter) {
+        BriefingListFilter applied = filter == null ? BriefingListFilter.ALL : filter;
+        return new MapSqlParameterSource()
+                .addValue("sourceType", applied.sourceType(), Types.VARCHAR)
+                .addValue("riskLevel", applied.riskLevel(), Types.VARCHAR)
+                .addValue("reviewStatus", applied.reviewStatus(), Types.VARCHAR)
+                .addValue("days", applied.days(), Types.INTEGER);
     }
 
     /**

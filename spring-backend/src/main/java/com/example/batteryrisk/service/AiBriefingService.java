@@ -7,6 +7,7 @@ import com.example.batteryrisk.dto.ContractRagDto;
 import com.example.batteryrisk.dto.ErpDto;
 import com.example.batteryrisk.dto.MaterialRiskDto;
 import com.example.batteryrisk.dto.MultiAgentDto;
+import com.example.batteryrisk.dto.PageResponse;
 import com.example.batteryrisk.dto.RiskMonitoringDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
@@ -57,6 +58,22 @@ public class AiBriefingService {
 
     /** 최근 브리핑 기본 노출 건수. 화면 우측 카드가 한 번에 보여주는 양이다. */
     private static final int DEFAULT_RECENT_LIMIT = 5;
+
+    /**
+     * 목록 필터가 받는 값. 화면 셀렉트의 "전체"는 파라미터를 빼거나 {@code ALL}로 보낸다.
+     *
+     * <p>{@code List}인 것은 순서 때문이다 — 모르는 값을 거절할 때 이 목록을 그대로 오류 메시지에
+     * 실으므로, 호출할 때마다 순서가 달라지면 안 된다.
+     */
+    private static final List<String> SOURCE_TYPES =
+            List.of(SOURCE_NEWS, SOURCE_MATERIAL, SOURCE_CONTRACT);
+    private static final List<String> RISK_LEVELS = List.of("CRITICAL", "WARNING", "NORMAL");
+
+    /**
+     * 검증상태 셋은 {@code review_passed}의 세 상태를 빠짐없이 덮는다 —
+     * TRUE(검증 통과) · FALSE(검토 필요) · NULL(미검증).
+     */
+    private static final List<String> REVIEW_STATUSES = List.of("PASSED", "FAILED", "PENDING");
 
     /**
      * 같은 대상·같은 분석의 재요청을 "재시도"로 볼 시간창(초).
@@ -268,10 +285,57 @@ public class AiBriefingService {
 
     // ---------------------------------------------------------------- 조회
 
-    /** 우측 "최근 브리핑". 팀 전체 공용이라 만든 사람으로 거르지 않는다. */
-    public List<AiBriefingDto.BriefingListItem> recent(Integer limit) {
-        int size = limit == null || limit < 1 ? DEFAULT_RECENT_LIMIT : Math.min(limit, 50);
-        return repository.findRecent(size);
+    /**
+     * 우측 "최근 브리핑" 한 페이지. 팀 전체 공용이라 만든 사람으로 거르지 않는다.
+     *
+     * <p>필터 네 축과 페이징을 <b>함께</b> 넘긴다. 필터를 화면에 두고 페이징만 서버에서 하면
+     * "서버가 먼저 N건 자르고 화면이 그 안에서 거른다"가 되어, 2페이지에 있어야 할 항목이
+     * 1페이지에서 걸러져 사라진다 — 리스크 모니터링 목록이 그래서 16건 중 4건만 보였다.
+     *
+     * <p>모르는 필터 값은 <b>무시하지 않고 거절한다</b>. 조용히 무시하면 화면은 걸렀다고 믿고
+     * 사용자는 안 걸린 목록을 보게 되는데, 그건 오타 하나로 만들어지는 상태다.
+     */
+    public PageResponse<AiBriefingDto.BriefingListItem> recent(
+            String sourceType, String riskLevel, String reviewStatus, Integer days,
+            Integer page, Integer size) {
+        AiBriefingRepository.BriefingListFilter filter =
+                new AiBriefingRepository.BriefingListFilter(
+                        oneOf("source", sourceType, SOURCE_TYPES),
+                        oneOf("level", riskLevel, RISK_LEVELS),
+                        oneOf("reviewStatus", reviewStatus, REVIEW_STATUSES),
+                        positiveOrNull(days));
+        int pageIndex = page == null || page < 0 ? 0 : page;
+        int pageSize = size == null || size < 1 ? DEFAULT_RECENT_LIMIT : Math.min(size, 50);
+
+        long total = repository.countPage(filter);
+        List<AiBriefingDto.BriefingListItem> content = repository.findPage(filter, pageIndex, pageSize);
+        return PageResponse.of(content, pageIndex, pageSize, total);
+    }
+
+    /**
+     * 필터 값 정규화. 빈 문자열·"전체"는 필터 없음으로 보고, 그 밖의 모르는 값은 거절한다.
+     *
+     * <p>화면이 "전체"를 고르면 파라미터를 아예 빼는 게 정석이지만, 셀렉트 값을 그대로 실어
+     * 보내는 구현도 흔해서 빈 문자열은 받아준다.
+     */
+    private static String oneOf(String field, String value, List<String> allowed) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String upper = value.trim().toUpperCase(Locale.ROOT);
+        if ("ALL".equals(upper)) {
+            return null;
+        }
+        if (!allowed.contains(upper)) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST,
+                    field + "은(는) " + String.join(", ", allowed) + " 중 하나여야 합니다: " + value);
+        }
+        return upper;
+    }
+
+    /** 기간은 양수만 뜻이 있다. 0이나 음수는 "전체"와 구분되지 않으므로 필터 없음으로 본다. */
+    private static Integer positiveOrNull(Integer days) {
+        return days == null || days < 1 ? null : days;
     }
 
     /** "브리핑 상세 보기" — 저장된 브리핑을 생성 직후와 같은 모양으로 되돌린다. */
