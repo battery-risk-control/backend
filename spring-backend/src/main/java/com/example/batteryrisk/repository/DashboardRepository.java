@@ -80,7 +80,10 @@ public class DashboardRepository {
                     (SELECT COUNT(*) FROM latest WHERE severity = 'NORMAL') AS normal_count,
                     (SELECT COUNT(*) FROM latest WHERE severity = 'UNKNOWN') AS unknown_count,
                     (SELECT MAX(assessed_at) FROM latest) AS latest_assessed_at,
-                    (SELECT COUNT(*) FROM briefings) AS briefing_count,
+                    -- V6 briefings가 아니라 ai_briefings를 센다. 전자는 BriefingRepository.save에
+                    -- 호출자가 하나도 없는 죽은 테이블이라 멀티에이전트 브리핑이 아무리 쌓여도
+                    -- 이 KPI가 움직이지 않았다(실측: briefings 1건 vs ai_briefings 24건).
+                    (SELECT COUNT(*) FROM ai_briefings) AS briefing_count,
                     (SELECT COUNT(*) FROM materials WHERE active = TRUE) AS material_count,
                     (SELECT COUNT(*) FROM suppliers WHERE active = TRUE) AS supplier_count,
                     (SELECT COUNT(*) FROM contracts) AS contract_count,

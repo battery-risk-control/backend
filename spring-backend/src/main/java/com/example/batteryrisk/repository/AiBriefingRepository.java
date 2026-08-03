@@ -4,6 +4,8 @@ import com.example.batteryrisk.dto.AiBriefingDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -29,6 +31,8 @@ import java.util.UUID;
  */
 @Repository
 public class AiBriefingRepository {
+    private static final Logger log = LoggerFactory.getLogger(AiBriefingRepository.class);
+
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
     private static final TypeReference<List<Map<String, Object>>> OBJECT_LIST = new TypeReference<>() {};
     private static final TypeReference<AiBriefingDto.ErpEvidence> ERP_EVIDENCE = new TypeReference<>() {};
@@ -42,6 +46,8 @@ public class AiBriefingRepository {
     }
 
     public void save(AiBriefingDto.BriefingDetail briefing, String createdBy) {
+        replaceSameNewsBriefing(briefing);
+
         AiBriefingDto.EvidenceChain chain = briefing.evidenceChain();
         AiBriefingDto.VerificationMeta verification = briefing.verification();
 
@@ -113,6 +119,36 @@ public class AiBriefingRepository {
                     :triggerType, :createdAt
                 )
                 """, params);
+    }
+
+    /**
+     * 같은 뉴스로 만든 이전 브리핑을 지운다 — 목록에는 <b>가장 최근 것 한 건</b>만 남는다.
+     *
+     * <p>같은 뉴스를 자동 경로(Chain A&rarr;B)가 한 번 태우고 사용자가 AI 브리핑 화면에서 다시
+     * 생성하면 같은 사건이 목록에 두 줄로 쌓인다. 둘은 대안이 아니라 <b>같은 것의 옛 판·새 판</b>이라
+     * 최신만 보이는 게 맞다(사용자 확인, 2026-08-03).
+     *
+     * <p>키를 {@code analysis_id}로 잡는 이유: 자동 경로와 화면 경로는 {@code source_ref}가
+     * 서로 다르다(화면은 raw_events.id, 자동 경로는 분석 UUID). 두 경로가 공통으로 갖는
+     * 식별자는 이것뿐이다.
+     *
+     * <p>{@code source_type='NEWS'}로 좁히는 게 핵심이다. 자재·계약 화면에서 만든 브리핑도
+     * 외부신호로 같은 뉴스를 끌어다 쓰므로 {@code analysis_id}가 겹칠 수 있는데, 그것들은
+     * <b>분석 대상이 다른</b> 별개의 브리핑이라 지우면 안 된다.
+     */
+    private void replaceSameNewsBriefing(AiBriefingDto.BriefingDetail briefing) {
+        if (!"NEWS".equals(briefing.sourceType()) || briefing.analysisId() == null) {
+            return;
+        }
+        int removed = jdbc.update("""
+                DELETE FROM ai_briefings
+                WHERE source_type = 'NEWS'
+                  AND analysis_id = :analysisId
+                """, new MapSqlParameterSource("analysisId", briefing.analysisId()));
+        if (removed > 0) {
+            log.info("같은 뉴스의 이전 AI 브리핑 {}건을 새 브리핑으로 대체합니다. analysisId={}",
+                    removed, briefing.analysisId());
+        }
     }
 
     public Optional<AiBriefingDto.BriefingDetail> findById(UUID briefingId) {

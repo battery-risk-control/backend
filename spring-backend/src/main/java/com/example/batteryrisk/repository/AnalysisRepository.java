@@ -20,19 +20,36 @@ public interface AnalysisRepository extends JpaRepository<Analysis, UUID> {
      * 하나라도 비면 제외한다. 최신순 정렬은 RiskEventService가 (국가, 자재) 조합별로 가장 최근 1건만
      * 남기는 중복 제거에 쓰인다 — 같은 뉴스를 반복 분석하면 마커가 같은 좌표에 겹쳐 찍히기 때문이다.
      *
-     * <p>{@code severity IN (CRITICAL, WARNING)}을 명시한다 — {@code materialCategory}가
+     * <p>등급 필터를 명시한다 — {@code materialCategory}가
      * {@link com.example.batteryrisk.domain.Analysis#attachMaterialCategory}로 등급과 무관하게
      * 항상 채워지게 되면서, {@code materialCategory IS NOT NULL}이 우연히 겸하고 있던 등급 필터
      * 역할이 사라졌다. 이걸 명시하지 않으면 NORMAL 이벤트까지 지도에 올라와 마커 상한
-     * ({@code RISK_BOARD_MAX_MARKERS})을 정상 이벤트가 먼저 채워 심각 이벤트를 밀어낼 수 있다.
+     * ({@code RISK_BOARD_MAX_MARKERS})을 정상 이벤트가 먼저 채워 심각 이벤트를 밀어낸다.
+     *
+     * <p><b>두 축을 모두 본다.</b> 외부신호 등급(severity)만 보면 멀티에이전트가 종합해서
+     * 주의·심각으로 올린 사건이 지도에서 통째로 사라진다 —
+     * {@link com.example.batteryrisk.service.RiskEventService#riskBoard}는 멀티에이전트 등급을
+     * 우선 쓰도록 짜여 있는데, 그 코드에 닿기 전에 여기서 잘려나갔다(실측: 외부신호 NORMAL ·
+     * 멀티에이전트 WARNING 조합 3건이 그렇게 누락됐다). ERP·계약까지 거친 종합 등급이 오히려
+     * 더 확정적인 판단이라 이쪽을 버리면 안 된다.
+     *
+     * <p>{@code procurement_risk_assessments}는 JPA 엔티티가 아니라 JdbcTemplate으로만 다루므로
+     * JPQL에서 조인할 수 없다. 그래서 네이티브 쿼리로 바꿨다.
      */
-    @Query("""
-            SELECT a FROM Analysis a
+    @Query(nativeQuery = true, value = """
+            SELECT a.* FROM analyses a
             WHERE a.status = 'COMPLETED'
-              AND a.severity IN ('CRITICAL', 'WARNING')
-              AND a.countryCode IS NOT NULL
-              AND a.materialCategory IS NOT NULL
-            ORDER BY a.createdAt DESC
+              AND a.country_code IS NOT NULL
+              AND a.material_category IS NOT NULL
+              AND (
+                    a.severity IN ('CRITICAL', 'WARNING')
+                 OR EXISTS (
+                        SELECT 1 FROM procurement_risk_assessments p
+                        WHERE p.analysis_id = a.analysis_id
+                          AND p.procurement_risk_level IN ('CRITICAL', 'WARNING')
+                    )
+              )
+            ORDER BY a.created_at DESC
             """)
     List<Analysis> findRiskBoardCandidates(Pageable pageable);
 

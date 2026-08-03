@@ -154,6 +154,14 @@ def validate_briefing_node(
     # 도달하지 못한다(응답 스키마에 warnings 말고는 그 사실을 실어 보낼 필드가 없다).
     # add_warning이 중복을 막으므로 reviewer가 여러 번 돌아도 같은 문구가 쌓이지 않는다.
     warnings = list(state.get("warnings", []))
+
+    # 이어받은 경고는 reviewer의 판정 대상이 아니다. KG 게이트 우회·브리핑 LLM 공급자 같은
+    # **환경 설정 고지**가 대부분이고, 그건 브리핑을 다시 써도 사라지지 않는다. 그런데도
+    # review_passed를 전체 경고 개수로 매기면 (1) 검증 통과 브리핑이 구조적으로 0이 되고
+    # (2) 고칠 수 없는 경고 때문에 retry_count가 올라 재실행이 헛돈다 — 실제로
+    # KG_GATE_ENABLED=false로 내린 2026-08-03부터 review_passed가 전부 false로 뒤집혔다.
+    # 그래서 이 노드가 **새로 찾은** 문제만 실패로 친다.
+    inherited_warnings = set(warnings)
     error_owner = None
 
     if not briefing.strip():
@@ -246,7 +254,14 @@ def validate_briefing_node(
             )
             error_owner = "response"
 
-    review_passed = len(warnings) == 0
+    # add_warning이 중복을 걸러내므로 개수 비교로는 부족하다(이어받은 문구와 같은 경고를
+    # 이 노드가 다시 올리면 개수가 그대로다). 집합 차로 새 경고만 뽑는다.
+    new_warnings = [
+        warning
+        for warning in warnings
+        if warning not in inherited_warnings
+    ]
+    review_passed = not new_warnings
     retry_count = state.get(
         "retry_count",
         0,
