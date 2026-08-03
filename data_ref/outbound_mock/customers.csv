@@ -1,0 +1,23 @@
+﻿customer_id,name_en,name_kr,country_code
+CUST-001,"Tesla, Inc.",테슬라,US
+CUST-002,General Motors Company,제너럴모터스,US
+CUST-003,Ford Motor Company,포드,US
+CUST-004,Mercedes-Benz Group,메르세데스-벤츠,DE
+CUST-005,Toyota Motor Corporation,토요타,JP
+CUST-006,Volkswagen AG,폭스바겐,DE
+CUST-007,Kia Corporation,기아,KR
+CUST-008,Hyundai Motor Company,현대자동차,KR
+CUST-009,Rivian Automotive,리비안,US
+CUST-010,Stellantis N.V.,스텔란티스,NL
+CUST-011,BMW Group,BMW,DE
+CUST-012,Volvo Cars,볼보,SE
+CUST-013,Hyundai Mobis,현대모비스,KR
+CUST-014,Renault Group,르노,FR
+CUST-015,Nissan Motor Corporation,닛산,JP
+CUST-016,Honda Motor Co.,혼다,JP
+CUST-017,Lucid Group,루시드,US
+CUST-018,Polestar Automotive,폴스타,SE
+CUST-019,XPeng Inc.,샤오펑,CN
+CUST-020,NIO Inc.,니오,CN
+CUST-021,Fluence Energy,플루언스 에너지,US
+CUST-022,Proterra Inc.,프로테라,US
