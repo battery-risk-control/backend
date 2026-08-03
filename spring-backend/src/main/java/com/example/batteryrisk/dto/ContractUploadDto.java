@@ -42,6 +42,14 @@ public final class ContractUploadDto {
             @JsonProperty("contract_id") String erpContractId,
             @JsonProperty("contract_created") boolean contractCreated,
             @JsonProperty("document_id") String documentId,
-            @JsonProperty("processing_status") String processingStatus
+            @JsonProperty("processing_status") String processingStatus,
+
+            /**
+             * KG 동기화 실패 사유. 성공했거나 동기화 대상이 아니면 null이다.
+             *
+             * <p>업로드는 성공했는데 지식그래프만 과거에 머무는 상태를 화면이 알려야 한다 —
+             * 예전엔 로그에만 남아서 그 뒤 리졸브가 낡은 재고로 계산되는 걸 아무도 몰랐다.
+             */
+            @JsonProperty("kg_sync_warning") String kgSyncWarning
     ) {}
 }

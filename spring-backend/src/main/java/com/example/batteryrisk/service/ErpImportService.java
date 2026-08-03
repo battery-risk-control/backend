@@ -132,6 +132,8 @@ public class ErpImportService {
                 .toList();
 
         Map<String, int[]> countsByTable = new LinkedHashMap<>();   // [inserted, updated]
+        /** KG 동기화 실패 사유. 재고·소비량 행에서만 올라온다. 성공이면 끝까지 null이다. */
+        String kgSyncWarning = null;
         for (ParsedFile file : ordered) {
             TableSpec spec = file.spec();
             int[] counts = countsByTable.computeIfAbsent(spec.table(), key -> new int[2]);
@@ -147,6 +149,11 @@ public class ErpImportService {
                 }
                 if (response.created()) counts[0]++;
                 else counts[1]++;
+                // 수백 행이 같은 사유로 실패할 수 있으므로 첫 건만 남긴다 — 같은 문구를 수백 번
+                // 보여주는 건 알림이 아니라 소음이다.
+                if (kgSyncWarning == null && response.kgSyncWarning() != null) {
+                    kgSyncWarning = response.kgSyncWarning();
+                }
             }
         }
 
@@ -159,7 +166,8 @@ public class ErpImportService {
                 OffsetDateTime.now(),
                 results.stream().mapToInt(ErpImportDto.TableResult::inserted).sum(),
                 results.stream().mapToInt(ErpImportDto.TableResult::updated).sum(),
-                results);
+                results,
+                kgSyncWarning);
     }
 
     // ------------------------------------------------------------------ 검증

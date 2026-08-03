@@ -104,6 +104,15 @@ public final class ErpImportDto {
             OffsetDateTime committedAt,
             int totalInserted,
             int totalUpdated,
-            List<TableResult> results
+            List<TableResult> results,
+
+            /**
+             * KG 동기화 실패 사유. 재고·소비량 행이 kg_service로 흘러가지 못했을 때만 채워진다.
+             *
+             * <p>적재는 성공했는데 지식그래프만 이전 값으로 남는 상태를 화면이 알려야 한다 —
+             * 그러지 않으면 그 뒤 부족 판정이 방금 올린 재고를 반영하지 못하는 걸 아무도 모른다.
+             * 같은 사유가 수백 행에서 반복되므로 첫 건만 싣는다.
+             */
+            String kgSyncWarning
     ) {}
 }

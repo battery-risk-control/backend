@@ -43,6 +43,11 @@ public class OutboundContractUploadService {
     private static final Logger log = LoggerFactory.getLogger(OutboundContractUploadService.class);
 
     private final RestClient fastApiRestClient;
+    /** ContractUploadService와 같은 이유·같은 문구 규칙. 아웃바운드 계약용으로만 표현을 바꾼다. */
+    static final String KG_SYNC_FAILED_MESSAGE =
+            "아웃바운드 계약은 저장됐지만 KG 동기화에 실패했습니다. 지식그래프는 이전 상태로 남아 있어 "
+                    + "배상책임·영향 제품 판단이 이 계약을 반영하지 못합니다. kg_service 상태를 확인하세요.";
+
     private final RestClient kgServiceRestClient;
     private final ErpRepository repository;
     private final ErpAdminService erpAdminService;
@@ -105,6 +110,8 @@ public class OutboundContractUploadService {
         long outboundContractId;
         String erpOutboundContractId;
         boolean created;
+        /** KG 동기화가 실패했을 때만 채워진다. 성공·미실행이면 null이다. */
+        String kgSyncWarning = null;
 
         if (existing.isPresent()) {
             outboundContractId = existing.get().outboundContractId();
@@ -152,7 +159,7 @@ public class OutboundContractUploadService {
             appendOutboundContractsCsvRow(
                     erpOutboundContractId, erpProductId, erpCustomerId, quantityGwh, unitPriceUsdKwh,
                     penaltyPct, lineStopChargeUsd, lineStopChargeKrw, deliveryLeadTimeDays, contractLanguage);
-            syncKgService(
+            kgSyncWarning = syncKgService(
                     erpOutboundContractId, erpProductId, erpCustomerId, quantityGwh, unitPriceUsdKwh,
                     penaltyPct, lineStopChargeUsd, lineStopChargeKrw, deliveryLeadTimeDays, contractLanguage);
         }
@@ -161,7 +168,8 @@ public class OutboundContractUploadService {
                 file, outboundContractId, productId, customerId, "CONTRACT");
 
         return new OutboundContractUploadDto.ConfirmResponse(
-                erpOutboundContractId, created, uploadResponse.documentId(), uploadResponse.processingStatus());
+                erpOutboundContractId, created, uploadResponse.documentId(),
+                uploadResponse.processingStatus(), kgSyncWarning);
     }
 
     private String extractText(MultipartFile file) {
@@ -213,7 +221,7 @@ public class OutboundContractUploadService {
      * 그래프를 다시 만들게 한다. 인바운드 {@link ContractUploadService#syncKgService}와 같은
      * 이유(Docker가 Google Drive 가상 드라이브를 못 읽는 문제 우회)로 같은 패턴을 쓴다.
      */
-    private void syncKgService(
+    private String syncKgService(
             String erpOutboundContractId, String erpProductId, String erpCustomerId,
             BigDecimal quantityGwh, BigDecimal unitPriceUsdKwh, BigDecimal penaltyPct,
             BigDecimal lineStopChargeUsd, BigDecimal lineStopChargeKrw,
@@ -231,11 +239,15 @@ public class OutboundContractUploadService {
                     .body(new KgAppendOutboundContractRequest(contract))
                     .retrieve()
                     .toBodilessEntity();
+            return null;
         } catch (Exception exception) {
             // KG 반영은 부가 기능 — 실패해도 계약/문서 생성 자체를 막지 않는다(인바운드와 동일 정책).
+            // 다만 사유는 응답에 실어 화면이 알린다 — 로그만 남기면 업로드는 성공으로 끝나고
+            // KG 그래프만 과거에 머무는 걸 아무도 모른다.
             log.warn(
                     "kg_service 아웃바운드 동기화 실패 — CSV(로컬 사본)는 갱신됐으나 KG 그래프는 아직 이전 상태입니다",
                     exception);
+            return KG_SYNC_FAILED_MESSAGE;
         }
     }
 

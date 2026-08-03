@@ -20,7 +20,13 @@ public final class ErpAdminDto {
             String erpId,
             Long internalId,
             boolean created,
-            OffsetDateTime processedAt
+            OffsetDateTime processedAt,
+
+            /**
+             * KG 동기화 실패 사유. 재고·소비량처럼 kg_service로 흘려보내는 엔티티만 채워지고,
+             * 성공했거나 동기화 대상이 아니면 null이다.
+             */
+            String kgSyncWarning
     ) {}
 
     public record MaterialUpsertRequest(

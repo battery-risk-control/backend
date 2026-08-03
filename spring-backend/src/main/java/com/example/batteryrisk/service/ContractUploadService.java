@@ -50,6 +50,14 @@ public class ContractUploadService {
     private static final int TEXT_PREVIEW_LIMIT = 2000;
 
     private final RestClient fastApiRestClient;
+    /**
+     * KG 동기화 실패 시 응답에 실어 보내는 문구. 업로드 자체는 성공했다는 사실과, 그럼에도
+     * 무엇이 낡은 채로 남는지를 함께 말해야 사용자가 다음 행동을 정할 수 있다.
+     */
+    static final String KG_SYNC_FAILED_MESSAGE =
+            "계약은 저장됐지만 KG 동기화에 실패했습니다. 지식그래프는 이전 상태로 남아 있어 "
+                    + "재고·공급 공백 판단이 이 계약을 반영하지 못합니다. kg_service 상태를 확인하세요.";
+
     private final RestClient kgServiceRestClient;
     private final ErpRepository repository;
     private final ErpAdminService erpAdminService;
@@ -120,6 +128,8 @@ public class ContractUploadService {
         long contractId;
         String erpContractId;
         boolean created;
+        /** KG 동기화가 실패했을 때만 채워진다. 성공·미실행이면 null이라 화면이 줄을 그리지 않는다. */
+        String kgSyncWarning = null;
 
         if (existing.isPresent()) {
             contractId = existing.get().contractId();
@@ -172,7 +182,7 @@ public class ContractUploadService {
                     effectiveDate, expirationDate, documentPath, now);
             appendSupplierMaterialsCsvRow(
                     erpSupplierMaterialId, erpSupplierId, erpMaterialId, erpContractId);
-            syncKgService(
+            kgSyncWarning = syncKgService(
                     erpContractId, contractNumber, erpSupplierId, erpMaterialId, contractName,
                     effectiveDate, expirationDate, documentPath, now,
                     erpSupplierMaterialId);
@@ -182,7 +192,8 @@ public class ContractUploadService {
                 documentService.upload(file, contractId, supplierId, materialId, "CONTRACT");
 
         return new ContractUploadDto.ConfirmResponse(
-                erpContractId, created, uploadResponse.documentId(), uploadResponse.processingStatus());
+                erpContractId, created, uploadResponse.documentId(), uploadResponse.processingStatus(),
+                kgSyncWarning);
     }
 
     private String extractText(MultipartFile file) {
@@ -244,7 +255,7 @@ public class ContractUploadService {
      * 빈 폴더로 보인다(오늘 직접 확인함) — 반면 kg_service는 일반 Python 파일 I/O라 그 드라이브를
      * 문제없이 읽고 쓴다. 그래서 "두 번째 CSV에 쓰는 일"은 Spring이 아니라 kg_service가 한다.
      */
-    private void syncKgService(
+    private String syncKgService(
             String erpContractId, String contractNumber, String erpSupplierId, String erpMaterialId,
             String contractName, LocalDate effectiveDate, LocalDate expirationDate, String documentPath,
             OffsetDateTime now, String erpSupplierMaterialId) {
@@ -264,10 +275,16 @@ public class ContractUploadService {
                     .body(new KgAppendContractRequest(contract, supplierMaterial))
                     .retrieve()
                     .toBodilessEntity();
+            return null;
         } catch (Exception exception) {
             // KG 반영은 부가 기능 — 실패해도 계약/문서 생성 자체를 막지 않는다. CSV(로컬 사본)는
             // 이미 갱신됐으니 나중에 kg_service 쪽에 수동으로 반영할 수 있다.
+            //
+            // 다만 **조용히 넘어가지는 않는다.** 로그만 남기면 업로드는 성공으로 끝나고 KG
+            // 그래프만 과거에 머무는데, 그 뒤 리졸브가 낡은 재고로 계산되는 걸 아무도 모른다.
+            // 사유를 응답에 실어 화면이 그 자리에서 알리게 한다.
             log.warn("kg_service 동기화 실패 — CSV(로컬 사본)는 갱신됐으나 KG 그래프는 아직 이전 상태입니다", exception);
+            return KG_SYNC_FAILED_MESSAGE;
         }
     }
 
