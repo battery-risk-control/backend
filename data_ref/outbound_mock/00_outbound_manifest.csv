@@ -1,0 +1,5 @@
+load_order,file_name,target_table,row_count,purpose
+1,products.csv,products,16,PostgreSQL outbound seed data
+2,product_composition.csv,product_compositions,63,PostgreSQL outbound seed data
+3,customers.csv,customers,22,PostgreSQL outbound seed data
+4,outbound_contracts.csv,outbound_contracts,27,PostgreSQL outbound seed data

@@ -1,0 +1,6 @@
+# kg_service (KG 리졸버, CLAUDE.md 결정사항 10번 1단계) 실행에 필요한 의존성.
+# pandas/networkx는 src/build_ontology_graph.py가 그래프를 만들 때 씀.
+fastapi==0.115.0
+uvicorn==0.32.0
+pandas==2.3.3
+networkx==3.4.2
