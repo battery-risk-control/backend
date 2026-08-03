@@ -335,7 +335,8 @@ public class ErpImportReportService {
     private void writeMappings(Document document, ErpImportReportModel model) {
         if (model.mappings().isEmpty()) return;
         document.add(heading("스키마 매핑 결과"));
-        PdfPTable table = dataTable(new float[]{18, 15, 15, 20, 8, 10, 14},
+        // 컬럼명(material_category 등)이 잘려 두 줄로 접히지 않도록 원본·대상 칸을 넓게 잡는다.
+        PdfPTable table = dataTable(new float[]{14, 18, 18, 20, 7, 9, 14},
                 "파일명", "원본 컬럼", "대상 필드", "필드 설명", "필수", "매핑 상태", "샘플 값");
         for (ErpImportReportModel.MappingRow row : model.mappings()) {
             addCell(table, row.fileName(), Element.ALIGN_LEFT, MUTED);
@@ -633,7 +634,8 @@ public class ErpImportReportService {
             totalPages.beginText();
             totalPages.setFontAndSize(font, 8);
             totalPages.setTextMatrix(0, 0);
-            totalPages.showText(lastPage + " 페이지");
+            // 앞 조각이 "N / "로 끝나므로 여기서 한 칸 더 띄우지 않으면 "1 /3"처럼 붙어 나온다.
+            totalPages.showText(" " + lastPage + " 페이지");
             totalPages.endText();
         }
     }
