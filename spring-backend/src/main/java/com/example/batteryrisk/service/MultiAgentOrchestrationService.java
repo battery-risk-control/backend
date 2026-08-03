@@ -307,11 +307,7 @@ public class MultiAgentOrchestrationService {
                 response.reviewPassed(),
                 response.llmUsed(),
                 externalSignal.mock(),
-                OffsetDateTime.now(),
-                response.briefing(),
-                response.recommendedActions(),
-                response.contractFindings(),
-                response.warnings()));
+                OffsetDateTime.now()));
         return response.withAssessmentId(assessmentId);
     }
 

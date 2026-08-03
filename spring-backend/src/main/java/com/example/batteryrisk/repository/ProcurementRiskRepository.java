@@ -63,11 +63,7 @@ public class ProcurementRiskRepository {
                 .addValue("reviewPassed", assessment.reviewPassed())
                 .addValue("llmUsed", assessment.llmUsed())
                 .addValue("mock", assessment.mock())
-                .addValue("createdAt", assessment.createdAt())
-                .addValue("briefing", assessment.briefing())
-                .addValue("recommendedActions", toJson(assessment.recommendedActions()))
-                .addValue("contractFindings", toJson(assessment.contractFindings()))
-                .addValue("warnings", toJson(assessment.warnings()));
+                .addValue("createdAt", assessment.createdAt());
         jdbc.update("""
                 INSERT INTO procurement_risk_assessments (
                     assessment_id, analysis_id, news_id, material_id, erp_material_id,
@@ -75,8 +71,7 @@ public class ProcurementRiskRepository {
                     external_signal_score, external_signal_level, erp_exposure_score,
                     contract_gap_score, procurement_risk_score, procurement_risk_level,
                     risk_reasons, erp_assessment, contract_assessment,
-                    weight_version, stockout_gate_applied, review_passed, llm_used, mock, created_at,
-                    briefing, recommended_actions, contract_findings, warnings
+                    weight_version, stockout_gate_applied, review_passed, llm_used, mock, created_at
                 ) VALUES (
                     :assessmentId, :analysisId, :newsId, :materialId, :erpMaterialId,
                     :erpSupplierId, :materialCategory, :impactDomainFinal, :assessedAt,
@@ -84,9 +79,7 @@ public class ProcurementRiskRepository {
                     :contractGapScore, :procurementRiskScore, :procurementRiskLevel,
                     CAST(:riskReasons AS JSONB), CAST(:erpAssessment AS JSONB),
                     CAST(:contractAssessment AS JSONB),
-                    :weightVersion, :stockoutGateApplied, :reviewPassed, :llmUsed, :mock, :createdAt,
-                    :briefing, CAST(:recommendedActions AS JSONB), CAST(:contractFindings AS JSONB),
-                    CAST(:warnings AS JSONB)
+                    :weightVersion, :stockoutGateApplied, :reviewPassed, :llmUsed, :mock, :createdAt
                 )
                 """, params);
     }
@@ -296,11 +289,7 @@ public class ProcurementRiskRepository {
                 nullableBoolean(rs, "review_passed"),
                 rs.getBoolean("llm_used"),
                 rs.getBoolean("mock"),
-                rs.getObject("created_at", OffsetDateTime.class),
-                rs.getString("briefing"),
-                fromJson(rs.getString("recommended_actions"), STRING_LIST),
-                fromJson(rs.getString("contract_findings"), OBJECT_MAP_LIST),
-                fromJson(rs.getString("warnings"), STRING_LIST)
+                rs.getObject("created_at", OffsetDateTime.class)
         );
     }
 

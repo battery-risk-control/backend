@@ -124,6 +124,11 @@ public final class AiBriefingDto {
             @Schema(description = "reviewer 노드 검증 통과 여부. 화면의 '검증 통과' 표기")
             Boolean reviewPassed,
 
+            @Schema(example = "MANUAL", description =
+                    "AUTO=분석 파이프라인이 자동으로 만든 브리핑, MANUAL=화면에서 생성 버튼을 눌러 만든 브리핑. "
+                            + "한 목록에 섞여 들어오므로 화면이 배지 등으로 구분해 보여줘야 한다.")
+            String triggerType,
+
             OffsetDateTime createdAt
     ) {}
 
@@ -182,6 +187,11 @@ public final class AiBriefingDto {
 
             @Schema(description = "화면 하단 '검증 메타데이터'")
             VerificationMeta verification,
+
+            @Schema(example = "MANUAL", description =
+                    "AUTO=분석 파이프라인이 자동으로 돌려 만든 브리핑, MANUAL=화면에서 생성 버튼을 눌러 만든 브리핑. "
+                            + "둘 다 같은 목록에 쌓이므로 화면이 구분해 표시할 수 있어야 한다.")
+            String triggerType,
 
             OffsetDateTime createdAt
     ) {}

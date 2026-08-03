@@ -5,6 +5,7 @@ import com.example.batteryrisk.dto.AnalysisDto;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.AnalysisSupplierRecommendationRepository;
 import com.example.batteryrisk.repository.ErpRepository;
+import com.example.batteryrisk.service.AiBriefingService;
 import com.example.batteryrisk.service.AnalysisService;
 import com.example.batteryrisk.service.ErpExposureRequestService;
 import com.example.batteryrisk.service.MultiAgentOrchestrationService;
@@ -49,13 +50,15 @@ class AnalysisMaterialCategoryTest {
             mock(ErpExposureRequestService.class);
     private final MultiAgentOrchestrationService multiAgentOrchestrationService =
             mock(MultiAgentOrchestrationService.class);
+    // 자동 경로가 만든 브리핑 본문을 ai_briefings에 남기는 지점(V29).
+    private final AiBriefingService aiBriefingService = mock(AiBriefingService.class);
     // KG가 자재를 확정하지 못했을 때 대분류를 ERP 자재로 펼치는 폴백 조회에 쓰인다.
     private final ErpRepository erpRepository = mock(ErpRepository.class);
 
     private final AnalysisService service = new AnalysisService(
             fastApiRestClient, analysisRepository, supplierRecommendationRepository,
             notificationService, erpExposureRequestService, multiAgentOrchestrationService,
-            erpRepository);
+            aiBriefingService, erpRepository);
 
     @BeforeEach
     void setUp() {

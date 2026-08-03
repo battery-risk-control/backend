@@ -57,14 +57,10 @@ public final class ProcurementRiskDto {
             Boolean reviewPassed,
             boolean llmUsed,
             boolean mock,
-            OffsetDateTime createdAt,
+            OffsetDateTime createdAt
 
-            @Schema(description = "구매팀 브리핑 본문. use_llm=false면 템플릿 조립본, true면 LLM 생성본")
-            String briefing,
-            List<String> recommendedActions,
-            @Schema(description = "브리핑이 인용한 계약 조항 — 감사추적의 핵심")
-            List<Map<String, Object>> contractFindings,
-            List<String> warnings
+            // 브리핑 본문·권고조치·계약근거·경고는 여기 없다. V29에서 ai_briefings로 옮겼다 —
+            // 이 테이블은 V18 원래 목적대로 점수 이력만 남긴다.
     ) {}
 
     /**

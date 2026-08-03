@@ -86,6 +86,7 @@ public class AiBriefingRepository {
                 .addValue("weightVersion", verification == null ? null : verification.weightVersion())
                 .addValue("mock", verification != null && verification.mock())
                 .addValue("createdBy", createdBy)
+                .addValue("triggerType", briefing.triggerType())
                 .addValue("createdAt", briefing.createdAt());
 
         jdbc.update("""
@@ -97,7 +98,8 @@ public class AiBriefingRepository {
                     contract_gap_score, contract_clause_count, procurement_risk_level,
                     procurement_risk_score, composite, briefing_text, risk_reasons,
                     recommended_actions, erp_evidence, contract_findings, warnings,
-                    review_passed, llm_used, llm_error, weight_version, mock, created_by, created_at
+                    review_passed, llm_used, llm_error, weight_version, mock, created_by,
+                    trigger_type, created_at
                 ) VALUES (
                     :briefingId, :assessmentId, :sourceType, :sourceRef, :subjectTitle,
                     :newsId, :analysisId, :sourceHeadline, :erpMaterialId, :erpSupplierId,
@@ -107,7 +109,8 @@ public class AiBriefingRepository {
                     :procurementRiskScore, :composite, :briefingText, CAST(:riskReasons AS JSONB),
                     CAST(:recommendedActions AS JSONB), CAST(:erpEvidence AS JSONB),
                     CAST(:contractFindings AS JSONB), CAST(:warnings AS JSONB),
-                    :reviewPassed, :llmUsed, :llmError, :weightVersion, :mock, :createdBy, :createdAt
+                    :reviewPassed, :llmUsed, :llmError, :weightVersion, :mock, :createdBy,
+                    :triggerType, :createdAt
                 )
                 """, params);
     }
@@ -133,7 +136,7 @@ public class AiBriefingRepository {
         return jdbc.query("""
                 SELECT briefing_id, source_type, source_ref, subject_title, news_id,
                        procurement_risk_level, procurement_risk_score, composite,
-                       review_passed, created_at
+                       review_passed, trigger_type, created_at
                 FROM ai_briefings
                 ORDER BY created_at DESC
                 LIMIT :limit
@@ -148,6 +151,7 @@ public class AiBriefingRepository {
                         rs.getBigDecimal("procurement_risk_score"),
                         rs.getBoolean("composite"),
                         nullableBoolean(rs, "review_passed"),
+                        rs.getString("trigger_type"),
                         rs.getObject("created_at", OffsetDateTime.class)));
     }
 
@@ -237,6 +241,7 @@ public class AiBriefingRepository {
                         firstInteger(findings, "page"),
                         rs.getString("weight_version"),
                         rs.getBoolean("mock")),
+                rs.getString("trigger_type"),
                 rs.getObject("created_at", OffsetDateTime.class));
     }
 
