@@ -2,7 +2,10 @@ package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.dto.PlanningDashboardDto;
 import com.example.batteryrisk.dto.SupplierDto;
+import com.example.batteryrisk.exception.BusinessException;
+import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.repository.PlanningDashboardRepository;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -290,9 +293,14 @@ public class PlanningDashboardService {
         }
     }
 
-    private record FastApiHealthResponse(VectorStoreHealth vectorStore) {}
+    /**
+     * {@code fastApiRestClient}(FastApiConfig)는 전역 SNAKE_CASE Jackson 네이밍 전략을 안 타는
+     * {@code RestClient.builder()} 직접 생성 빈이라({@code KgResolverService}의
+     * {@code kgServiceRestClient}와 동일한 이유), snake_case 필드는 명시적으로 매핑해야 한다.
+     */
+    private record FastApiHealthResponse(@JsonProperty("vector_store") VectorStoreHealth vectorStore) {}
 
-    private record VectorStoreHealth(String status, Integer chunkCount) {}
+    private record VectorStoreHealth(String status, @JsonProperty("chunk_count") Integer chunkCount) {}
 
     private static BigDecimal nullSafe(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
@@ -302,5 +310,23 @@ public class PlanningDashboardService {
         java.time.LocalDate today = java.time.LocalDate.now();
         int quarter = (today.getMonthValue() - 1) / 3 + 1;
         return today.getYear() + "Q" + quarter;
+    }
+
+    // ===== 드릴다운 상세 =====
+
+    public PlanningDashboardDto.AiBriefingDetail aiBriefingDetail(String analysisId) {
+        PlanningDashboardDto.AiBriefingDetail detail = repository.findBriefingDetail(analysisId);
+        if (detail == null) {
+            throw new BusinessException(ErrorCode.ANALYSIS_BRIEFING_NOT_FOUND);
+        }
+        return detail;
+    }
+
+    public PlanningDashboardDto.ContractDetail contractDetail(String contractNumber) {
+        PlanningDashboardDto.ContractDetail detail = repository.findContractDetail(contractNumber);
+        if (detail == null) {
+            throw new BusinessException(ErrorCode.CONTRACT_NOT_FOUND);
+        }
+        return detail;
     }
 }

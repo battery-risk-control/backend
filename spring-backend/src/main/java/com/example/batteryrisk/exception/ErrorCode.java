@@ -35,7 +35,9 @@ public enum ErrorCode {
     EXTERNAL_SIGNAL_REQUIRED(
             HttpStatus.BAD_REQUEST, "analysis_id 또는 external_signal_score·external_signal_level이 필요합니다."),
     PROCUREMENT_RISK_ASSESSMENT_NOT_FOUND(
-            HttpStatus.NOT_FOUND, "구매 리스크 점수를 찾을 수 없습니다.");
+            HttpStatus.NOT_FOUND, "구매 리스크 점수를 찾을 수 없습니다."),
+    ANALYSIS_BRIEFING_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 분석의 브리핑 정보를 찾을 수 없습니다."),
+    CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "계약을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String defaultMessage;
