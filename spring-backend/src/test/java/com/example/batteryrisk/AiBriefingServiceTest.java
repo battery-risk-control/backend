@@ -338,7 +338,7 @@ class AiBriefingServiceTest {
 
     private static RiskMonitoringDto.EventDetail eventDetail(boolean available, String blockedReason) {
         return new RiskMonitoringDto.EventDetail(
-                252L, "주의", "잠정", false, "코발트 공급사의 납기 지연",
+                null, 252L, "주의", "잠정", false, "코발트 공급사의 납기 지연",
                 "Cobalt supplier delays shipment", true, "납기 지연 요약", "코발트",
                 "PRODUCTION", "CD", "콩고민주공화국", null, Instant.now(), "GDELT",
                 "https://example.test/a", null, null, available, blockedReason,

@@ -31,6 +31,9 @@ public final class RiskMonitoringDto {
      * 등급을 감추면 화면에서 아무것도 판단할 수 없고, 잠정값을 확정처럼 보여주면 오해를 낳는다.
      */
     public record EventItem(
+            @Schema(description = "이 뉴스의 완결된 브리핑. 없으면 null이라 화면이 \"생성\"을 권한다. "
+                    + "confidence_label이 '확정'인 것과 항상 짝을 이룬다 — 확정인데 여기가 null이면 버그다.")
+            java.util.UUID briefingId,
             @Schema(example = "252", description = "raw_events.id. 상세 조회·분석 실행의 경로 변수로 쓴다.")
             long eventId,
 
@@ -66,6 +69,9 @@ public final class RiskMonitoringDto {
 
     /** 이벤트 상세 — 목록 항목에 뉴스 요약·외부신호·좌표·원문 링크·종합 평가를 더한 것. */
     public record EventDetail(
+            @Schema(description = "이 뉴스의 완결된 브리핑. 없으면 null이라 화면이 \"생성\"을 권한다. "
+                    + "confidence_label이 '확정'인 것과 항상 짝을 이룬다 — 확정인데 여기가 null이면 버그다.")
+            java.util.UUID briefingId,
             long eventId,
             String grade,
             String confidenceLabel,

@@ -22,6 +22,46 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
      */
     List<RawEvent> findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(String dataType, Pageable pageable);
 
+    /**
+     * 리스크 모니터링 목록 후보. <b>필터와 중복 제거를 SQL에서 끝낸 뒤</b> 최신순으로 자른다.
+     *
+     * <p>예전에는 최신 400건을 먼저 가져와 Java에서 걸렀는데, 그러면 관련 뉴스가 그 창 밖으로
+     * 밀려나 조회조차 되지 않았다 — 실측(최근 7일): 자재가 분류된 고유 뉴스가 14건인데 최신
+     * 400건 안에는 4건뿐이었다. GDELT가 공급망과 무관한 기사를 대량으로 통과시키기 때문에
+     * 고정 창 방식은 데이터가 쌓일수록 더 나빠진다.
+     *
+     * <p>자재가 특정되지 않은 기사는 제외한다({@code material_category IS NOT NULL}). 구매팀
+     * 화면에 정치·사건사고 기사가 올라오면 목록이 쓸모없어진다.
+     *
+     * <p>중복 제거 키는 {@code lower(trim(title))}이다. 같은 사건이 GDELT에서 여러 번 보고되며
+     * 대소문자·공백만 다른 제목으로 들어온다. 같은 제목 중에서는 최신 수집분을 남긴다.
+     */
+    @Query(nativeQuery = true, value = """
+            WITH candidates AS (
+                SELECT r.*, a.material_category
+                FROM raw_events r
+                JOIN analyses a ON a.analysis_id = r.triggered_analysis_id
+                WHERE r.data_type = 'NEWS'
+                  AND r.title IS NOT NULL
+                  AND r.collected_at >= :since
+                  AND a.material_category IS NOT NULL
+                  AND (CAST(:country AS VARCHAR) IS NULL OR r.country_code = CAST(:country AS VARCHAR))
+                  AND (CAST(:materialCategory AS VARCHAR) IS NULL
+                       OR a.material_category = CAST(:materialCategory AS VARCHAR))
+            ),
+            deduped AS (
+                SELECT DISTINCT ON (lower(trim(title))) *
+                FROM candidates
+                ORDER BY lower(trim(title)), collected_at DESC
+            )
+            SELECT * FROM deduped
+            ORDER BY collected_at DESC
+            LIMIT :limit
+            """)
+    List<RawEvent> findRiskMonitoringCandidates(
+            Instant since, String country, String materialCategory, int limit);
+
+
     /** 위와 같되 국가로 좁힌다. 지도 마커를 클릭했을 때 그 국가 뉴스만 보여주는 경로에서 쓴다. */
     List<RawEvent> findByDataTypeAndCountryCodeAndTitleIsNotNullOrderByCollectedAtDesc(
             String dataType, String countryCode, Pageable pageable);

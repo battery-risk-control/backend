@@ -5,6 +5,7 @@ import com.example.batteryrisk.domain.RawEvent;
 import com.example.batteryrisk.dto.ProcurementRiskDto;
 import com.example.batteryrisk.dto.RiskMonitoringDto.EventDetail;
 import com.example.batteryrisk.dto.RiskMonitoringDto.EventItem;
+import com.example.batteryrisk.repository.AiBriefingRepository;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.ProcurementRiskRepository;
 import com.example.batteryrisk.repository.RawEventRepository;
@@ -13,6 +14,7 @@ import com.example.batteryrisk.service.MultiAgentOrchestrationService;
 import com.example.batteryrisk.service.RiskMonitoringService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -27,7 +29,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -45,6 +49,7 @@ class RiskMonitoringGradingTest {
     private RawEventRepository rawEventRepository;
     private AnalysisRepository analysisRepository;
     private ProcurementRiskRepository procurementRiskRepository;
+    private AiBriefingRepository aiBriefingRepository;
     private RiskMonitoringService service;
 
     @BeforeEach
@@ -53,9 +58,12 @@ class RiskMonitoringGradingTest {
         analysisRepository = mock(AnalysisRepository.class);
         procurementRiskRepository = mock(ProcurementRiskRepository.class);
         when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any())).thenReturn(Map.of());
+        aiBriefingRepository = mock(AiBriefingRepository.class);
+        when(aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(any())).thenReturn(Map.of());
         service = new RiskMonitoringService(
                 rawEventRepository, analysisRepository, procurementRiskRepository,
-                mock(ErpExposureRequestService.class), mock(MultiAgentOrchestrationService.class));
+                mock(ErpExposureRequestService.class), mock(MultiAgentOrchestrationService.class),
+                aiBriefingRepository);
     }
 
     /** 멀티에이전트 미완이면 외부신호 등급을 보여주되 "참고"로 잠정임을 밝힌다. */
@@ -88,8 +96,11 @@ class RiskMonitoringGradingTest {
         Analysis analysis = completed("CL", "NORMAL", 54.1);
         stubList(newsEvent(1L, "CL"), analysis);
         // 외부신호는 NORMAL인데 종합은 CRITICAL — 종합이 이겨야 한다.
-        when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any()))
-                .thenReturn(Map.of(analysis.getAnalysisId(), "CRITICAL"));
+        //
+        // 확정의 근거는 **이 뉴스의 완결된 브리핑**이다(2026-08-03, 지도·속보와 통일).
+        // 종합 평가만 보면 계약·자재 화면이 이 뉴스를 외부신호로 끌어다 쓴 실행까지 확정으로
+        // 세어, 같은 기사가 화면마다 다른 배지를 단다.
+        stubNewsBriefing(analysis, "CRITICAL");
 
         EventItem item = service.list(null, null, null, 7, 50).get(0);
 
@@ -102,7 +113,7 @@ class RiskMonitoringGradingTest {
     @Test
     void newsWithoutAnalysisHasNoGrade() {
         RawEvent event = newsEvent(1L, "CL");
-        when(rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(any(), any()))
+        when(rawEventRepository.findRiskMonitoringCandidates(any(), any(), any(), anyInt()))
                 .thenReturn(List.of(event));
 
         EventItem item = service.list(null, null, null, 7, 50).get(0);
@@ -136,19 +147,27 @@ class RiskMonitoringGradingTest {
         stubDetail(newsEvent(1L, "CL"), analysis,
                 assessment(BigDecimal.valueOf(82), "CRITICAL", BigDecimal.valueOf(78.5)));
 
+        // 확정·등급의 근거는 이 뉴스의 완결된 브리핑이다(지도·속보와 통일). 종합 평가는
+        // procurementRisk 블록의 커버리지 정보로 계속 쓰인다 — 다른 축이다.
+        stubNewsBriefing(analysis, "CRITICAL");
+
         EventDetail detail = service.detail(1L);
 
         assertThat(detail.multiAgentCompleted()).isTrue();
         assertThat(detail.grade()).isEqualTo("심각");
         assertThat(detail.confidenceLabel()).isEqualTo("확정");
+        assertThat(detail.briefingId()).isNotNull();
         assertThat(detail.procurementRisk().completed()).isTrue();
     }
 
     /**
-     * <b>한 분석이 자재 여러 개로 펼쳐지면 가장 심한 자재가 카드 등급이 된다.</b>
+     * <b>한 분석이 자재 여러 개로 펼쳐지면 가장 심한 자재가 대표가 된다.</b>
      *
-     * <p>"최신"으로 고르면 저장 순서라는 우연이 등급을 정한다 — 수산화리튬이 심각인데 탄산리튬이
+     * <p>"최신"으로 고르면 저장 순서라는 우연이 대표를 정한다 — 수산화리튬이 심각인데 탄산리튬이
      * 나중에 저장됐다는 이유로 정상이 뜨면 담당자가 심각 건을 놓친다.
+     *
+     * <p>화면 등급(grade)은 2026-08-03부터 <b>완결된 뉴스 브리핑</b>에서 온다(지도·속보와 통일).
+     * 종합 평가는 여기 procurementRisk 블록의 대표 자재·커버리지를 계속 책임진다 — 다른 축이다.
      */
     @Test
     void worstMaterialDrivesCardGrade() {
@@ -159,7 +178,10 @@ class RiskMonitoringGradingTest {
 
         EventDetail detail = service.detail(1L);
 
-        assertThat(detail.grade()).isEqualTo("심각");
+        // 브리핑을 스텁하지 않았으므로 등급은 외부신호(NORMAL)로 남는다 — 종합 평가가 있다고
+        // 해서 확정으로 올라가지 않는다는 것이 새 정책의 핵심이다.
+        assertThat(detail.grade()).isEqualTo("정상");
+        assertThat(detail.confidenceLabel()).isEqualTo("참고");
         assertThat(detail.procurementRisk().representativeMaterialId()).isEqualTo("MAT-LI-OH");
         assertThat(detail.procurementRisk().validMaterialCount()).isEqualTo(2);
         assertThat(detail.procurementRisk().targetMaterialCount()).isEqualTo(2);
@@ -176,6 +198,9 @@ class RiskMonitoringGradingTest {
         stubDetail(newsEvent(1L, "CL"), analysis,
                 assessment("MAT-LI-CARB", null, "NORMAL", BigDecimal.ZERO),
                 assessment("MAT-LI-OH", BigDecimal.valueOf(82), "CRITICAL", BigDecimal.valueOf(82)));
+
+        // 일부만 성공해도 그 결과로 만든 뉴스 브리핑이 있으면 확정이다.
+        stubNewsBriefing(analysis, "CRITICAL");
 
         EventDetail detail = service.detail(1L);
 
@@ -198,7 +223,7 @@ class RiskMonitoringGradingTest {
         // 같은 자재의 유효 평가가 이미 있으므로, 리포지토리는 조기 종료 행이 아니라 이쪽을 돌려준다.
         stubDetail(event, analysis,
                 assessment("MAT-LI-CARB", BigDecimal.valueOf(19), "CRITICAL", BigDecimal.valueOf(82)));
-        when(rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(any(), any()))
+        when(rawEventRepository.findRiskMonitoringCandidates(any(), any(), any(), anyInt()))
                 .thenReturn(List.of(event));
         when(analysisRepository.findAllById(any())).thenReturn(List.of(analysis));
         when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any()))
@@ -241,17 +266,35 @@ class RiskMonitoringGradingTest {
 
     /** 자재가 특정되지 않은 기사는 목록에서 제외한다 — 트리아지가 통과시킨 무관 기사 필터. */
     @Test
-    void excludesNewsWithoutIdentifiableMaterial() {
-        RawEvent unrelated = newsEvent(2L, "US", "Local council debates parking fees", "본문");
-        when(rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(any(), any()))
-                .thenReturn(List.of(unrelated));
+    void delegatesFiltersToQueryInsteadOfPostFiltering() {
+        stubList(newsEvent(1L, "CL"), completed("CL", "NORMAL", 54.1));
 
-        assertThat(service.list(null, null, null, 7, 50)).isEmpty();
+        service.list(null, "cl", "리튬", 7, 50);
+
+        // 자재 미분류 제외·날짜·국가·자재 필터와 중복 제거는 전부 SQL이 한다(2026-08-03).
+        // 예전에는 최신 400건을 먼저 가져와 Java에서 걸렀는데, 관련 뉴스가 그 창 밖으로 밀려나
+        // 조회조차 되지 않았다(실측 최근 7일: 고유 14건 중 4건만 창 안에 있었다).
+        // 그래서 이 테스트는 "걸러졌는가"가 아니라 "조건을 질의에 제대로 넘겼는가"를 본다.
+        ArgumentCaptor<String> country = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> material = ArgumentCaptor.forClass(String.class);
+        verify(rawEventRepository).findRiskMonitoringCandidates(
+                any(), country.capture(), material.capture(), anyInt());
+        assertThat(country.getValue()).isEqualTo("CL");
+        // 화면은 표기명("리튬")도 보내지만 질의는 대분류로 받아야 한다.
+        assertThat(material.getValue()).isEqualTo("LITHIUM");
+    }
+
+    /** 이 분석에 완결된 뉴스 브리핑이 있다고 둔다 — 확정 판정의 유일한 근거다. */
+    private void stubNewsBriefing(Analysis analysis, String riskLevel) {
+        when(aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(any()))
+                .thenReturn(Map.of(
+                        analysis.getAnalysisId(),
+                        new AiBriefingRepository.NewsBriefingRef(UUID.randomUUID(), riskLevel)));
     }
 
     private void stubList(RawEvent event, Analysis analysis) {
         linkAnalysis(event, analysis);
-        when(rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(any(), any()))
+        when(rawEventRepository.findRiskMonitoringCandidates(any(), any(), any(), anyInt()))
                 .thenReturn(List.of(event));
         when(analysisRepository.findAllById(any())).thenReturn(List.of(analysis));
     }

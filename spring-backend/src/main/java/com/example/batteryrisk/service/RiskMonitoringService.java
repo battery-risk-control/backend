@@ -11,6 +11,7 @@ import com.example.batteryrisk.dto.RiskMonitoringDto.ExternalSignal;
 import com.example.batteryrisk.dto.RiskMonitoringDto.ProcurementRisk;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
+import com.example.batteryrisk.repository.AiBriefingRepository;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.ProcurementRiskRepository;
 import com.example.batteryrisk.repository.RawEventRepository;
@@ -25,10 +26,12 @@ import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -59,9 +62,6 @@ import java.util.stream.Collectors;
 public class RiskMonitoringService {
     private static final Logger log = LoggerFactory.getLogger(RiskMonitoringService.class);
 
-    /** 중복 제거·자재 필터 전에 훑을 최신 뉴스 건수. 노출 상한보다 넉넉히 잡는다. */
-    private static final int SCAN_SIZE = 400;
-
     /** 목록 노출 상한. 인증 화면이지만 상한이 없으면 스캔 구간이 통째로 나간다. */
     private static final int MAX_LIMIT = 200;
 
@@ -82,18 +82,21 @@ public class RiskMonitoringService {
     private final ProcurementRiskRepository procurementRiskRepository;
     private final ErpExposureRequestService erpExposureRequestService;
     private final MultiAgentOrchestrationService multiAgentOrchestrationService;
+    private final AiBriefingRepository aiBriefingRepository;
 
     public RiskMonitoringService(
             RawEventRepository rawEventRepository,
             AnalysisRepository analysisRepository,
             ProcurementRiskRepository procurementRiskRepository,
             ErpExposureRequestService erpExposureRequestService,
-            MultiAgentOrchestrationService multiAgentOrchestrationService) {
+            MultiAgentOrchestrationService multiAgentOrchestrationService,
+            AiBriefingRepository aiBriefingRepository) {
         this.rawEventRepository = rawEventRepository;
         this.analysisRepository = analysisRepository;
         this.procurementRiskRepository = procurementRiskRepository;
         this.erpExposureRequestService = erpExposureRequestService;
         this.multiAgentOrchestrationService = multiAgentOrchestrationService;
+        this.aiBriefingRepository = aiBriefingRepository;
     }
 
     /**
@@ -116,40 +119,65 @@ public class RiskMonitoringService {
         String gradeFilter = trimToNull(grade);
         String materialFilter = trimToNull(material);
 
-        PageRequest scanWindow = PageRequest.of(0, SCAN_SIZE);
-        List<RawEvent> events = countryFilter == null
-                ? rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc(
-                        NEWS_DATA_TYPE, scanWindow)
-                : rawEventRepository.findByDataTypeAndCountryCodeAndTitleIsNotNullOrderByCollectedAtDesc(
-                        NEWS_DATA_TYPE, countryFilter, scanWindow);
+        // 날짜·국가·자재 필터와 제목 중복 제거를 SQL에서 끝낸다. 예전에는 최신 400건을 먼저
+        // 가져와 Java에서 걸렀는데, 그러면 관련 뉴스가 그 창 밖으로 밀려나 조회조차 되지
+        // 않았다(실측 최근 7일: 자재가 분류된 고유 뉴스 14건 중 최신 400건 안에는 4건뿐).
+        //
+        // 등급 필터만 Java에 남는다 — 등급은 브리핑 조회 결과에서 나오므로 이 쿼리 안에서
+        // 계산할 수 없다. 그래서 SQL은 MAX_LIMIT까지 가져오고 등급을 거른 뒤 최종 limit을
+        // 적용한다. 자르는 시점이 "전체 뉴스"가 아니라 "이미 걸러진 관련 뉴스"라는 게 차이다.
+        List<RawEvent> events = rawEventRepository.findRiskMonitoringCandidates(
+                since, countryFilter, toMaterialCategory(materialFilter), MAX_LIMIT);
 
         Map<UUID, Analysis> analysesById = loadAnalyses(events);
-        Map<UUID, String> riskLevelsByAnalysisId =
-                procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(analysesById.keySet());
+        // 확정 판정을 지도·속보와 같은 기준으로 맞춘다 — "이 뉴스의 완결된 브리핑이 있는가".
+        // 종합 평가만 보면 계약·자재 화면이 이 뉴스를 외부신호로 끌어다 쓴 실행까지 확정으로
+        // 세어, 같은 기사가 화면마다 다른 배지를 단다.
+        Map<UUID, AiBriefingRepository.NewsBriefingRef> newsBriefings =
+                aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(analysesById.keySet());
 
-        Map<String, EventItem> unique = new LinkedHashMap<>();
+        List<EventItem> items = new ArrayList<>();
         for (RawEvent event : events) {
-            if (event.getCollectedAt().isBefore(since)) {
-                continue;
-            }
             Analysis analysis = analysisOf(analysesById, event);
-            String riskLevel = analysis == null ? null : riskLevelsByAnalysisId.get(analysis.getAnalysisId());
-            unique.putIfAbsent(event.getTitle().trim(), toItem(event, analysis, riskLevel));
+            AiBriefingRepository.NewsBriefingRef briefing = analysis == null
+                    ? null
+                    : newsBriefings.get(analysis.getAnalysisId());
+            items.add(toItem(event, analysis, briefing));
         }
 
-        return unique.values().stream()
-                .filter(item -> !RiskEventService.UNCLASSIFIED_MATERIAL.equals(item.material()))
+        return items.stream()
                 .filter(item -> gradeFilter == null || gradeFilter.equals(item.grade()))
-                .filter(item -> materialFilter == null || matchesMaterial(item.material(), materialFilter))
                 .limit(cappedLimit)
                 .toList();
+    }
+
+    /**
+     * 화면이 넘긴 자재 필터를 대분류 코드로 정규화한다. 화면은 표기명("리튬")과 대분류("LITHIUM")를
+     * 둘 다 보내므로 SQL에 넘기기 전에 한 형태로 모은다.
+     *
+     * <p>어느 쪽에도 없는 값이면 대문자 그대로 넘긴다 — 결과가 0건이 되는데, 그게 "없는 자재를
+     * 물었다"는 사실에 맞는 응답이다(임의로 전체를 돌려주면 필터가 무시된 것처럼 보인다).
+     */
+    private static String toMaterialCategory(String filter) {
+        if (filter == null) {
+            return null;
+        }
+        String upper = filter.toUpperCase(Locale.ROOT);
+        if (RiskEventService.MATERIAL_NAME_KO.containsKey(upper)) {
+            return upper;
+        }
+        return RiskEventService.MATERIAL_NAME_KO.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(filter))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(upper);
     }
 
     /** 이벤트 상세. 목록의 event_id(=raw_events.id)로 조회한다. */
     public EventDetail detail(long eventId) {
         RawEvent event = findNewsEvent(eventId);
         Analysis analysis = findAnalysis(event);
-        return toDetail(event, analysis, loadComposite(analysis));
+        return toDetail(event, analysis, loadComposite(analysis), newsBriefingOf(analysis));
     }
 
     /**
@@ -205,7 +233,7 @@ public class RiskMonitoringService {
         log.info("리스크 모니터링 ERP·계약 영향 분석 완료: eventId={}, analysisId={}, level={}, kgMatched={}",
                 eventId, analysis.getAnalysisId(), response.procurementRiskLevel(), target.kgMatched());
 
-        return toDetail(event, analysis, loadComposite(analysis));
+        return toDetail(event, analysis, loadComposite(analysis), newsBriefingOf(analysis));
     }
 
     /**
@@ -380,13 +408,22 @@ public class RiskMonitoringService {
                 .collect(Collectors.toMap(Analysis::getAnalysisId, analysis -> analysis));
     }
 
-    private static EventItem toItem(RawEvent event, Analysis analysis, String riskLevel) {
+    /**
+     * 목록 한 줄. 등급·확정·브리핑 id를 <b>같은 브리핑 행 하나</b>에서 조립한다 — 지도·속보와
+     * 같은 규칙이라 같은 기사가 화면마다 다른 배지를 달지 않는다.
+     */
+    private static EventItem toItem(
+            RawEvent event, Analysis analysis, AiBriefingRepository.NewsBriefingRef briefing) {
+        boolean confirmed = briefing != null;
+        // 등급은 완결된 뉴스 브리핑이 있으면 그 종합등급, 없으면 외부신호 등급이다.
+        String riskLevel = confirmed ? briefing.procurementRiskLevel() : null;
         Headline headline = Headline.of(event);
         return new EventItem(
+                confirmed ? briefing.briefingId() : null,
                 event.getId(),
                 gradeOf(analysis, riskLevel),
-                RiskEventService.newsConfidenceLabel(analysis, riskLevel),
-                riskLevel != null,
+                RiskEventService.newsConfidenceLabel(analysis, confirmed),
+                confirmed,
                 headline.display(),
                 headline.original(),
                 headline.translated(),
@@ -401,15 +438,35 @@ public class RiskMonitoringService {
      * 상세 조립. <b>목록과 같은 집계(대표 자재의 유효 평가)를 쓴다</b> — 예전에는 상세만
      * "최신 행 아무거나"를 봐서, 재실행이 조기 종료되면 목록은 확정인데 상세는 잠정으로 갈렸다.
      */
-    private static EventDetail toDetail(RawEvent event, Analysis analysis, CompositeView composite) {
-        String riskLevel = composite.riskLevel();
+    /**
+     * 이 분석의 완결된 뉴스 브리핑. 목록은 배치로 뽑지만 상세는 단건이라 여기서 바로 본다 —
+     * 목록과 상세가 같은 조건을 써야 "목록은 참고, 상세는 확정"이 생기지 않는다.
+     */
+    private AiBriefingRepository.NewsBriefingRef newsBriefingOf(Analysis analysis) {
+        if (analysis == null) {
+            return null;
+        }
+        return aiBriefingRepository
+                .findCompletedNewsBriefingsByAnalysisIds(Set.of(analysis.getAnalysisId()))
+                .get(analysis.getAnalysisId());
+    }
+
+    private static EventDetail toDetail(
+            RawEvent event, Analysis analysis, CompositeView composite,
+            AiBriefingRepository.NewsBriefingRef briefing) {
+        // 등급·확정은 목록과 같은 기준(완결된 뉴스 브리핑)을 쓴다. composite는 아래
+        // procurementRisk 블록이 계속 쓴다 — "종합 평가가 어디까지 돌았는가"는 확정 여부와
+        // 다른 축이라(자재 커버리지·조기 종료 사유) 그 정보는 그대로 유지한다.
+        boolean confirmed = briefing != null;
+        String riskLevel = confirmed ? briefing.procurementRiskLevel() : null;
         Headline headline = Headline.of(event);
         String blockedReason = erpImpactBlockedReason(analysis);
         return new EventDetail(
+                confirmed ? briefing.briefingId() : null,
                 event.getId(),
                 gradeOf(analysis, riskLevel),
-                RiskEventService.newsConfidenceLabel(analysis, riskLevel),
-                riskLevel != null,
+                RiskEventService.newsConfidenceLabel(analysis, confirmed),
+                confirmed,
                 headline.display(),
                 headline.original(),
                 headline.translated(),
