@@ -6,6 +6,7 @@ import com.example.batteryrisk.service.PlanningDashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -71,5 +72,19 @@ public class PlanningDashboardController {
     @GetMapping("/data-quality")
     public ApiResponse<PlanningDashboardDto.DataQualityStatus> dataQuality() {
         return ApiResponse.ok(planningDashboardService.dataQuality());
+    }
+
+    @Operation(summary = "AI 브리핑 상세", description = "특정 분석 건의 LLM 브리핑 본문과 근거를 조회합니다.")
+    @GetMapping("/ai-briefing/{analysisId}")
+    public ApiResponse<PlanningDashboardDto.AiBriefingDetail> aiBriefingDetail(
+            @PathVariable String analysisId) {
+        return ApiResponse.ok(planningDashboardService.aiBriefingDetail(analysisId));
+    }
+
+    @Operation(summary = "계약 상세", description = "계약 기본정보와 적재된 문서 목록을 조회합니다.")
+    @GetMapping("/contracts/{contractNumber}")
+    public ApiResponse<PlanningDashboardDto.ContractDetail> contractDetail(
+            @PathVariable String contractNumber) {
+        return ApiResponse.ok(planningDashboardService.contractDetail(contractNumber));
     }
 }
