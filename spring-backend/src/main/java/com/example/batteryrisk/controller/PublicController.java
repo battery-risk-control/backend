@@ -73,8 +73,21 @@ public class PublicController {
             @Parameter(description = "ISO 3166-1 alpha-2 국가 코드. 생략하면 전체", example = "ID")
             @RequestParam(required = false) String country,
             @Parameter(description = "노출 건수(1~100). 마퀴는 작게, 목록은 크게 준다.", example = "20")
-            @RequestParam(defaultValue = "20") int limit) {
-        return ApiResponse.ok(riskEventService.newsFeed(country, limit));
+            @RequestParam(defaultValue = "20") int limit,
+            @Parameter(description = "건너뛸 건수. 과거 기사로 페이지를 넘길 때 쓴다.", example = "5")
+            @RequestParam(defaultValue = "0") int offset) {
+        return ApiResponse.ok(riskEventService.newsFeed(country, limit, offset));
+    }
+
+    @Operation(
+            summary = "공급망 뉴스 속보 전체 건수",
+            description = "/news-feed 와 같은 조건(자재 키워드 매칭, 제목 중복 제거)의 전체 건수입니다. "
+                    + "화면이 마지막 페이지에서 다음 버튼을 잠그는 데 씁니다.")
+    @GetMapping("/news-feed/count")
+    public ApiResponse<Long> newsFeedCount(
+            @Parameter(description = "ISO 3166-1 alpha-2 국가 코드. 생략하면 전체", example = "ID")
+            @RequestParam(required = false) String country) {
+        return ApiResponse.ok(riskEventService.countNewsFeed(country));
     }
 
     @Operation(

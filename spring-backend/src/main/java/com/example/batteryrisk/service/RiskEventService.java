@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -312,8 +313,9 @@ public class RiskEventService {
      */
     private static final int NEWS_FEED_MAX_LIMIT = 100;
 
-    /** 중복 제거·자재 필터 전에 훑을 최신 뉴스 건수. 노출 상한보다 넉넉히 잡는다. */
-    private static final int NEWS_FEED_SCAN_SIZE = 200;
+    // NEWS_FEED_SCAN_SIZE(=200)는 제거했다. 중복 제거·자재 필터를 SQL로 내리면서 "일단 N건을
+    // 읽어와 Java에서 거른다"는 전제가 사라졌고, 그 상수가 남아 있으면 페이지를 넘길 때
+    // 200건 너머의 기사가 조용히 잘린다(실측: 전체 708건 중 매칭 15건인데 5건만 보였다).
 
     /** 사용자에게 보이는 날짜는 서비스 기준 시간대로 표기한다(collected_at은 UTC Instant). */
     private static final ZoneId DISPLAY_ZONE = ZoneId.of("Asia/Seoul");
@@ -502,61 +504,88 @@ public class RiskEventService {
      * <p>같은 응답이 <b>마퀴(한 줄 속보)와 뉴스 목록 양쪽</b>을 채운다 — 같은 자료를 두 API로 나누면
      * 두 화면이 서로 다른 기사를 가리키게 되므로, 노출 건수만 {@code limit}으로 조절한다.
      *
+     * <p><b>페이징</b>: {@code offset}으로 과거 기사까지 넘겨 볼 수 있다. 자재 필터와 제목
+     * 중복 제거를 모두 SQL에서 하므로 offset이 실제 노출 순서와 일치한다 — Java에서 걸러내던
+     * 예전 방식으로 offset을 붙이면, 건너뛴 구간에서 중복·비매칭이 제거되면서 페이지마다
+     * 항목이 겹치거나 빠진다.
+     *
      * @param countryCode 지도 마커 클릭 시 그 국가로 좁힌다. null/공백이면 전체.
      * @param limit       노출 건수. 1..{@value #NEWS_FEED_MAX_LIMIT}로 잘린다.
+     * @param offset      건너뛸 건수. 음수는 0으로 본다.
      */
-    public List<NewsFeedItem> newsFeed(String countryCode, int limit) {
+    public List<NewsFeedItem> newsFeed(String countryCode, int limit, int offset) {
         int cappedLimit = Math.max(1, Math.min(limit, NEWS_FEED_MAX_LIMIT));
+        int safeOffset = Math.max(0, offset);
         String country = countryCode == null || countryCode.isBlank()
                 ? null
                 : countryCode.trim().toUpperCase(Locale.ROOT);
 
-        PageRequest scanWindow = PageRequest.of(0, NEWS_FEED_SCAN_SIZE);
-        List<RawEvent> events = country == null
-                ? rawEventRepository.findByDataTypeAndTitleIsNotNullOrderByCollectedAtDesc("NEWS", scanWindow)
-                : rawEventRepository.findByDataTypeAndCountryCodeAndTitleIsNotNullOrderByCollectedAtDesc(
-                        "NEWS", country, scanWindow);
+        List<RawEvent> events = rawEventRepository.findSupplyChainNews(
+                materialKeywordPattern(), country, cappedLimit, safeOffset);
         Map<UUID, Analysis> analysesById = loadAnalyses(events);
         // 멀티에이전트(ERP·계약)까지 통과해 종합 위험도가 나온 뉴스만 등급 배지를 받는다.
         Map<UUID, String> riskLevelsByAnalysisId =
                 procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(analysesById.keySet());
 
-        // 같은 기사가 GDELT GlobalEventID만 다른 채로 여러 번 들어오므로 제목 기준으로 한 번만 남긴다.
-        Map<String, NewsFeedItem> unique = new LinkedHashMap<>();
+        List<NewsFeedItem> supplyChainNews = new ArrayList<>();
         for (RawEvent event : events) {
             Analysis analysis = analysisOf(analysesById, event);
             String riskLevel = analysis == null
                     ? null
                     : riskLevelsByAnalysisId.get(analysis.getAnalysisId());
-            unique.putIfAbsent(event.getTitle().trim(), toNewsFeedItem(event, analysis, riskLevel));
+            supplyChainNews.add(toNewsFeedItem(event, analysis, riskLevel));
         }
 
-        // 자재가 특정된 뉴스만 노출한다. GDELT 트리아지는 생산국 이벤트를 폭넓게 통과시켜서 공급망과
-        // 무관한 기사(정치·사건사고 등)가 상당수 섞여 들어오는데, "공급망 뉴스 속보" 패널에 그런 기사를
-        // 올리면 화면이 오히려 망가진다 — 실측에서 19건 중 자재 매칭 0건이 나온 적이 있다.
-        List<NewsFeedItem> supplyChainNews = unique.values().stream()
-                .filter(item -> !UNCLASSIFIED_MATERIAL.equals(item.material()))
-                .limit(cappedLimit)
-                .toList();
+        if (!supplyChainNews.isEmpty()) {
+            return supplyChainNews;
+        }
 
         // 국가로 좁힌 요청은 폴백하지 않는다. placeholder는 인도네시아·칠레 등 특정 국가 기사라서,
         // 칠레를 클릭했는데 인도네시아 placeholder가 뜨면 지도와 패널이 다른 나라를 가리키게 된다.
         // 해당 국가 뉴스가 없다는 사실을 빈 배열로 그대로 전달하는 편이 정확하다.
-        if (supplyChainNews.isEmpty() && country != null) {
-            log.info("국가 {}에 해당하는 공급망 뉴스가 없습니다. (스캔 {}건)", country, unique.size());
+        if (country != null) {
+            log.info("국가 {}에 해당하는 공급망 뉴스가 없습니다.", country);
+            return List.of();
+        }
+
+        // 2페이지 이후가 비는 건 "데이터가 없는 상태"가 아니라 "끝에 도달한 것"이다.
+        // 여기서 placeholder를 채우면 마지막 페이지에 지어낸 기사가 뜬다.
+        if (safeOffset > 0) {
             return List.of();
         }
 
         // 한 건도 없으면 무관한 기사를 채우는 대신 placeholder로 폴백한다(지도·권고 리스트와 같은 방침).
         // 공급망 뉴스가 수집되는 즉시 자동으로 실데이터로 전환된다.
-        if (supplyChainNews.isEmpty()) {
-            log.info("자재가 특정된 뉴스가 없어 공개 뉴스 속보를 placeholder로 폴백합니다. (수집 뉴스 {}건)", unique.size());
-            return PLACEHOLDER_EVENTS.stream()
-                    .map(RiskEventService::toNewsFeedItem)
-                    .limit(cappedLimit)
-                    .toList();
-        }
-        return supplyChainNews;
+        log.info("자재가 특정된 뉴스가 없어 공개 뉴스 속보를 placeholder로 폴백합니다.");
+        return PLACEHOLDER_EVENTS.stream()
+                .map(RiskEventService::toNewsFeedItem)
+                .limit(cappedLimit)
+                .toList();
+    }
+
+    /** {@link #newsFeed}·{@link #countNewsFeed} 조건에 맞는 전체 건수. 화면이 마지막 페이지를 안다. */
+    public long countNewsFeed(String countryCode) {
+        String country = countryCode == null || countryCode.isBlank()
+                ? null
+                : countryCode.trim().toUpperCase(Locale.ROOT);
+        return rawEventRepository.countSupplyChainNews(materialKeywordPattern(), country);
+    }
+
+    /**
+     * {@link #MATERIAL_KEYWORDS}를 SQL {@code ~*}용 정규식 하나로 합친다.
+     *
+     * <p>단어 경계({@code \y})를 넣는다. 예전 방식(단순 부분문자열 포함)은 마르케스 소설 인용문의
+     * "the intense color of copper"(구릿빛 머리카락)를 구리 뉴스로 분류했다 — 경계가 없으면
+     * 합성어·비유·인명 안에 든 글자열까지 다 걸린다. 경계만으로 비유까지 막지는 못하지만
+     * 오탐의 상당수는 여기서 걸러진다.
+     */
+    static String materialKeywordPattern() {
+        // \y는 PostgreSQL의 단어 경계다(\b가 아니다 — POSIX 정규식에서 \b는 백스페이스다).
+        // 키워드에 정규식 메타문자가 없어(영문 소문자와 공백·하이픈뿐) 이스케이프는 하지 않는다.
+        return MATERIAL_KEYWORDS.values().stream()
+                .flatMap(List::stream)
+                .map(keyword -> "\\y" + keyword + "\\y")
+                .collect(Collectors.joining("|"));
     }
 
     /**
