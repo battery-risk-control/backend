@@ -16,6 +16,16 @@ import java.util.Map;
 public final class ErpImportDto {
     private ErpImportDto() {}
 
+    /**
+     * 화면이 파일 선택 단계에서 미리 걸러줄 제약. 서버 설정({@code app.upload.max-file-size})이
+     * 진실이고 프론트는 그걸 표시만 한다 — 프론트에 숫자를 적어두면 설정을 바꿨을 때 "화면은
+     * 통과인데 서버가 거부하는" 상태가 된다.
+     */
+    public record UploadConstraints(
+            long maxFileSizeBytes,
+            List<String> allowedExtensions
+    ) {}
+
     /** 업로드 파일 한 개의 분석 결과. 화면의 "데이터 검증 결과" 표 한 줄에 대응한다. */
     public record FileAnalysis(
             String fileName,
@@ -113,6 +123,15 @@ public final class ErpImportDto {
              * 그러지 않으면 그 뒤 부족 판정이 방금 올린 재고를 반영하지 못하는 걸 아무도 모른다.
              * 같은 사유가 수백 행에서 반복되므로 첫 건만 싣는다.
              */
-            String kgSyncWarning
+            String kgSyncWarning,
+
+            /**
+             * 서명된 적재 영수증. 최종 반영 보고서(PDF)를 받을 때 그대로 되돌려주면 된다.
+             *
+             * <p>화면에 보여줄 값이 아니다. 위 숫자들을 서버가 서명해 담아둔 것으로, 보고서에
+             * 찍히는 "누가 언제 몇 건" 을 브라우저가 고칠 수 없게 만드는 게 목적이다.
+             * 자세한 이유는 {@code ErpImportReceiptService} 참고.
+             */
+            String receipt
     ) {}
 }

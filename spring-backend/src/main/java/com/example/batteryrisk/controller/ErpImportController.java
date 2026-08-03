@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -34,6 +35,16 @@ public class ErpImportController {
 
     public ErpImportController(ErpImportService service) {
         this.service = service;
+    }
+
+    @Operation(
+            summary = "업로드 제약 조회",
+            description = "화면이 파일을 고르기 전에 막아줄 수 있도록 허용 확장자와 최대 크기를 알려줍니다. "
+                    + "프론트가 값을 하드코딩하면 서버 설정을 바꿨을 때 두 값이 어긋납니다.")
+    @GetMapping("/constraints")
+    public ApiResponse<ErpImportDto.UploadConstraints> constraints() {
+        return ApiResponse.ok(new ErpImportDto.UploadConstraints(
+                service.maxFileSize(), List.of(".csv")));
     }
 
     @Operation(

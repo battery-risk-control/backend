@@ -57,23 +57,52 @@ public class ErpImportService {
 
     private final ErpAdminService erpAdminService;
     private final ErpRepository repository;
+    private final ErpImportReceiptService receiptService;
     private final long maxFileSize;
 
     public ErpImportService(
             ErpAdminService erpAdminService,
             ErpRepository repository,
+            ErpImportReceiptService receiptService,
             @Value("${app.upload.max-file-size:52428800}") long maxFileSize) {
         this.erpAdminService = erpAdminService;
         this.repository = repository;
+        this.receiptService = receiptService;
         this.maxFileSize = maxFileSize;
+    }
+
+    /** 화면이 표시하는 업로드 제약. 프론트가 "최대 50MB"를 하드코딩하지 않게 서버가 알려준다. */
+    public long maxFileSize() {
+        return maxFileSize;
+    }
+
+    /** 대상 테이블 키의 한글 라벨. 보고서가 영수증의 테이블 키에 라벨을 다시 붙일 때 쓴다. */
+    public static String labelOf(String targetTable) {
+        TableSpec spec = TABLE_SPECS.get(targetTable);
+        return spec == null ? targetTable : spec.label();
     }
 
     // ---------------------------------------------------------------- 공개 API
 
     /** 1단계: 올린 CSV를 파싱·검증해 결과만 돌려준다. DB에는 아무것도 쓰지 않는다. */
     public ErpImportDto.PreviewResponse preview(List<MultipartFile> files) {
+        return preview(files, MAX_ISSUES_PER_FILE);
+    }
+
+    /**
+     * 검증 결과를 이슈 목록을 자르지 않고 돌려준다. 보고서(PDF·오류 CSV) 전용이다.
+     *
+     * <p>화면용 {@link #preview}는 파일당 50건에서 잘라 보낸다 — 수천 건을 브라우저로 밀어봐야
+     * 읽지 못한다. 그런데 오류 CSV는 "전체 오류 내역"이 존재 이유라 잘린 목록으로 만들면 안 된다.
+     * 그래서 검증 로직을 복제하는 대신 자르는 지점만 파라미터로 뺐다.
+     */
+    public ErpImportDto.PreviewResponse previewForReport(List<MultipartFile> files) {
+        return preview(files, Integer.MAX_VALUE);
+    }
+
+    private ErpImportDto.PreviewResponse preview(List<MultipartFile> files, int issueLimit) {
         List<ParsedFile> parsed = parseAll(files);
-        List<ErpImportDto.FileAnalysis> analyses = analyzeAll(parsed);
+        List<ErpImportDto.FileAnalysis> analyses = analyzeAll(parsed, issueLimit);
 
         int totalRows = 0;
         int totalErrors = 0;
@@ -115,7 +144,7 @@ public class ErpImportService {
     @Transactional
     public ErpImportDto.CommitResponse commit(List<MultipartFile> files) {
         List<ParsedFile> parsed = parseAll(files);
-        List<ErpImportDto.FileAnalysis> analyses = analyzeAll(parsed);
+        List<ErpImportDto.FileAnalysis> analyses = analyzeAll(parsed, MAX_ISSUES_PER_FILE);
 
         int totalErrors = analyses.stream().mapToInt(ErpImportDto.FileAnalysis::errorCount).sum();
         if (totalErrors > 0) {
@@ -162,12 +191,13 @@ public class ErpImportService {
                         entry.getKey(), TABLE_SPECS.get(entry.getKey()).label(),
                         entry.getValue()[0], entry.getValue()[1]))
                 .toList();
+        OffsetDateTime committedAt = OffsetDateTime.now();
+        int totalInserted = results.stream().mapToInt(ErpImportDto.TableResult::inserted).sum();
+        int totalUpdated = results.stream().mapToInt(ErpImportDto.TableResult::updated).sum();
         return new ErpImportDto.CommitResponse(
-                OffsetDateTime.now(),
-                results.stream().mapToInt(ErpImportDto.TableResult::inserted).sum(),
-                results.stream().mapToInt(ErpImportDto.TableResult::updated).sum(),
-                results,
-                kgSyncWarning);
+                committedAt, totalInserted, totalUpdated, results, kgSyncWarning,
+                // 여기서 서명해두지 않으면 최종 보고서의 숫자를 나중에 아무도 증명할 수 없다.
+                receiptService.sign(committedAt, totalInserted, totalUpdated, results, kgSyncWarning));
     }
 
     // ------------------------------------------------------------------ 검증
@@ -184,7 +214,7 @@ public class ErpImportService {
      * 통과다 — 자재와 계약을 한꺼번에 올리는 게 정상 사용인데, DB만 보면 신규 자재를 참조하는
      * 계약이 전부 오류로 잡혀 아무것도 못 올리게 된다.
      */
-    private List<ErpImportDto.FileAnalysis> analyzeAll(List<ParsedFile> parsed) {
+    private List<ErpImportDto.FileAnalysis> analyzeAll(List<ParsedFile> parsed, int issueLimit) {
         Map<String, Set<String>> batchKeys = new HashMap<>();
         for (ParsedFile file : parsed) {
             if (file.spec() == null || file.spec().businessKeyColumn() == null) continue;
@@ -195,13 +225,14 @@ public class ErpImportService {
             }
         }
         Map<String, Map<String, Boolean>> fkCache = new HashMap<>();
-        return parsed.stream().map(file -> analyze(file, batchKeys, fkCache)).toList();
+        return parsed.stream().map(file -> analyze(file, batchKeys, fkCache, issueLimit)).toList();
     }
 
     private ErpImportDto.FileAnalysis analyze(
             ParsedFile file,
             Map<String, Set<String>> batchKeys,
-            Map<String, Map<String, Boolean>> fkCache) {
+            Map<String, Map<String, Boolean>> fkCache,
+            int issueLimit) {
         List<ErpImportDto.Issue> issues = new ArrayList<>(file.fileIssues());
         int errors = (int) file.fileIssues().stream().filter(i -> "ERROR".equals(i.level())).count();
         int warnings = (int) file.fileIssues().stream().filter(i -> "WARNING".equals(i.level())).count();
@@ -212,7 +243,7 @@ public class ErpImportService {
             return new ErpImportDto.FileAnalysis(
                     file.fileName(), null, null, 0, file.sizeBytes(), 0, file.headers().size(),
                     "ERROR", Math.max(errors, 1), warnings, 0,
-                    List.of(), List.of(), limit(issues));
+                    List.of(), List.of(), limit(issues, issueLimit));
         }
 
         // --- 컬럼 매핑 ---
@@ -291,18 +322,18 @@ public class ErpImportService {
         return new ErpImportDto.FileAnalysis(
                 file.fileName(), spec.table(), spec.label(), spec.loadOrder(), file.sizeBytes(),
                 file.rows().size(), file.headers().size(), result, errors, warnings, duplicates,
-                columns, sampleRows(file), limit(issues));
+                columns, sampleRows(file), limit(issues, issueLimit));
     }
 
     private static List<Map<String, String>> sampleRows(ParsedFile file) {
         return file.rows().stream().limit(SAMPLE_ROW_COUNT).map(DataRow::values).toList();
     }
 
-    private static List<ErpImportDto.Issue> limit(List<ErpImportDto.Issue> issues) {
-        if (issues.size() <= MAX_ISSUES_PER_FILE) return List.copyOf(issues);
-        List<ErpImportDto.Issue> trimmed = new ArrayList<>(issues.subList(0, MAX_ISSUES_PER_FILE));
+    private static List<ErpImportDto.Issue> limit(List<ErpImportDto.Issue> issues, int max) {
+        if (issues.size() <= max) return List.copyOf(issues);
+        List<ErpImportDto.Issue> trimmed = new ArrayList<>(issues.subList(0, max));
         trimmed.add(new ErpImportDto.Issue("WARNING", null, null,
-                "이 밖에 " + (issues.size() - MAX_ISSUES_PER_FILE) + "건이 더 있습니다. 위 항목부터 수정해 주세요."));
+                "이 밖에 " + (issues.size() - max) + "건이 더 있습니다. 위 항목부터 수정해 주세요."));
         return List.copyOf(trimmed);
     }
 
