@@ -180,31 +180,55 @@ public class AiBriefingRepository {
     }
 
     /**
-     * 분석별 최신 브리핑 id를 한 번에 가져온다. 뉴스 목록·지도가 "이 기사에 브리핑이 있는가"를
-     * 항목마다 따로 물어보면 N+1이 되므로 배치로 뽑는다
-     * ({@code ProcurementRiskRepository.findLatestRiskLevelsByAnalysisIds}와 같은 방침).
+     * 분석별 <b>뉴스</b> 브리핑 중 화면에 내보낼 수 있는 최신 1건.
      *
-     * <p>같은 분석에 브리핑이 여러 건이면 최신 1건만 남긴다 — 화면이 "이 기사의 브리핑"으로
-     * 여는 대상은 언제나 가장 최근 것이다.
+     * <p>{@code source_type='NEWS'}로 좁히는 것이 핵심이다. 자재·계약 화면에서 만든 브리핑도
+     * 외부신호로 같은 뉴스를 끌어다 쓰므로 {@code analysis_id}가 겹치는데, 그건 <b>그 계약의
+     * 브리핑</b>이지 그 뉴스의 브리핑이 아니다. 좁히지 않으면 뉴스 화면이 남의 브리핑을 자기
+     * 것으로 집어 "확정"으로 표시하고, 정작 열어보면 본문이 비어 있다(실측: 계약 브리핑
+     * source_ref=5가 뉴스 c6466e73의 브리핑으로 잡혔다).
+     *
+     * <p>완결 조건 셋을 함께 건다 — 조기 종료된 실행({@code composite=false})은 점수가 0·정상으로
+     * 남고, 본문이 없으면 열어도 빈 화면이며, reviewer가 문제를 찾은 건은 확정으로 부를 수 없다.
+     * 이 조건을 통과한 브리핑만 화면이 "이 뉴스의 브리핑"으로 삼는다.
+     *
+     * <p>항목마다 따로 물어보면 N+1이 되므로 배치로 뽑는다
+     * ({@code ProcurementRiskRepository.findLatestRiskLevelsByAnalysisIds}와 같은 방침).
      */
-    public Map<UUID, UUID> findLatestBriefingIdsByAnalysisIds(Collection<UUID> analysisIds) {
+    public Map<UUID, NewsBriefingRef> findCompletedNewsBriefingsByAnalysisIds(
+            Collection<UUID> analysisIds) {
         if (analysisIds == null || analysisIds.isEmpty()) {
             return Map.of();
         }
-        Map<UUID, UUID> found = new LinkedHashMap<>();
+        Map<UUID, NewsBriefingRef> found = new LinkedHashMap<>();
         jdbc.query("""
-                SELECT DISTINCT ON (analysis_id) analysis_id, briefing_id
+                SELECT DISTINCT ON (analysis_id)
+                       analysis_id, briefing_id, procurement_risk_level
                 FROM ai_briefings
                 WHERE analysis_id IN (:analysisIds)
+                  AND source_type = 'NEWS'
+                  AND composite = TRUE
+                  AND briefing_text IS NOT NULL
+                  AND review_passed = TRUE
                 ORDER BY analysis_id, created_at DESC
                 """,
                 new MapSqlParameterSource("analysisIds", analysisIds),
                 (rs, rowNumber) -> Map.entry(
                         rs.getObject("analysis_id", UUID.class),
-                        rs.getObject("briefing_id", UUID.class)))
+                        new NewsBriefingRef(
+                                rs.getObject("briefing_id", UUID.class),
+                                rs.getString("procurement_risk_level"))))
                 .forEach(entry -> found.put(entry.getKey(), entry.getValue()));
         return found;
     }
+
+    /**
+     * 화면에 내보낼 수 있는 뉴스 브리핑 한 건의 요약.
+     *
+     * <p>등급과 브리핑 id를 <b>같은 행에서</b> 함께 꺼내는 게 목적이다. 따로 조회하면 등급은
+     * 계약 브리핑에서, id는 뉴스 브리핑에서 오는 식으로 다시 어긋난다.
+     */
+    public record NewsBriefingRef(UUID briefingId, String procurementRiskLevel) {}
 
     public Optional<AiBriefingDto.BriefingDetail> findById(UUID briefingId) {
         List<AiBriefingDto.BriefingDetail> rows = jdbc.query("""

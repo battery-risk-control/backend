@@ -49,7 +49,7 @@ class RiskBoardGradingTest {
         when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any())).thenReturn(Map.of());
         when(rawEventRepository.findByTriggeredAnalysisIdIn(any())).thenReturn(List.of());
         aiBriefingRepository = mock(AiBriefingRepository.class);
-        when(aiBriefingRepository.findLatestBriefingIdsByAnalysisIds(any())).thenReturn(Map.of());
+        when(aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(any())).thenReturn(Map.of());
         service = new RiskEventService(
                 analysisRepository,
                 mock(AnalysisSupplierRecommendationRepository.class),
@@ -64,8 +64,13 @@ class RiskBoardGradingTest {
         Analysis analysis = completed("CL", "LITHIUM", "NORMAL", 10.0);
         stub(analysis);
         // 외부신호는 NORMAL인데 멀티에이전트는 CRITICAL — 멀티에이전트가 이겨야 한다.
-        when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any()))
-                .thenReturn(Map.of(analysis.getAnalysisId(), "CRITICAL"));
+        //
+        // 등급의 출처는 **이 뉴스의 완결된 브리핑**이다(2026-08-03). 종합 평가만 보면 계약·자재
+        // 화면이 이 뉴스를 외부신호로 끌어다 쓴 실행까지 뉴스 등급으로 둔갑한다.
+        when(aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(any()))
+                .thenReturn(Map.of(
+                        analysis.getAnalysisId(),
+                        new AiBriefingRepository.NewsBriefingRef(UUID.randomUUID(), "CRITICAL")));
 
         RiskBoardItem item = service.riskBoard().get(0);
 

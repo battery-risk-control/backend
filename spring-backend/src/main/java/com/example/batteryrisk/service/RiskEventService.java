@@ -408,8 +408,11 @@ public class RiskEventService {
         // 지도는 analyses에서 출발하므로 수집 이벤트 id가 없다. 같은 조회로 함께 뽑아 둔다 —
         // 화면이 "이 기사로 브리핑 생성"을 누를 때 필요한 값이라 속보와 같은 걸 실어 줘야 한다.
         Map<UUID, Long> eventIds = loadEventIds(candidates);
-        Map<UUID, UUID> briefingIds = aiBriefingRepository.findLatestBriefingIdsByAnalysisIds(
-                candidates.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()));
+        // 등급·확정·브리핑 id를 **같은 행 하나**에서 뽑는다. 따로 조회하면 등급은 계약 브리핑에서,
+        // id는 뉴스 브리핑에서 오는 식으로 다시 어긋난다.
+        Map<UUID, AiBriefingRepository.NewsBriefingRef> newsBriefings =
+                aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(
+                        candidates.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()));
 
         Map<String, RiskBoardItem> markers = new LinkedHashMap<>();
         for (Analysis analysis : candidates) {
@@ -417,7 +420,11 @@ public class RiskEventService {
             // 이 필터가 없으면 GDELT 트리아지가 생산국 기준으로 통과시킨 공급망 무관 기사가 마커로
             // 올라온다 — 실측에서 국가가 붙은 19건 중 13건이 자재 미상이었고 그중 11건은
             // NOT_RELEVANT("Colonel Sanders' bow tie" 같은 기사)였다.
-            String riskLevel = riskLevelsByAnalysisId.get(analysis.getAnalysisId());
+            AiBriefingRepository.NewsBriefingRef newsBriefing =
+                    newsBriefings.get(analysis.getAnalysisId());
+            // 뉴스 등급은 그 뉴스의 브리핑에서만 온다. 계약 브리핑이 만든 종합등급이 뉴스 등급을
+            // 덮어쓰면 같은 기사가 화면마다 다른 색으로 찍힌다.
+            String riskLevel = newsBriefing == null ? null : newsBriefing.procurementRiskLevel();
             // 마커는 색이 있어야 그려지므로 등급이 반드시 필요하다. 멀티에이전트 종합 등급이
             // 있으면 그것을, 아직 없으면 외부신호(severity) 등급을 쓴다. "어디까지 검증된 값인가"는
             // 등급이 아니라 신뢰도 배지(확정/경고/참고)가 말해준다.
@@ -435,11 +442,11 @@ public class RiskEventService {
             }
             markers.put(key, toBoardItem(
                     analysis, grade,
-                    newsConfidenceLabel(analysis, riskLevel),
+                    newsConfidenceLabel(analysis, newsBriefing != null),
                     koreanTitles.get(analysis.getAnalysisId()),
                     eventIds.get(analysis.getAnalysisId()),
                     riskLevel,
-                    briefingIds.get(analysis.getAnalysisId())));
+                    newsBriefing == null ? null : newsBriefing.briefingId()));
         }
 
         if (markers.isEmpty()) {
@@ -538,19 +545,20 @@ public class RiskEventService {
         // 멀티에이전트(ERP·계약)까지 통과해 종합 위험도가 나온 뉴스만 등급 배지를 받는다.
         Map<UUID, String> riskLevelsByAnalysisId =
                 procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(analysesById.keySet());
-        // "이 기사에 브리핑이 있는가"를 항목마다 물어보면 N+1이 된다. 등급과 같은 방식으로 배치 조회.
-        Map<UUID, UUID> briefingIdsByAnalysisId =
-                aiBriefingRepository.findLatestBriefingIdsByAnalysisIds(analysesById.keySet());
+        // 등급·확정·브리핑 id를 같은 행 하나에서 뽑는다(지도와 같은 규칙).
+        Map<UUID, AiBriefingRepository.NewsBriefingRef> newsBriefings =
+                aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(analysesById.keySet());
 
         List<NewsFeedItem> supplyChainNews = new ArrayList<>();
         for (RawEvent event : events) {
             Analysis analysis = analysisOf(analysesById, event);
-            String riskLevel = analysis == null
+            AiBriefingRepository.NewsBriefingRef newsBriefing = analysis == null
                     ? null
-                    : riskLevelsByAnalysisId.get(analysis.getAnalysisId());
+                    : newsBriefings.get(analysis.getAnalysisId());
+            String riskLevel = newsBriefing == null ? null : newsBriefing.procurementRiskLevel();
             supplyChainNews.add(toNewsFeedItem(
                     event, analysis, riskLevel,
-                    analysis == null ? null : briefingIdsByAnalysisId.get(analysis.getAnalysisId())));
+                    newsBriefing == null ? null : newsBriefing.briefingId()));
         }
 
         if (!supplyChainNews.isEmpty()) {
@@ -671,7 +679,7 @@ public class RiskEventService {
                 translated ? translatedTitle : original,
                 original,
                 translated,
-                newsConfidenceLabel(analysis, riskLevel),
+                newsConfidenceLabel(analysis, briefingId != null),
                 event.getCountryCode(),
                 linkableUrl(event.getSourceUrl()),
                 analysis == null ? null : analysis.getAnalysisId(),
@@ -701,8 +709,29 @@ public class RiskEventService {
     }
 
     /** 확정/경고/참고 판정. 규칙은 {@link #toNewsFeedItem(RawEvent, Analysis, String)} 참고. */
+    /**
+     * 리스크 모니터링 화면용 — "종합 평가가 있으면 확정".
+     *
+     * <p>그 화면의 확정은 <b>ERP 노출도가 있는 종합 평가를 얻었는가</b>이고, 거기서 실행하는
+     * ERP·계약 영향 분석이 그 평가를 바로 만든다. 회귀 테스트가 이 의미를 고정하고 있다
+     * (KG 조기 종료를 확정으로 세지 않는 규칙 포함).
+     *
+     * <p>공개 뉴스 화면은 기준이 다르다 — {@link #newsConfidenceLabel(Analysis, boolean)} 참고.
+     */
     static String newsConfidenceLabel(Analysis analysis, String riskLevel) {
-        if (riskLevel != null) {
+        return newsConfidenceLabel(analysis, riskLevel != null);
+    }
+
+    /**
+     * 공개 뉴스 화면(속보·지도)용 — "이 뉴스의 브리핑이 완결됐으면 확정".
+     *
+     * <p>종합 평가가 있다는 것만으로는 부족하다. 계약·자재 화면이 이 뉴스를 외부신호로 끌어다
+     * 쓰면 그 실행도 평가 행을 남기므로, 그걸 기준으로 삼으면 뉴스 화면이 "확정"이라 말해놓고
+     * 열면 브리핑이 비어 있다 — 실측으로 그랬다(계약 브리핑 하나만 있는 뉴스 c6466e73이
+     * 정상·확정으로 표시됐고, "이 기사로 브리핑 생성"으로 넘어가면 본문이 없었다).
+     */
+    static String newsConfidenceLabel(Analysis analysis, boolean newsBriefingCompleted) {
+        if (newsBriefingCompleted) {
             return "확정";
         }
         Double externalScore = analysis == null ? null : analysis.getSeverityScore();
