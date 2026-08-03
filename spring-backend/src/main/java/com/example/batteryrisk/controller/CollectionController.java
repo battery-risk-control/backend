@@ -69,6 +69,7 @@ public class CollectionController {
     @PostMapping("/test-news")
     public ApiResponse<CollectionDto.TestNewsResult> testNews(@RequestBody CollectionDto.TestNewsRequest request) {
         return ApiResponse.ok(collectionService.triggerTestNews(
-                request.title(), request.content(), request.countryCode(), request.sourceUrl()));
+                request.title(), request.content(), request.countryCode(), request.sourceUrl(),
+                request.goldsteinScale()));
     }
 }

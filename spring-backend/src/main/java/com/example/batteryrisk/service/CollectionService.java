@@ -163,12 +163,12 @@ public class CollectionService {
      */
     @Transactional
     public CollectionDto.TestNewsResult triggerTestNews(
-            String title, String content, String countryCode, String sourceUrl) {
+            String title, String content, String countryCode, String sourceUrl, Double goldsteinScale) {
         String externalId = "TEST-" + UUID.randomUUID();
         String contentHash = sha256((title == null ? "" : title) + "|" + content);
         RawEvent rawEvent = RawEvent.of(
                 "TEST_NEWS", "NEWS", externalId, contentHash,
-                title, content, sourceUrl, countryCode, null, null);
+                title, content, sourceUrl, countryCode, goldsteinScale, null);
         rawEventRepository.saveAndFlush(rawEvent);
 
         UUID analysisId = triggerAnalysis(rawEvent);
