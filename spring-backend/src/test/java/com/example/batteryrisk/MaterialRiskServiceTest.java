@@ -207,13 +207,13 @@ class MaterialRiskServiceTest {
     }
 
     /**
-     * 요약의 데이터 품질은 <b>전체 자재</b> 중 최악값이다.
+     * 요약의 데이터 품질은 <b>점수가 나온 자재</b> 중 최악값이다 — 나머지 KPI 3장과 같은 모집단.
      *
-     * <p>평가된 자재만 보면 "품질 VALID · 평가 불가 1종"이 나란히 뜨는데, 평가하지 못한 자재야말로
-     * 품질이 가장 나쁜 쪽이라 앞뒤가 맞지 않는다.
+     * <p>평가하지 못한 자재를 섞으면 그쪽이 늘 더 나쁜 값이라, 10종 중 1종만 결측이어도 카드가
+     * 거기 붙어 나머지 9종의 상태를 가린다. 그 1종은 {@code unavailableCount}로 따로 드러난다.
      */
     @Test
-    void summaryDataQualityCoversUnevaluatedMaterialsToo() {
+    void summaryDataQualityDescribesAssessedMaterialsOnly() {
         when(repository.findAssessableMaterials()).thenReturn(List.of(
                 new MaterialRiskRepository.MaterialRow("MAT-CO-SULF", "Cobalt Sulfate", "COBALT"),
                 new MaterialRiskRepository.MaterialRow("MAT-MN-SULF", "Manganese Sulfate", "MANGANESE")));
@@ -229,7 +229,8 @@ class MaterialRiskServiceTest {
 
         assertThat(summary.assessedMaterialCount()).isEqualTo(1);
         assertThat(summary.unavailableCount()).isEqualTo(1);
-        assertThat(summary.dataQualityStatus()).isEqualTo("INCOMPLETE");
+        // 평가된 MAT-CO-SULF는 VALID다. 평가하지 못한 MAT-MN-SULF의 INCOMPLETE는 섞이지 않는다.
+        assertThat(summary.dataQualityStatus()).isEqualTo("VALID");
     }
 
     /** 점수를 못 낸 자재도 목록에서 지우지 않고 사유를 달아 맨 뒤로 보낸다. */
@@ -274,6 +275,40 @@ class MaterialRiskServiceTest {
                 .extracting(MaterialRiskDto.ContractQuestion::questionCode)
                 .isEqualTo("DEFAULT_CONTRACT_REVIEW");
         assertThat(evidence.query()).isEqualTo(evidence.questions().get(0).question());
+    }
+
+    /**
+     * 검색 결과에 조항 제목이 붙어 나가는지.
+     *
+     * <p>청크 하나가 {@code 4.01·4.02·4.03}을 통째로 담고 있어서, 제목이 없으면 "납기 지연
+     * 위약금이 있는가"를 물어놓고 화면은 어느 조항이 답인지 짚어주지 못한다.
+     *
+     * <p>제목을 만드는 규칙 자체는 {@code ContractRagServiceTest}가 고정한다(그쪽이 원본이고
+     * 이 서비스는 재사용만 한다). 여기서 보는 것은 <b>실제로 태워 보내는지</b> 하나다 —
+     * 매핑을 빠뜨리면 화면에 제목이 통째로 빈다.
+     */
+    @Test
+    void contractEvidenceAttachesClauseTitleToEachHit() {
+        givenMaterial("MAT-CO-SULF", "Cobalt Sulfate", "COBALT");
+        server.expect(once(), requestTo(EXPOSURE_URL))
+                .andRespond(withSuccess(SCORED_RESPONSE, APPLICATION_JSON));
+        when(ragService.search(any())).thenReturn(new com.example.batteryrisk.dto.RagDto.SearchResult(
+                List.of(new com.example.batteryrisk.dto.RagDto.SearchItem(
+                        "DOC-1", 11L, 12L, 13L, null, null, "CONTRACT", 0, 1,
+                        "Article 4\nDELIVERY AND PENALTY\n\n4.01 Delivery Schedule. Seller must deliver...",
+                        "hash-1", 0.474, "openai", "v1", false)),
+                false));
+
+        MaterialRiskDto.ContractEvidence evidence = service.contractEvidence("MAT-CO-SULF");
+
+        assertThat(evidence.results()).singleElement().satisfies(hit -> {
+            assertThat(hit.clauseNo()).isEqualTo("제4조");
+            assertThat(hit.clauseTitle()).isEqualTo("제4조 · 납기 및 지연 위약금");
+            // 원문은 자르지 않는다 — 제목은 보태는 것이지 본문을 대신하는 게 아니다.
+            assertThat(hit.content()).startsWith("Article 4");
+            assertThat(hit.pageNumber()).isEqualTo(1);
+            assertThat(hit.similarityScore()).isEqualTo(0.474);
+        });
     }
 
     /** 개요는 캐시된다. 화면의 새로고침(refresh=true)만 다시 계산시킨다. */

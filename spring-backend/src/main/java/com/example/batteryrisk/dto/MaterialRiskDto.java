@@ -57,8 +57,11 @@ public final class MaterialRiskDto {
             @Schema(example = "15.8", description = "평가된 자재의 재고일수 평균. 소수 첫째 자리")
             BigDecimal averageInventoryDays,
 
-            @Schema(example = "VALID", description = "전체 데이터 품질. 자재별 품질 중 가장 나쁜 값을 쓴다 "
-                    + "(VALID < STALE < INCOMPLETE < INVALID). 한 자재라도 문제가 있으면 화면이 알아야 한다.")
+            @Schema(example = "VALID", description = "위 KPI 숫자를 만든 데이터의 품질. "
+                    + "점수가 나온 자재(assessed_material_count)의 품질 중 가장 나쁜 값이다 "
+                    + "(VALID < STALE < INCOMPLETE < INVALID). 평가하지 못한 자재는 이 값에 넣지 않는다 "
+                    + "— 그쪽은 늘 더 나쁜 값이라 섞으면 평가된 자재의 상태가 가려진다. "
+                    + "평가 못한 자재는 unavailable_count와 자재별 unavailable_reason으로 본다.")
             String dataQualityStatus,
 
             @Schema(description = "이 집계의 ERP 기준 시각")
@@ -228,10 +231,44 @@ public final class MaterialRiskDto {
             @Schema(description = "실제로 FastAPI ChromaDB에 넘어간 질의 문자열")
             String query,
 
-            List<RagDto.SearchItem> results,
+            List<ClauseHit> results,
 
             @Schema(description = "임베딩이 mock인지. true면 유사도 점수를 신뢰하면 안 된다.")
             boolean mock
+    ) {}
+
+    /**
+     * 검색에 걸린 계약 조항 1건.
+     *
+     * <p>{@link RagDto.SearchItem}(FastAPI 응답 그대로)에 <b>조항 제목 두 개를 더한</b> 것이다.
+     * 나머지 필드는 이름·타입이 그대로라 기존 소비자에게는 필드가 늘기만 한다.
+     *
+     * <p>제목을 붙이는 이유: 청크 하나가 {@code 4.01·4.02·4.03}을 통째로 담고 있어서 원문만
+     * 보여주면 "납기 지연 위약금"을 물었는데 어느 조항이 답인지 화면에서 알 수 없다. 제목은
+     * ChromaDB에 없는 값이라 청크 본문 머리에서 뽑는다 —
+     * {@link com.example.batteryrisk.service.ContractRagService.ClauseHeading}을 그대로 재사용하므로
+     * 계약·RAG 화면과 같은 문구가 나온다(LLM 호출 없음).
+     */
+    public record ClauseHit(
+            String documentId,
+            Long contractId,
+            Long supplierId,
+            Long materialId,
+            String documentType,
+            int chunkIndex,
+            int pageNumber,
+
+            @Schema(example = "제4조", description = "조항 번호. 조항이 아닌 청크(표지·서문)면 null")
+            String clauseNo,
+
+            @Schema(example = "제4조 · 납기 및 지연 위약금",
+                    description = "화면에 띄울 조항 제목. 영문 표제는 한글 라벨로 바꾸고, 매핑에 없으면 "
+                            + "원문을 그대로 쓴다. 조항 머리를 못 찾으면 본문 첫 줄을 잘라 쓴다.")
+            String clauseTitle,
+
+            String content,
+            double similarityScore,
+            boolean mockEmbedding
     ) {}
 
 }

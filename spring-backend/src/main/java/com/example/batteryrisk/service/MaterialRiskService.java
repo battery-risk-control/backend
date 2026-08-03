@@ -273,7 +273,34 @@ public class MaterialRiskService {
                 RAG_TOP_K));
 
         return new MaterialRiskDto.ContractEvidence(
-                erp.erpMaterialId(), linkedContract(erp), questions, query, result.results(), result.mock());
+                erp.erpMaterialId(), linkedContract(erp), questions, query,
+                result.results().stream().map(MaterialRiskService::toClauseHit).toList(),
+                result.mock());
+    }
+
+    /**
+     * 검색 결과 청크에 조항 제목을 붙인다.
+     *
+     * <p>제목은 ChromaDB 청크에 없는 값이라 본문 머리에서 뽑는다. 그 규칙을 여기서 새로 짜지 않고
+     * {@link ContractRagService.ClauseHeading}을 그대로 부른다 — 계약·RAG 화면이 이미 쓰는 것이라
+     * 같은 조항이 두 화면에서 다른 제목으로 보이지 않는다. 정규식과 표제 매핑이라 LLM 호출은 없다.
+     */
+    private static MaterialRiskDto.ClauseHit toClauseHit(RagDto.SearchItem item) {
+        ContractRagService.ClauseHeading heading =
+                ContractRagService.ClauseHeading.parse(item.content());
+        return new MaterialRiskDto.ClauseHit(
+                item.documentId(),
+                item.contractId(),
+                item.supplierId(),
+                item.materialId(),
+                item.documentType(),
+                item.chunkIndex(),
+                item.pageNumber(),
+                heading.clauseNo(),
+                heading.displayTitle(),
+                item.content(),
+                item.similarityScore(),
+                item.mockEmbedding());
     }
 
     // --- ERP Exposure Agent 호출 ---------------------------------------------------------------
@@ -414,9 +441,14 @@ public class MaterialRiskService {
                 : inventoryDays.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
                         .divide(BigDecimal.valueOf(inventoryDays.size()), 1, RoundingMode.HALF_UP);
 
-        // 평가된 자재만 보면 "데이터 품질 VALID · 평가 불가 2종"처럼 앞뒤가 안 맞는 KPI가 나온다.
-        // 평가하지 못한 자재야말로 품질이 가장 나쁜 쪽이므로 전체를 대상으로 최악값을 쓴다.
-        String dataQuality = items.stream()
+        // 나머지 KPI 3장과 같은 모집단(점수가 나온 자재)을 본다. 이 카드가 답하는 질문은 "지금
+        // 화면에 뜬 숫자를 믿어도 되는가"이고, 그 숫자는 전부 평가된 자재에서 나오기 때문이다.
+        //
+        // 평가하지 못한 자재를 여기 섞지 않는다. 섞으면 그쪽이 늘 더 나쁜 값이라 카드가 거기에
+        // 붙어버려 정작 평가된 자재들의 상태를 가린다 — 10종 중 1종이 결측이면 나머지 9종이
+        // 신선하든 낡았든 카드는 똑같이 INCOMPLETE다. 그 1종은 unavailableCount와 자재별
+        // unavailableReason으로 이미 드러나므로 여기서 한 번 더 겹쳐 말할 필요가 없다.
+        String dataQuality = assessed.stream()
                 .map(MaterialRiskDto.MaterialItem::dataQualityStatus)
                 .max(Comparator.comparingInt(MaterialRiskService::dataQualityRank))
                 .orElse("UNKNOWN");
