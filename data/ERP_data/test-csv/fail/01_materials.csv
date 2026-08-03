@@ -1,0 +1,4 @@
+material_id,material_code,material_category,base_unit,criticality,active,erp_group_code
+MAT-BAD-01,RM-BAD-001,LITHIUM,KG,HIGH,maybe,BATT-B1
+MAT-BAD-02,,LITHIUM,KG,HIGH,true,BATT-B2
+MAT-BAD-01,RM-BAD-003,COBALT,KG,LOW,true,BATT-B3

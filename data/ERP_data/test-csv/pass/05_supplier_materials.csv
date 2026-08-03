@@ -1,0 +1,3 @@
+supplier_material_id,supplier_id,material_id,supply_share_ratio,lead_time_days,minimum_order_quantity,approved_status,priority_rank,is_alternative,valid_from,valid_to,contract_id,available_capacity_quantity
+SM-TEST-01,SUP-TEST-CL,MAT-TEST-LI,0.60,15,900,APPROVED,1,false,2026-01-01,2027-12-31,CTR-TEST-01,
+SM-TEST-02,SUP-TEST-AU,MAT-TEST-CO,0.40,28,500,APPROVED,2,true,2026-02-01,,CTR-TEST-02,

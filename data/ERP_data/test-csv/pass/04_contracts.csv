@@ -1,0 +1,3 @@
+contract_id,contract_number,supplier_id,material_id,contract_name,contract_status,effective_date,expiration_date,document_id,document_source,document_path,contract_role,supplier_approval_status,indexed_at,updated_at
+CTR-TEST-01,BA-TEST-0001,SUP-TEST-CL,MAT-TEST-LI,Test Lithium Supply Agreement,ACTIVE,2026-01-01,2027-12-31,DOC-TEST-01,MOCK_INTERNAL,contracts/CTR-TEST-01.pdf,PRIMARY,APPROVED,2026-07-01T00:00:00+09:00,
+CTR-TEST-02,BA-TEST-0002,SUP-TEST-AU,MAT-TEST-CO,Test Cobalt Supply Agreement,ACTIVE,2026-02-01,,DOC-TEST-02,MOCK_INTERNAL,contracts/CTR-TEST-02.pdf,SECONDARY,APPROVED,2026-07-01T00:00:00+09:00,

@@ -1,0 +1,2 @@
+contract_id,contract_number,supplier_id,material_id,contract_name,contract_status,effective_date,expiration_date,document_id,document_source,document_path,contract_role,supplier_approval_status,indexed_at
+CTR-BAD-01,BA-BAD-0001,SUP-NOT-EXIST,MAT-NOT-EXIST,Orphan Contract,ACTIVE,2026-13-45,2027-12-31,DOC-BAD-01,MOCK_INTERNAL,contracts/CTR-BAD-01.pdf,PRIMARY,APPROVED,2026-07-01 00:00:00

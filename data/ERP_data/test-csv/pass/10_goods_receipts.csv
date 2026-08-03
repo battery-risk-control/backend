@@ -1,0 +1,2 @@
+goods_receipt_id,purchase_order_item_id,received_quantity,received_at,warehouse_id,quality_status,batch_number,quality_released_at
+GR-TEST-01,POI-TEST-01,20000,2026-09-12T10:00:00+09:00,WH-TEST-01,RELEASED,BATCH-TEST-001,2026-09-13T09:00:00+09:00

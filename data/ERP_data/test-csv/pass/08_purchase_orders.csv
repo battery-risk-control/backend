@@ -1,0 +1,2 @@
+purchase_order_id,po_number,supplier_id,order_date,currency,order_status,transport_mode,port_of_entry,created_at,updated_at
+PO-TEST-01,PO-TEST-0001,SUP-TEST-CL,2026-07-15,USD,CONFIRMED,SEA,Busan,,

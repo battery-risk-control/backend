@@ -1,0 +1,3 @@
+material_id,material_code,material_name,material_category,base_unit,criticality,active,erp_group_code,created_at,updated_at
+MAT-TEST-LI,RM-TEST-001,Test Lithium Carbonate,LITHIUM,KG,HIGH,true,BATT-T1,,
+MAT-TEST-CO,RM-TEST-002,Test Cobalt Sulfate,COBALT,KG,HIGH,true,BATT-T2,,

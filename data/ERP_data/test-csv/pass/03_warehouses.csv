@@ -1,0 +1,2 @@
+warehouse_id,warehouse_code,warehouse_name,country_code,timezone,warehouse_type,active
+WH-TEST-01,TWH-001,Test Ulsan Plant Warehouse,KR,Asia/Seoul,PLANT,true
