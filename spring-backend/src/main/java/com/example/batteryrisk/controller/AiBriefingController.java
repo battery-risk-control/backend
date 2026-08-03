@@ -3,6 +3,7 @@ package com.example.batteryrisk.controller;
 import com.example.batteryrisk.dto.AiBriefingDto;
 import com.example.batteryrisk.dto.ApiResponse;
 import com.example.batteryrisk.dto.PageResponse;
+import com.example.batteryrisk.service.AiBriefingReportService;
 import com.example.batteryrisk.service.AiBriefingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -10,6 +11,9 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
@@ -50,9 +55,12 @@ import java.util.UUID;
 @PreAuthorize("hasAnyRole('PURCHASING','STRATEGY')")
 public class AiBriefingController {
     private final AiBriefingService aiBriefingService;
+    private final AiBriefingReportService reportService;
 
-    public AiBriefingController(AiBriefingService aiBriefingService) {
+    public AiBriefingController(
+            AiBriefingService aiBriefingService, AiBriefingReportService reportService) {
         this.aiBriefingService = aiBriefingService;
+        this.reportService = reportService;
     }
 
     @Operation(
@@ -129,5 +137,36 @@ public class AiBriefingController {
             @Parameter(description = "목록의 briefing_id")
             @PathVariable UUID briefingId) {
         return ApiResponse.ok(aiBriefingService.get(briefingId));
+    }
+
+    /**
+     * 응답이 파일이라 다른 API와 달리 {@code ApiResponse} Envelope을 쓰지 않는다. 실패는 평소처럼
+     * JSON 오류로 나가므로 프론트는 응답의 Content-Type을 보고 갈라야 한다
+     * ({@link ErpImportReportController}와 같은 방식).
+     */
+    @Operation(
+            summary = "브리핑 PDF 다운로드 (구매팀 AI 브리핑)",
+            description = "저장된 브리핑을 그대로 PDF로 만든다. **LLM도 멀티에이전트도 다시 부르지 않는다** — "
+                    + "상세 조회와 같은 값을 그리므로 화면에서 읽은 내용과 문서가 어긋나지 않는다. "
+                    + "본문·등급·점수·판단 근거·권고 조치·ERP/계약 근거·검증 결과·생성 일시가 담긴다.")
+    @GetMapping(value = "/briefings/{briefingId}/report.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> report(
+            @Parameter(description = "목록의 briefing_id")
+            @PathVariable UUID briefingId) {
+        AiBriefingDto.BriefingDetail detail = aiBriefingService.get(briefingId);
+        byte[] pdf = reportService.renderPdf(detail);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, attachment(reportService.pdfFileName(detail)))
+                .body(pdf);
+    }
+
+    /**
+     * 파일명은 서버가 만든 ASCII 문자열이라 그대로 써도 되지만, 규격대로 {@code filename*}을 함께
+     * 낸다 — 나중에 한글 파일명을 쓰게 될 때 여기만 고치면 되도록.
+     */
+    private static String attachment(String fileName) {
+        String encoded = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+        return "attachment; filename=\"" + fileName + "\"; filename*=UTF-8''" + encoded;
     }
 }
