@@ -86,15 +86,24 @@ public class RiskMonitoringController {
     }
 
     @Operation(
-            summary = "ERP·계약 영향 분석 실행 (구매팀)",
+            summary = "[폐기 예정] ERP·계약 영향 분석 실행 (구매팀)",
+            deprecated = true,
             description = """
-                    이 기사 한 건에 대해 멀티에이전트(ERP Agent · 계약 RAG Agent · 위험도 합산 ·
-                    브리핑 · 검증)를 실행하고 갱신된 상세를 반환한다. 실행 후에는 등급이 종합 위험도
-                    기준으로 바뀌고 신뢰도가 '확정'이 되며, 결과가 저장되므로 다시 조회해도 유지된다.
+                    **이 API는 폐기 예정이다. 새로 연결하지 말 것.**
 
-                    실행할 수 없는 기사(분석 전·공급망 무관·국가 미상 등)는 422와 함께 사유를 돌려준다.
-                    상세 응답의 erp_impact_available·erp_impact_blocked_reason으로 미리 알 수 있다.
+                    멀티에이전트를 실행하고 종합 평가를 저장하지만 **NEWS 브리핑은 저장하지 않는다.**
+                    확정 판정 기준이 "완결된 NEWS 브리핑 존재"로 통일된 뒤(2026-08-03), 이 경로로
+                    실행하면 LLM 비용은 발생하는데 결과가 어느 화면에도 확정으로 보이지 않는다 —
+                    브리핑 본문도 남지 않아 다시 열어볼 수 없다.
+
+                    대신 AI 브리핑 화면 경로를 쓸 것:
+                    POST /api/v1/ai-briefing/briefings (source=NEWS, ref={eventId})
+                    이쪽은 같은 멀티에이전트를 돌리고 ai_briefings에 본문까지 저장해 확정이 된다.
+
+                    두 프론트엔드 모두 이 API를 호출하지 않는 것을 확인했다(2026-08-03).
+                    제거하지 않고 남겨 두는 이유는 외부에서 직접 부르는 경로가 있을 수 있어서다.
                     """)
+    @Deprecated(since = "2026-08-03")
     @PreAuthorize("hasRole('PURCHASING')")
     @PostMapping("/events/{eventId}/erp-impact")
     public ApiResponse<RiskMonitoringDto.EventDetail> runErpImpact(

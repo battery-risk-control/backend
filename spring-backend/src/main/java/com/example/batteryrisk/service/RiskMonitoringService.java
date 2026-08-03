@@ -181,12 +181,21 @@ public class RiskMonitoringService {
     }
 
     /**
-     * "ERP·계약 영향 분석" — 이 기사 하나에 대해 멀티에이전트(ERP Agent · 계약 RAG Agent ·
-     * 위험도 합산 · 브리핑 · 검증)를 지금 실행하고, 갱신된 상세를 돌려준다.
+     * <b>폐기 예정(2026-08-03).</b> "ERP·계약 영향 분석" — 멀티에이전트를 실행하고 갱신된
+     * 상세를 돌려준다.
      *
-     * <p>실행이 끝나면 {@code procurement_risk_assessments}에 종합 점수가 남으므로, 같은 기사를
-     * 다시 조회해도 등급이 종합 위험도 기준으로 유지된다(신뢰도는 "확정"). 즉 이 호출은
-     * 화면 상태를 잠정 → 확정으로 <b>영구히</b> 옮긴다.
+     * <p>실행하면 {@code procurement_risk_assessments}에 종합 점수는 남지만
+     * <b>{@code ai_briefings}에는 아무것도 남지 않는다.</b> 확정 판정이 "완결된 NEWS 브리핑
+     * 존재"로 통일된 뒤로는, 이 경로로 실행해도 화면이 확정으로 바뀌지 않고 브리핑 본문도
+     * 다시 열어볼 수 없다 — LLM 비용만 나가고 결과가 사라지는 셈이다.
+     *
+     * <p>대신 {@code AiBriefingService.generate}(source=NEWS)를 쓴다. 같은 멀티에이전트를
+     * 돌리고 본문까지 저장해 확정이 된다.
+     *
+     * <p>제거하지 않고 남기는 이유: 두 프론트엔드 모두 호출하지 않는 것을 확인했지만
+     * (2026-08-03) 외부에서 직접 부르는 경로가 있을 수 있다. 살리려면 브리핑 저장을 공통
+     * 로직으로 빼야 하는데({@code AiBriefingService} ↔ 이 클래스가 순환이라) 그만한 값이
+     * 있는지부터 정해야 한다.
      *
      * <p>실행 가능 여부는 {@link #erpImpactBlockedReason}이 판정한다. 화면은 상세의
      * {@code erp_impact_available}로 버튼을 미리 비활성화하지만, 화면을 믿지 않고 여기서도 막는다.
@@ -194,6 +203,7 @@ public class RiskMonitoringService {
      * @param useLlm 브리핑 문구 생성에 LLM을 쓸지. 기본은 false — 등급 갱신에는 LLM이 필요 없고,
      *               버튼 한 번이 곧 비용이 되는 경로라 켜는 쪽을 명시적 선택으로 둔다.
      */
+    @Deprecated(since = "2026-08-03")
     public EventDetail runErpImpact(long eventId, boolean useLlm) {
         RawEvent event = findNewsEvent(eventId);
         Analysis analysis = findAnalysis(event);
