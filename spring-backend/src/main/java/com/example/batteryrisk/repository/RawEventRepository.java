@@ -98,6 +98,12 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
             """)
     List<RawEvent> findUntranslatedNews(short maxAttempts, Pageable pageable);
 
+    /**
+     * 분석 UUID로 그 분석을 낳은 수집 이벤트를 되찾는다. AI 브리핑 화면이 자동 생성 브리핑
+     * ({@code source_ref}가 분석 UUID)을 열 때 eventId를 복원하는 데 쓴다.
+     */
+    Optional<RawEvent> findFirstByTriggeredAnalysisId(UUID triggeredAnalysisId);
+
     Optional<RawEvent> findFirstByDataTypeAndCountryCodeOrderByCollectedAtDesc(String dataType, String countryCode);
 
     Optional<RawEvent> findFirstByDataTypeOrderByCollectedAtDesc(String dataType);

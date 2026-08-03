@@ -153,7 +153,14 @@ public class AiBriefingService {
                         ? null
                         : BigDecimal.valueOf(analysis.getSeverityScore()),
                 blockedReason == null,
-                blockedReason);
+                blockedReason,
+                // 앞 화면에서 넘어오면 프리필만 되고 본문은 비어 있었다. 이미 만들어 둔 브리핑이
+                // 있는데도 화면이 그 사실을 몰라 "생성"을 다시 눌러야 했고, 그때마다 LLM 비용이
+                // 또 나갔다. 대상 기준으로 최신 1건을 알려주면 화면이 바로 본문을 채운다.
+                repository.findLatestBriefingId(
+                                resolved.sourceType(), resolved.sourceRef(),
+                                analysis == null ? null : analysis.getAnalysisId())
+                        .orElse(null));
     }
 
     // ---------------------------------------------------------------- 생성
@@ -308,6 +315,33 @@ public class AiBriefingService {
     }
 
     /**
+     * 뉴스 ref를 {@code raw_events.id}로 정규화한다. 숫자면 그대로 쓰고, 분석 UUID면 그 분석을
+     * 낳은 수집 이벤트를 되찾는다.
+     *
+     * <p>UUID를 받아야 하는 이유: 자동 경로(Chain A&rarr;B)가 만든 브리핑은 {@code source_ref}에
+     * 분석 UUID가 들어 있다. 그 시점엔 아직 {@code raw_events.triggered_analysis_id}가 채워지기
+     * 전이라({@code CollectionService.triggerTestNews}가 분석을 돌린 <b>뒤에</b> 표시한다)
+     * eventId를 알 수 없기 때문이다. 반면 지금은 이미 채워져 있으므로 여기서 되찾을 수 있다.
+     * 이게 없으면 화면이 자동 생성 브리핑을 열었을 때 "분석 대상"과 "ERP 연결"이 비어 보인다.
+     */
+    private long resolveNewsEventId(String ref) {
+        try {
+            return Long.parseLong(ref);
+        } catch (NumberFormatException notANumber) {
+            UUID analysisId;
+            try {
+                analysisId = UUID.fromString(ref);
+            } catch (IllegalArgumentException notAUuid) {
+                throw new BusinessException(
+                        ErrorCode.INVALID_REQUEST, "ref는 eventId(숫자) 또는 분석 UUID여야 합니다.");
+            }
+            return rawEventRepository.findFirstByTriggeredAnalysisId(analysisId)
+                    .map(RawEvent::getId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RISK_EVENT_NOT_FOUND));
+        }
+    }
+
+    /**
      * 리스크 모니터링에서 넘어온 뉴스 1건.
      *
      * <p>실행 가능 판정은 {@link RiskMonitoringService#detail}이 이미 내려 준 것을 그대로 쓰고,
@@ -315,7 +349,7 @@ public class AiBriefingService {
      * 찾는다(KG가 확정한 공급사를 우선 쓰는 그 경로다).
      */
     private ResolvedSource resolveNews(String ref) {
-        long eventId = parseLong(ref, "eventId");
+        long eventId = resolveNewsEventId(ref);
         RiskMonitoringDto.EventDetail detail = riskMonitoringService.detail(eventId);
 
         RawEvent event = rawEventRepository.findById(eventId)

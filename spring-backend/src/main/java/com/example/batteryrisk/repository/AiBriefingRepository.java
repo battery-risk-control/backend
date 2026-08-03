@@ -151,6 +151,32 @@ public class AiBriefingRepository {
         }
     }
 
+    /**
+     * 이 대상으로 이미 저장돼 있는 가장 최근 브리핑 id. 화면이 프리필과 함께 본문을 바로
+     * 띄우는 데 쓴다.
+     *
+     * <p>{@code source_ref}가 아니라 {@code analysis_id}도 함께 보는 이유: 같은 뉴스라도
+     * 자동 경로는 {@code source_ref}에 분석 UUID를, 화면 경로는 {@code raw_events.id}를 넣는다.
+     * 둘 중 하나만 보면 다른 경로가 만든 브리핑을 놓친다.
+     */
+    public Optional<UUID> findLatestBriefingId(String sourceType, String sourceRef, UUID analysisId) {
+        List<UUID> found = jdbc.query("""
+                SELECT briefing_id
+                FROM ai_briefings
+                WHERE source_type = :sourceType
+                  AND (source_ref = :sourceRef
+                       OR (:analysisId IS NOT NULL AND analysis_id = :analysisId))
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                new MapSqlParameterSource()
+                        .addValue("sourceType", sourceType)
+                        .addValue("sourceRef", sourceRef)
+                        .addValue("analysisId", analysisId),
+                (rs, rowNumber) -> rs.getObject("briefing_id", UUID.class));
+        return found.isEmpty() ? Optional.empty() : Optional.of(found.get(0));
+    }
+
     public Optional<AiBriefingDto.BriefingDetail> findById(UUID briefingId) {
         List<AiBriefingDto.BriefingDetail> rows = jdbc.query("""
                 SELECT *

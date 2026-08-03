@@ -71,7 +71,13 @@ public final class AiBriefingDto {
             boolean generateAvailable,
 
             @Schema(example = "공급망과 무관한 뉴스로 판정되었습니다.", description = "생성 불가 사유. 가능하면 null")
-            String generateBlockedReason
+            String generateBlockedReason,
+
+            @Schema(description = "이 대상으로 <b>이미 저장돼 있는</b> 가장 최근 브리핑. 없으면 null. "
+                    + "앞 화면에서 넘어오면 프리필만 되고 본문은 비어 있어, 이미 만들어 둔 브리핑이 "
+                    + "있는데도 '생성'을 다시 눌러야 볼 수 있었다. 화면은 이 값이 있으면 "
+                    + "GET /briefings/{id}로 본문을 바로 채우면 된다.")
+            UUID latestBriefingId
     ) {}
 
     /** "LLM 브리핑 생성" 요청. 프리필을 받은 그 대상을 그대로 다시 보낸다. */
