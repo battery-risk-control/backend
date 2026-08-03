@@ -53,10 +53,18 @@ public class DashboardRepository {
      * 사건 단위로 세는 것은 지도와 주요 알림이고, 그쪽과 숫자가 달라도 정상이다 — 라벨을
      * "심각/주의 <b>원자재 N종</b>"으로 두는 이유다.
      *
-     * <p>{@code recent_24h}는 시간 윈도우만 걸고 카테고리로 접지 않은 별개 모집단이다 —
-     * "오늘 무슨 일이 있었나"를 보여주는 용도라 완료 처리 여부와 무관하게 원본 행 전체를 본다.
-     * 다만 원천 제한은 {@code latest}와 같이 건다. 두 줄이 같은 칸에 위아래로 붙어 나가는데
+     * <p>{@code recent_24h}는 카테고리가 아니라 <b>사건</b>으로 접는다. "지난 24시간에 무슨 일이
+     * 있었나"를 보여주는 별개 모집단이라 완료 처리 여부는 보지 않지만, 같은 사건을 두 번 세면
+     * 화면에 보이는 것과 어긋난다 — 실측 2026-08-03: 같은 DRC-르완다 기사가 3시간 간격으로 두 번
+     * 평가돼 평가 행이 2개라, 눈에 보이는 사건은 2건인데 24시간 줄은 3건이었다. 사건 안에서는
+     * 가장 최근 평가를 남긴다. 평균 점수도 같이 접힌다 — 반복 평가된 사건이 평균을 두 번 끌면
+     * 그것도 같은 종류의 왜곡이다.
+     *
+     * <p>원천 제한은 {@code latest}와 같이 건다. 두 줄이 같은 칸에 위아래로 붙어 나가는데
      * 모집단의 정의까지 다르면 비교할 수 없는 숫자가 된다.
+     *
+     * <p>단위는 위아래가 다르다 — 큰 숫자는 자재 종수, 24시간 줄은 사건 건수다. 화면이 "2종"과
+     * "24h 2건"으로 단위를 나눠 붙이므로 둘을 빼서 증감으로 읽지 않는다.
      */
     private static final String LATEST_PROCUREMENT_ASSESSMENT_CTE = "WITH "
             + NewsEventSql.COMPLETED_NEWS_CTE + """
@@ -77,13 +85,13 @@ public class DashboardRepository {
                 ORDER BY p.material_category, p.created_at DESC
             ),
             recent_24h AS (
-                SELECT p.procurement_risk_level, p.erp_exposure_score, p.external_signal_score
+                SELECT DISTINCT ON (cn.event_key)
+                    p.procurement_risk_level, p.erp_exposure_score, p.external_signal_score
                 FROM procurement_risk_assessments p
+                JOIN completed_news cn ON cn.analysis_id = p.analysis_id
                 WHERE p.material_category IS NOT NULL
-                  AND EXISTS (
-                      SELECT 1 FROM completed_news cn WHERE cn.analysis_id = p.analysis_id
-                  )
                   AND p.created_at >= NOW() - INTERVAL '24 hours'
+                ORDER BY cn.event_key, p.created_at DESC
             )
             """;
 

@@ -51,8 +51,9 @@ public final class DashboardDto {
             long verifiedBriefingCount,
             OffsetDateTime latestAssessedAt,
 
-            // 최근 24시간 raw 활동량 — "카테고리별 최신 1건" 스냅샷과는 별개 모집단(원본 행
-            // 전체, 완료 처리 여부 무관)이라 위 필드들과 섞어 계산하지 않는다.
+            // 최근 24시간 활동량 — "카테고리별 최신 1건" 스냅샷과는 별개 모집단이라 위 필드들과
+            // 섞어 계산하지 않는다. 세는 단위도 다르다: 위는 자재 대분류 수(종), 여기는 사건
+            // 수(건)다. 완료 처리 여부는 보지 않는다.
             //
             // @JsonProperty 명시 필요: 전역 SNAKE_CASE 전략이 문자→숫자 경계(...Count|24h)엔
             // 언더스코어를 안 넣어 "critical_count24h"로 잘못 직렬화됨(Docker 실측 중 발견) —
