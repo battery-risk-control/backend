@@ -12,6 +12,7 @@ import com.example.batteryrisk.dto.RiskEventDto.QualityCheck;
 import com.example.batteryrisk.dto.RiskEventDto.RagView;
 import com.example.batteryrisk.dto.RiskEventDto.RiskBoardItem;
 import com.example.batteryrisk.dto.RiskEventDto.RiskEvent;
+import com.example.batteryrisk.repository.AiBriefingRepository;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.AnalysisSupplierRecommendationRepository;
 import com.example.batteryrisk.repository.ProcurementRiskRepository;
@@ -354,16 +355,19 @@ public class RiskEventService {
     private final AnalysisSupplierRecommendationRepository supplierRecommendationRepository;
     private final RawEventRepository rawEventRepository;
     private final ProcurementRiskRepository procurementRiskRepository;
+    private final AiBriefingRepository aiBriefingRepository;
 
     public RiskEventService(
             AnalysisRepository analysisRepository,
             AnalysisSupplierRecommendationRepository supplierRecommendationRepository,
             RawEventRepository rawEventRepository,
-            ProcurementRiskRepository procurementRiskRepository) {
+            ProcurementRiskRepository procurementRiskRepository,
+            AiBriefingRepository aiBriefingRepository) {
         this.analysisRepository = analysisRepository;
         this.supplierRecommendationRepository = supplierRecommendationRepository;
         this.rawEventRepository = rawEventRepository;
         this.procurementRiskRepository = procurementRiskRepository;
+        this.aiBriefingRepository = aiBriefingRepository;
     }
 
     /**
@@ -401,6 +405,11 @@ public class RiskEventService {
                 .findLatestRiskLevelsByAnalysisIds(
                         candidates.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()));
         Map<UUID, String> koreanTitles = loadKoreanTitles(candidates);
+        // 지도는 analyses에서 출발하므로 수집 이벤트 id가 없다. 같은 조회로 함께 뽑아 둔다 —
+        // 화면이 "이 기사로 브리핑 생성"을 누를 때 필요한 값이라 속보와 같은 걸 실어 줘야 한다.
+        Map<UUID, Long> eventIds = loadEventIds(candidates);
+        Map<UUID, UUID> briefingIds = aiBriefingRepository.findLatestBriefingIdsByAnalysisIds(
+                candidates.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()));
 
         Map<String, RiskBoardItem> markers = new LinkedHashMap<>();
         for (Analysis analysis : candidates) {
@@ -427,7 +436,10 @@ public class RiskEventService {
             markers.put(key, toBoardItem(
                     analysis, grade,
                     newsConfidenceLabel(analysis, riskLevel),
-                    koreanTitles.get(analysis.getAnalysisId())));
+                    koreanTitles.get(analysis.getAnalysisId()),
+                    eventIds.get(analysis.getAnalysisId()),
+                    riskLevel,
+                    briefingIds.get(analysis.getAnalysisId())));
         }
 
         if (markers.isEmpty()) {
@@ -526,6 +538,9 @@ public class RiskEventService {
         // 멀티에이전트(ERP·계약)까지 통과해 종합 위험도가 나온 뉴스만 등급 배지를 받는다.
         Map<UUID, String> riskLevelsByAnalysisId =
                 procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(analysesById.keySet());
+        // "이 기사에 브리핑이 있는가"를 항목마다 물어보면 N+1이 된다. 등급과 같은 방식으로 배치 조회.
+        Map<UUID, UUID> briefingIdsByAnalysisId =
+                aiBriefingRepository.findLatestBriefingIdsByAnalysisIds(analysesById.keySet());
 
         List<NewsFeedItem> supplyChainNews = new ArrayList<>();
         for (RawEvent event : events) {
@@ -533,7 +548,9 @@ public class RiskEventService {
             String riskLevel = analysis == null
                     ? null
                     : riskLevelsByAnalysisId.get(analysis.getAnalysisId());
-            supplyChainNews.add(toNewsFeedItem(event, analysis, riskLevel));
+            supplyChainNews.add(toNewsFeedItem(
+                    event, analysis, riskLevel,
+                    analysis == null ? null : briefingIdsByAnalysisId.get(analysis.getAnalysisId())));
         }
 
         if (!supplyChainNews.isEmpty()) {
@@ -633,7 +650,8 @@ public class RiskEventService {
      *
      * @param riskLevel 멀티에이전트 종합 등급(NORMAL/WARNING/CRITICAL). 없으면 null.
      */
-    private static NewsFeedItem toNewsFeedItem(RawEvent event, Analysis analysis, String riskLevel) {
+    private static NewsFeedItem toNewsFeedItem(
+            RawEvent event, Analysis analysis, String riskLevel, UUID briefingId) {
         String material = analysis != null && analysis.getMaterialCategory() != null
                 ? MATERIAL_NAME_KO.getOrDefault(analysis.getMaterialCategory(), analysis.getMaterialCategory())
                 : guessMaterial(event.getTitle(), event.getContent());
@@ -655,7 +673,13 @@ public class RiskEventService {
                 translated,
                 newsConfidenceLabel(analysis, riskLevel),
                 event.getCountryCode(),
-                linkableUrl(event.getSourceUrl()));
+                linkableUrl(event.getSourceUrl()),
+                analysis == null ? null : analysis.getAnalysisId(),
+                analysis == null ? null : analysis.getSeverity(),
+                analysis == null ? null : analysis.getSeverityScore(),
+                riskLevel,
+                riskLevel != null,
+                briefingId);
     }
 
     /**
@@ -728,7 +752,9 @@ public class RiskEventService {
                 event.confidenceLabel(),
                 event.marketContext().countryCode(),
                 // placeholder는 실제 기사가 아니므로 원문 링크가 없다. 프론트가 "원문" 버튼을 숨긴다.
-                null);
+                null,
+                // 분석·평가·브리핑이 전부 없는 자리표시자다. 지어내면 화면이 없는 것을 열려 한다.
+                null, null, null, null, false, null);
     }
 
     /** placeholder id 형식 "RISK-yyyy-MMdd-nnn"에서 날짜를 뽑는다. 형식이 다르면 오늘 날짜로 둔다. */
@@ -747,7 +773,8 @@ public class RiskEventService {
      * @param koreanTitle     번역된 제목. 없으면 원문(영문)을 그대로 쓴다.
      */
     private static RiskBoardItem toBoardItem(
-            Analysis analysis, String grade, String confidenceLabel, String koreanTitle) {
+            Analysis analysis, String grade, String confidenceLabel, String koreanTitle,
+            Long eventId, String riskLevel, UUID briefingId) {
         CountryRef country = COUNTRIES.get(analysis.getCountryCode());
         String category = analysis.getMaterialCategory();
         return new RiskBoardItem(
@@ -763,7 +790,32 @@ public class RiskEventService {
                 country != null ? country.name() : null,
                 country != null ? new Coordinates(country.lat(), country.lng()) : null,
                 linkableUrl(analysis.getSourceUrl()),
-                analysis.getCreatedAt());
+                analysis.getCreatedAt(),
+                eventId,
+                analysis.getAnalysisId(),
+                analysis.getSeverity(),
+                analysis.getSeverityScore(),
+                riskLevel,
+                riskLevel != null,
+                briefingId);
+    }
+
+    /**
+     * 분석 id → 수집 이벤트 id. 수집을 거치지 않고 직접 만들어진 분석은 빠진다(그 경우 null).
+     *
+     * <p>{@link #loadKoreanTitles}와 같은 조회를 쓴다 — 둘 다 {@code triggered_analysis_id}로
+     * 같은 행을 찾으므로 따로 물어볼 이유가 없다.
+     */
+    private Map<UUID, Long> loadEventIds(List<Analysis> analyses) {
+        if (analyses.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Long> ids = new LinkedHashMap<>();
+        for (RawEvent event : rawEventRepository.findByTriggeredAnalysisIdIn(
+                analyses.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()))) {
+            ids.putIfAbsent(event.getTriggeredAnalysisId(), event.getId());
+        }
+        return ids;
     }
 
     /** 분석 id → 번역된 뉴스 제목. 번역 스케줄러가 아직 안 돈 기사는 빠진다(원문으로 폴백). */
@@ -795,6 +847,8 @@ public class RiskEventService {
                 // placeholder는 실제 기사가 아니라 원문 링크가 없다. 지어내면 화면에 눌리지 않는
                 // 버튼이 생긴다. 시각도 같은 이유로 비운다.
                 null,
-                null);
+                null,
+                // 수집 이벤트·분석·평가·브리핑이 전부 없는 자리표시자다.
+                null, null, null, null, null, false, null);
     }
 }

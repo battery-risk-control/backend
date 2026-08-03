@@ -2,6 +2,7 @@ package com.example.batteryrisk;
 
 import com.example.batteryrisk.domain.Analysis;
 import com.example.batteryrisk.dto.RiskEventDto.RiskBoardItem;
+import com.example.batteryrisk.repository.AiBriefingRepository;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.AnalysisSupplierRecommendationRepository;
 import com.example.batteryrisk.repository.ProcurementRiskRepository;
@@ -37,6 +38,7 @@ class RiskBoardGradingTest {
     private AnalysisRepository analysisRepository;
     private ProcurementRiskRepository procurementRiskRepository;
     private RawEventRepository rawEventRepository;
+    private AiBriefingRepository aiBriefingRepository;
     private RiskEventService service;
 
     @BeforeEach
@@ -46,11 +48,14 @@ class RiskBoardGradingTest {
         rawEventRepository = mock(RawEventRepository.class);
         when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any())).thenReturn(Map.of());
         when(rawEventRepository.findByTriggeredAnalysisIdIn(any())).thenReturn(List.of());
+        aiBriefingRepository = mock(AiBriefingRepository.class);
+        when(aiBriefingRepository.findLatestBriefingIdsByAnalysisIds(any())).thenReturn(Map.of());
         service = new RiskEventService(
                 analysisRepository,
                 mock(AnalysisSupplierRecommendationRepository.class),
                 rawEventRepository,
-                procurementRiskRepository);
+                procurementRiskRepository,
+                aiBriefingRepository);
     }
 
     /** 멀티에이전트 종합 등급이 있으면 그 값이 등급이 되고 배지는 "확정"이다. */

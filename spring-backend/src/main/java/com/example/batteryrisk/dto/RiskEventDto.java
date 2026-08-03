@@ -89,7 +89,29 @@ public final class RiskEventDto {
              */
             String sourceUrl,
             /** 분석 생성 시각(UTC). 화면이 날짜·시각을 표기한다. */
-            java.time.Instant collectedAt
+            java.time.Instant collectedAt,
+
+            /** 이 기사를 담은 수집 이벤트. 분석만 있고 수집 원본을 못 찾으면 null이다. */
+            Long eventId,
+            /*
+             * 화면 간 식별자·판정 통일용(2026-08-03). 지도·속보·상세·브리핑이 각자 다른 값을
+             * 유도하다 보니 같은 기사가 화면마다 다른 등급으로 보였다. 원천에서 한 번 계산해
+             * 함께 내려보내면 화면이 다시 유도할 일이 없다.
+             */
+            /** 이 기사의 분석. 분석이 아직 없으면 null이다. */
+            java.util.UUID analysisId,
+            /** 외부신호 등급(CRITICAL/WARNING/NORMAL). severity 규칙엔진 결과 그대로다. */
+            String externalSeverity,
+            Double externalSeverityScore,
+            /** 멀티에이전트 종합 등급. 아직 안 돌았으면 null이다. */
+            String procurementRiskLevel,
+            /**
+             * ERP·계약까지 거친 종합 판정이 있는지. false면 위에 보이는 등급은 외부신호 하나만
+             * 근거로 한 잠정값이다 — confidenceLabel의 "경고"/"참고"가 그 뜻이다.
+             */
+            boolean multiAgentCompleted,
+            /** 이 분석으로 만들어진 최신 브리핑. 없으면 null이라 화면이 "생성"을 권한다. */
+            java.util.UUID briefingId
     ) {}
 
     /**
@@ -143,6 +165,25 @@ public final class RiskEventDto {
             @Schema(example = "ID", description = "ISO 3166-1 alpha-2. 지도 마커 클릭 시 국가 필터에 쓴다.")
             String countryCode,
             @Schema(description = "기사 원문 링크. 수집 원본에 없으면 null")
-            String url
+            String url,
+            /*
+             * 화면 간 식별자·판정 통일용(2026-08-03). 지도·속보·상세·브리핑이 각자 다른 값을
+             * 유도하다 보니 같은 기사가 화면마다 다른 등급으로 보였다. 원천에서 한 번 계산해
+             * 함께 내려보내면 화면이 다시 유도할 일이 없다.
+             */
+            /** 이 기사의 분석. 분석이 아직 없으면 null이다. */
+            java.util.UUID analysisId,
+            /** 외부신호 등급(CRITICAL/WARNING/NORMAL). severity 규칙엔진 결과 그대로다. */
+            String externalSeverity,
+            Double externalSeverityScore,
+            /** 멀티에이전트 종합 등급. 아직 안 돌았으면 null이다. */
+            String procurementRiskLevel,
+            /**
+             * ERP·계약까지 거친 종합 판정이 있는지. false면 위에 보이는 등급은 외부신호 하나만
+             * 근거로 한 잠정값이다 — confidenceLabel의 "경고"/"참고"가 그 뜻이다.
+             */
+            boolean multiAgentCompleted,
+            /** 이 분석으로 만들어진 최신 브리핑. 없으면 null이라 화면이 "생성"을 권한다. */
+            java.util.UUID briefingId
     ) {}
 }

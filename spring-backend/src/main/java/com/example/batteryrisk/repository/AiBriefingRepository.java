@@ -14,6 +14,8 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -175,6 +177,33 @@ public class AiBriefingRepository {
                         .addValue("analysisId", analysisId),
                 (rs, rowNumber) -> rs.getObject("briefing_id", UUID.class));
         return found.isEmpty() ? Optional.empty() : Optional.of(found.get(0));
+    }
+
+    /**
+     * 분석별 최신 브리핑 id를 한 번에 가져온다. 뉴스 목록·지도가 "이 기사에 브리핑이 있는가"를
+     * 항목마다 따로 물어보면 N+1이 되므로 배치로 뽑는다
+     * ({@code ProcurementRiskRepository.findLatestRiskLevelsByAnalysisIds}와 같은 방침).
+     *
+     * <p>같은 분석에 브리핑이 여러 건이면 최신 1건만 남긴다 — 화면이 "이 기사의 브리핑"으로
+     * 여는 대상은 언제나 가장 최근 것이다.
+     */
+    public Map<UUID, UUID> findLatestBriefingIdsByAnalysisIds(Collection<UUID> analysisIds) {
+        if (analysisIds == null || analysisIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, UUID> found = new LinkedHashMap<>();
+        jdbc.query("""
+                SELECT DISTINCT ON (analysis_id) analysis_id, briefing_id
+                FROM ai_briefings
+                WHERE analysis_id IN (:analysisIds)
+                ORDER BY analysis_id, created_at DESC
+                """,
+                new MapSqlParameterSource("analysisIds", analysisIds),
+                (rs, rowNumber) -> Map.entry(
+                        rs.getObject("analysis_id", UUID.class),
+                        rs.getObject("briefing_id", UUID.class)))
+                .forEach(entry -> found.put(entry.getKey(), entry.getValue()));
+        return found;
     }
 
     public Optional<AiBriefingDto.BriefingDetail> findById(UUID briefingId) {
