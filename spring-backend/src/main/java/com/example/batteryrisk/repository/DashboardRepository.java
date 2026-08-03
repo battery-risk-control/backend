@@ -290,6 +290,58 @@ public class DashboardRepository {
                         rs.getObject("assessed_at", OffsetDateTime.class)));
     }
 
+    /**
+     * "완료 처리"된 평가 목록. 되돌리기 UI가 서는 유일한 자리다.
+     *
+     * <p>완료 처리하면 그 평가가 KPI·주요 이슈에서 빠지는데, 빠지는 순간 화면에서 사라져
+     * 되돌릴 버튼을 놓을 곳도 함께 사라졌다. 여기서 다시 꺼내 보여준다.
+     *
+     * <p>제목은 {@code raw_events.title_ko}(번역본)를 우선하고 없으면 {@code analyses.event_title}
+     * 로 떨어진다 — 지도·속보·주요 이슈와 같은 규칙이라 화면끼리 같은 뉴스를 다른 제목으로
+     * 부르지 않는다.
+     *
+     * <p>{@code users}는 LEFT JOIN이다. 계정이 지워져도 완료 기록 자체는 남아야 하고(FK가
+     * 있지만 그건 지금 시점의 보장일 뿐이다), 이름이 없다고 목록에서 빠지면 되돌릴 방법이
+     * 사라진다.
+     */
+    public List<DashboardDto.AcknowledgedItem> findAcknowledged(int limit) {
+        return jdbc.query("""
+                -- 표기명은 findMaterialRiskSummary와 같은 표를 쓴다. 자바 쪽 매핑
+                -- (RiskEventService.materialNameKo)은 service 패키지 밖에서 못 보고,
+                -- 표를 두 벌로 두면 화면마다 자재 이름이 갈린다.
+                WITH categories(material_category, material_name) AS (
+                    VALUES ('ALUMINUM','알루미늄'), ('COBALT','코발트'), ('COPPER','구리'),
+                           ('GRAPHITE','흑연'), ('LITHIUM','리튬'), ('MANGANESE','망간'),
+                           ('NICKEL','니켈')
+                )
+                SELECT p.assessment_id, p.material_category,
+                       -- 표에 없는 대분류(RARE_EARTH 등)는 코드를 그대로 보여준다. 지어내지 않는다.
+                       COALESCE(c.material_name, p.material_category) AS material_name,
+                       p.procurement_risk_level, p.procurement_risk_score,
+                       COALESCE(r.title_ko, an.event_title) AS subject_title,
+                       u.name AS acknowledged_by_name,
+                       a.acknowledged_at
+                FROM procurement_risk_acknowledgements a
+                JOIN procurement_risk_assessments p ON p.assessment_id = a.assessment_id
+                LEFT JOIN analyses an ON an.analysis_id = p.analysis_id
+                LEFT JOIN raw_events r ON r.triggered_analysis_id = p.analysis_id
+                LEFT JOIN users u ON u.id = a.acknowledged_by
+                LEFT JOIN categories c ON c.material_category = p.material_category
+                ORDER BY a.acknowledged_at DESC
+                LIMIT :limit
+                """,
+                new MapSqlParameterSource().addValue("limit", limit),
+                (rs, rowNumber) -> new DashboardDto.AcknowledgedItem(
+                        rs.getObject("assessment_id", java.util.UUID.class),
+                        rs.getString("material_category"),
+                        rs.getString("material_name"),
+                        rs.getString("procurement_risk_level"),
+                        rs.getBigDecimal("procurement_risk_score"),
+                        rs.getString("subject_title"),
+                        rs.getString("acknowledged_by_name"),
+                        rs.getObject("acknowledged_at", OffsetDateTime.class)));
+    }
+
     /** 자재별 현재 리스크. 아직 분석되지 않은 자재는 제외한다. */
     public List<DashboardDto.MaterialRiskItem> findMaterialRisks(String severity, int limit) {
         MapSqlParameterSource params = new MapSqlParameterSource()

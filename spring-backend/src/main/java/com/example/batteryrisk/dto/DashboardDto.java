@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /** 14단계 조회·집계 API DTO를 한 파일에 모읍니다. */
 public final class DashboardDto {
@@ -218,5 +219,26 @@ public final class DashboardDto {
             String contractRole,
             LocalDate startDate,
             LocalDate endDate
+    ) {}
+
+    /**
+     * "완료 처리"된 구매 리스크 평가 한 건.
+     *
+     * <p>완료 처리하면 그 평가가 KPI·주요 이슈에서 빠지는데, 빠지는 순간 화면에서 사라져
+     * 되돌릴 방법도 함께 사라졌다. 이 목록이 그 자리를 만든다 — 여기서만 되돌리기
+     * ({@code DELETE /api/v1/multi-agent/assessments/{id}/acknowledge})를 부를 수 있다.
+     */
+    public record AcknowledgedItem(
+            UUID assessmentId,
+            String materialCategory,
+            /** 화면 표기명. 매핑에 없으면 대분류 코드가 그대로 온다. */
+            String materialName,
+            String procurementRiskLevel,
+            BigDecimal procurementRiskScore,
+            /** 이 평가를 만든 뉴스 제목. 번역본이 있으면 한국어다(지도·속보와 같은 규칙). */
+            String subjectTitle,
+            /** 완료 처리한 사람. 계정이 지워졌으면 null이라 화면이 이름 칸을 비운다. */
+            String acknowledgedByName,
+            OffsetDateTime acknowledgedAt
     ) {}
 }

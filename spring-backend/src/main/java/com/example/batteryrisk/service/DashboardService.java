@@ -19,6 +19,9 @@ import java.util.Set;
 @Service
 @Transactional(readOnly = true)
 public class DashboardService {
+    /** "완료 처리 항목" 기본 노출 건수. 되돌릴 대상을 찾는 용도라 최신 몇 건이면 충분하다. */
+    private static final int DEFAULT_ACKNOWLEDGED_LIMIT = 5;
+
     private static final Set<String> LEVELS = Set.of("NORMAL", "WARNING", "CRITICAL", "UNKNOWN");
 
     private final DashboardRepository repository;
@@ -49,6 +52,17 @@ public class DashboardService {
                                 item.latestAssessmentId(),
                                 repository.findMaterialRiskTopNews(item.materialCategory())))
                 .toList();
+    }
+
+    /**
+     * 완료 처리된 평가 목록. 화면의 "완료 처리 항목"이 되돌리기 버튼을 놓는 자리다.
+     *
+     * <p>상한을 두는 이유: 이 목록은 되돌릴 대상을 찾는 곳이지 완료 이력 전체를 보는 곳이
+     * 아니다. 오래된 처리를 되돌릴 일은 거의 없고, 있어도 최신순으로 몇 건 안에 들어온다.
+     */
+    public List<DashboardDto.AcknowledgedItem> acknowledgedAssessments(Integer limit) {
+        int size = limit == null || limit < 1 ? DEFAULT_ACKNOWLEDGED_LIMIT : Math.min(limit, 50);
+        return repository.findAcknowledged(size);
     }
 
     public List<DashboardDto.MaterialRiskItem> materialRisks(String severity, int limit) {

@@ -6,6 +6,7 @@ import com.example.batteryrisk.dto.PageResponse;
 import com.example.batteryrisk.service.DashboardService;
 import com.example.batteryrisk.service.SupplierOverviewService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -88,6 +89,23 @@ public class DashboardController {
     @GetMapping("/purchasing-dashboard/material-risk-summary")
     public ApiResponse<List<DashboardDto.MaterialRiskSummaryItem>> materialRiskSummary() {
         return ApiResponse.ok(dashboardService.materialRiskSummary());
+    }
+
+    @Operation(
+            summary = "완료 처리된 구매 리스크 평가 목록",
+            description = """
+                    "대응 완료"로 표시한 평가를 최신순으로 반환합니다. 완료 처리하면 그 평가가
+                    KPI·주요 이슈에서 빠지면서 화면에서도 사라져 되돌릴 자리가 없어지는데,
+                    이 목록이 그 자리를 만듭니다.
+
+                    되돌리기는 DELETE /api/v1/multi-agent/assessments/{assessmentId}/acknowledge 입니다.
+                    """)
+    @GetMapping("/purchasing-dashboard/acknowledged")
+    public ApiResponse<List<DashboardDto.AcknowledgedItem>> acknowledged(
+            @Parameter(description = "노출 건수(1~50). 기본 5", example = "5")
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ApiResponse.ok(dashboardService.acknowledgedAssessments(limit));
     }
 
     @Operation(
