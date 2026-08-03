@@ -9,6 +9,34 @@ public final class ContractUploadDto {
     private ContractUploadDto() {}
 
     /**
+     * 업로드 대상을 고르는 드롭다운 선택지.
+     *
+     * <p><b>계약 목록이 아니라 공급사·자재 목록인 이유:</b> 이 화면의 목적은 아직 계약이 없는
+     * 조합에 <b>새 계약서를 처음 등록</b>하는 것이다. 계약 목록으로 고르게 하면 "이미 계약이 있는
+     * 조합"밖에 못 고르니 신규 등록 자체가 불가능하다. 공급사·자재를 직접 고르게 하면 그 조합에
+     * 계약이 있든 없든 선택할 수 있고, 있는지 없는지는 미리보기가 알려준다.
+     */
+    public record UploadOptions(
+            java.util.List<SupplierOption> suppliers,
+            java.util.List<MaterialOption> materials
+    ) {}
+
+    /** 거래 상태를 함께 준다 — 중단된 공급사도 과거 계약서를 올릴 일이 있어 목록에서 빼지 않는다. */
+    public record SupplierOption(
+            @JsonProperty("erp_supplier_id") String erpSupplierId,
+            @JsonProperty("supplier_name") String supplierName,
+            @JsonProperty("country_code") String countryCode,
+            @JsonProperty("supplier_status") String supplierStatus
+    ) {}
+
+    public record MaterialOption(
+            @JsonProperty("erp_material_id") String erpMaterialId,
+            @JsonProperty("material_name") String materialName,
+            @JsonProperty("material_category") String materialCategory,
+            boolean active
+    ) {}
+
+    /**
      * 1단계 미리보기 응답 — DB에는 아무것도 쓰지 않는다.
      *
      * <p>{@code file_name} 이하는 데이터 관리 화면의 "내용 분석" 칸용이다. 미리보기는 이미 파일

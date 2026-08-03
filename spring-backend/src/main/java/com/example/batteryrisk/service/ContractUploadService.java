@@ -80,6 +80,26 @@ public class ContractUploadService {
                 ? null : Path.of(erpSeedDirectory).toAbsolutePath().normalize();
     }
 
+    /**
+     * 업로드 대상 드롭다운 선택지. 공급사·자재를 원본 그대로 준다.
+     *
+     * <p>계약 목록({@code /api/v1/rag/contracts})으로 고르게 하면 이미 계약이 있는 조합만 선택
+     * 가능해져 <b>신규 계약서 등록이 불가능</b>하다. 이 화면은 그 반대를 하려는 곳이다.
+     */
+    public ContractUploadDto.UploadOptions options() {
+        return new ContractUploadDto.UploadOptions(
+                repository.listSupplierOptions().stream()
+                        .map(row -> new ContractUploadDto.SupplierOption(
+                                row.erpSupplierId(), row.supplierName(),
+                                row.countryCode(), row.supplierStatus()))
+                        .toList(),
+                repository.listMaterialOptions().stream()
+                        .map(row -> new ContractUploadDto.MaterialOption(
+                                row.erpMaterialId(), row.materialName(),
+                                row.materialCategory(), row.active()))
+                        .toList());
+    }
+
     /** 1단계: 파일에서 텍스트를 뽑아 계약 필드를 미리 채워 보여준다. DB에는 아무것도 안 쓴다. */
     public ContractUploadDto.PreviewResponse preview(
             MultipartFile file, String erpSupplierId, String erpMaterialId) {

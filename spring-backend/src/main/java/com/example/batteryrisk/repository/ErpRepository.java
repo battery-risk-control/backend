@@ -325,6 +325,40 @@ public class ErpRepository {
         return resolveId("suppliers", "supplier_id", "erp_supplier_id", erpSupplierId);
     }
 
+    /**
+     * 계약 문서를 붙일 대상을 고르는 드롭다운용 공급사 목록.
+     *
+     * <p>거래 중단된 공급사도 함께 준다. 계약이 끝난 공급사의 과거 문서를 뒤늦게 올리는 일이
+     * 있어서, 여기서 걸러 버리면 그 문서를 등록할 방법이 아예 없어진다. 대신 상태를 같이
+     * 내려보내 화면이 표시하게 한다.
+     */
+    public List<SupplierOption> listSupplierOptions() {
+        return jdbc.query("""
+                SELECT erp_supplier_id, supplier_name, country_code, supplier_status
+                FROM suppliers
+                ORDER BY supplier_name
+                """, (rs, rowNumber) -> new SupplierOption(
+                rs.getString("erp_supplier_id"), rs.getString("supplier_name"),
+                rs.getString("country_code"), rs.getString("supplier_status")));
+    }
+
+    /** 위와 같은 용도의 자재 목록. 사용 중단(active=false) 자재도 같은 이유로 포함한다. */
+    public List<MaterialOption> listMaterialOptions() {
+        return jdbc.query("""
+                SELECT erp_material_id, material_name, material_category, active
+                FROM materials
+                ORDER BY material_name
+                """, (rs, rowNumber) -> new MaterialOption(
+                rs.getString("erp_material_id"), rs.getString("material_name"),
+                rs.getString("material_category"), rs.getBoolean("active")));
+    }
+
+    public record SupplierOption(
+            String erpSupplierId, String supplierName, String countryCode, String supplierStatus) {}
+
+    public record MaterialOption(
+            String erpMaterialId, String materialName, String materialCategory, boolean active) {}
+
     public Optional<Long> resolveWarehouseId(String erpWarehouseId) {
         return resolveId("warehouses", "warehouse_id", "erp_warehouse_id", erpWarehouseId);
     }

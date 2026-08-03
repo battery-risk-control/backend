@@ -6,6 +6,7 @@ import com.example.batteryrisk.service.ContractUploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -31,6 +32,15 @@ public class ContractUploadController {
 
     public ContractUploadController(ContractUploadService service) {
         this.service = service;
+    }
+
+    @Operation(
+            summary = "계약서 업로드 대상 선택지",
+            description = "공급사·자재 드롭다운을 채웁니다. 계약이 아직 없는 조합도 고를 수 있어야 "
+                    + "신규 계약서를 등록할 수 있으므로, 계약 목록이 아니라 공급사·자재 원본을 줍니다.")
+    @GetMapping("/options")
+    public ApiResponse<ContractUploadDto.UploadOptions> options() {
+        return ApiResponse.ok(service.options());
     }
 
     @Operation(
