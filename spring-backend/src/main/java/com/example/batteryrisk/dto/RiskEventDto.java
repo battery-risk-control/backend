@@ -115,6 +115,17 @@ public final class RiskEventDto {
      */
     public record NewsFeedItem(
             String riskEventId,
+
+            /*
+             * 이 기사를 담고 있는 수집 이벤트(raw_events.id). riskEventId와 따로 두는 이유:
+             * riskEventId는 분석이 붙으면 분석 UUID, 아니면 "RAW-{id}"라서 분석이 붙은 기사에서는
+             * 원본 이벤트 id를 되찾을 수 없었다. 그런데 화면의 "이 기사로 브리핑 생성"과
+             * 리스크 모니터링의 사전 선택(?eventId=)은 둘 다 이 숫자를 요구한다 — 그래서 클릭한
+             * 기사가 다음 화면에서 선택되지 않고 목록만 열렸다. 값은 처음부터 손에 있었고
+             * 응답에서 버려지고 있었을 뿐이다.
+             */
+            @Schema(example = "923", description = "수집 이벤트 id. 브리핑 생성·리스크 모니터링 선택에 쓴다.")
+            Long eventId,
             @Schema(example = "2026-07-29", description = "수집일(Asia/Seoul)") String date,
             @Schema(description = "수집 시각(UTC). 마퀴의 \"3분 전\" 표기용 — date는 일 단위라 부족하다.")
             Instant collectedAt,

@@ -644,6 +644,7 @@ public class RiskEventService {
         boolean translated = translatedTitle != null && !translatedTitle.isBlank();
         return new NewsFeedItem(
                 analysis != null ? analysis.getAnalysisId().toString() : "RAW-" + event.getId(),
+                event.getId(),
                 LocalDate.ofInstant(event.getCollectedAt(), DISPLAY_ZONE).toString(),
                 event.getCollectedAt(),
                 material,
@@ -712,6 +713,9 @@ public class RiskEventService {
         String summary = event.marketContext().eventSummary();
         return new NewsFeedItem(
                 event.riskEventId(),
+                // placeholder는 수집 원본이 없어 실제 이벤트 id가 없다. 화면은 이 값이 없으면
+                // 브리핑 생성 버튼을 감춘다 — 지어낸 id를 넣으면 눌렀을 때 404가 난다.
+                null,
                 date,
                 LocalDate.parse(date).atStartOfDay(DISPLAY_ZONE).toInstant(),
                 event.marketContext().material(),
