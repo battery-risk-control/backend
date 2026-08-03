@@ -27,12 +27,14 @@ import static org.mockito.Mockito.when;
  * {@code mock}/{@code confidence}로, 속보는 파이프라인 도달 단계로 판정하던 시기가 있어
  * "리튬 [주의] [참고]"처럼 멀티에이전트를 안 거쳤는데 등급이 붙는 조합이 화면에 떴다.
  *
- * <p>판정 규칙(둘 공통):
- * <ul>
- *   <li><b>확정</b> — 멀티에이전트 종합 등급이 있는 분석. 등급도 그 값을 쓴다.</li>
- *   <li><b>경고</b> — 외부신호 점수가 기준(67) 이상이지만 멀티에이전트 미완.</li>
- *   <li><b>참고</b> — 그 외.</li>
- * </ul>
+ * <p><b>2026-08-03에 지도의 모집단이 좁아졌다.</b> 이제 지도에는 <b>완결 NEWS 사건</b>만 오른다
+ * ({@code NewsEventSql}). 그래서 등급은 항상 그 뉴스의 완결 브리핑에서 오고, 신뢰도 배지는
+ * 항상 "확정"이다 — 외부신호(severity)로 등급을 채우던 폴백과 그때 붙던 "경고"·"참고" 배지는
+ * 지도에서 사라졌다. 그쪽 판정 자체는 없어진 게 아니라 리스크 모니터링 화면에 남아 있고,
+ * {@code newsConfidenceLabel}의 회귀는 뉴스 속보 테스트가 계속 지킨다.
+ *
+ * <p>모집단을 좁힌 이유는 화면 간 숫자가 갈렸기 때문이다 — 같은 시점에 지도는 주의 3건,
+ * 주요 알림은 2건을 보여줬다. 지도만 {@code (국가, 자재)}로 접고 목록은 제목으로 접은 탓이다.
  */
 class RiskBoardGradingTest {
     private AnalysisRepository analysisRepository;
@@ -58,19 +60,16 @@ class RiskBoardGradingTest {
                 aiBriefingRepository);
     }
 
-    /** 멀티에이전트 종합 등급이 있으면 그 값이 등급이 되고 배지는 "확정"이다. */
+    /** 완결 브리핑의 종합 등급이 곧 마커의 등급이고, 배지는 "확정"이다. */
     @Test
-    void multiAgentResultDrivesGradeAndMarksConfirmed() {
+    void completedNewsBriefingDrivesGradeAndMarksConfirmed() {
         Analysis analysis = completed("CL", "LITHIUM", "NORMAL", 10.0);
-        stub(analysis);
-        // 외부신호는 NORMAL인데 멀티에이전트는 CRITICAL — 멀티에이전트가 이겨야 한다.
+        // 외부신호는 NORMAL인데 브리핑은 CRITICAL — 브리핑이 이겨야 한다.
         //
-        // 등급의 출처는 **이 뉴스의 완결된 브리핑**이다(2026-08-03). 종합 평가만 보면 계약·자재
-        // 화면이 이 뉴스를 외부신호로 끌어다 쓴 실행까지 뉴스 등급으로 둔갑한다.
-        when(aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(any()))
-                .thenReturn(Map.of(
-                        analysis.getAnalysisId(),
-                        new AiBriefingRepository.NewsBriefingRef(UUID.randomUUID(), "CRITICAL")));
+        // 등급의 출처는 **이 뉴스의 완결된 브리핑**이다. 종합 평가만 보면 계약·자재 화면이 이
+        // 뉴스를 외부신호로 끌어다 쓴 실행까지 뉴스 등급으로 둔갑한다.
+        stub(analysis);
+        stubBriefings(Map.of(analysis.getAnalysisId(), ref("CRITICAL")));
 
         RiskBoardItem item = service.riskBoard().get(0);
 
@@ -79,59 +78,50 @@ class RiskBoardGradingTest {
     }
 
     /**
-     * 멀티에이전트 미완이면 외부신호 등급으로 마커를 그리되 배지는 "경고"다.
-     * 마커는 색이 있어야 그려지므로 등급 자체는 비울 수 없고, 검증 수준은 배지가 말한다.
+     * 외부신호 점수가 아무리 높아도 완결 브리핑이 없으면 마커를 그리지 않는다.
+     *
+     * <p>예전에는 여기서 severity로 등급을 채우고 배지만 "경고"로 낮췄다. 그 폴백 때문에 지도에는
+     * 뜨는데 목록·알림에는 없는 사건이 생겼다 — 두 화면이 같은 것을 세지 않게 된 원인이다.
      */
     @Test
-    void externalSignalAboveThresholdIsMarkedWarning() {
+    void analysisWithoutCompletedNewsBriefingIsNotShown() {
         stub(completed("CL", "LITHIUM", "CRITICAL", 85.0));
 
-        RiskBoardItem item = service.riskBoard().get(0);
-
-        assertThat(item.grade()).isEqualTo("심각");
-        assertThat(item.confidenceLabel()).isEqualTo("경고");
+        // 마커가 하나도 없으면 공개 화면이 빈 지도가 되지 않도록 placeholder로 폴백한다.
+        assertThat(service.riskBoard())
+                .isNotEmpty()
+                .allSatisfy(item -> assertThat(item.riskEventId()).startsWith("RISK-"));
     }
 
-    /** 기준(67) 미만이면 "참고" — 점수가 있어도 근거가 약하다. */
+    /**
+     * 같은 분석이 후보에 두 번 들어와도 마커는 하나다.
+     *
+     * <p>사건 중복 제거는 공통 사건 키로 SQL이 하지만, 한 분석에 수집 이벤트가 둘 이상 붙으면
+     * 조인 결과가 늘어날 수 있어 서비스에도 방어선을 둔다.
+     */
     @Test
-    void externalSignalBelowThresholdIsMarkedReference() {
-        stub(completed("CL", "LITHIUM", "NORMAL", 54.1));
-
-        RiskBoardItem item = service.riskBoard().get(0);
-
-        assertThat(item.grade()).isEqualTo("정상");
-        assertThat(item.confidenceLabel()).isEqualTo("참고");
-    }
-
-    /** 점수가 아예 없으면 "참고". */
-    @Test
-    void analysisWithoutAnyScoreIsMarkedReference() {
-        stub(completed("CL", "LITHIUM", "NORMAL", null));
-
-        assertThat(service.riskBoard().get(0).confidenceLabel()).isEqualTo("참고");
-    }
-
-    /** 같은 (국가, 자재)는 한 마커로 접는다 — 같은 좌표에 겹쳐 찍히면 지도를 읽을 수 없다. */
-    @Test
-    void collapsesDuplicateCountryMaterialPairsIntoOneMarker() {
-        stub(
-                completed("CL", "LITHIUM", "CRITICAL", 85.0),
-                completed("CL", "LITHIUM", "NORMAL", 10.0),
-                completed("AU", "LITHIUM", "NORMAL", 10.0));
+    void collapsesRepeatedAnalysisIntoOneMarker() {
+        Analysis chile = completed("CL", "LITHIUM", "CRITICAL", 85.0);
+        Analysis australia = completed("AU", "LITHIUM", "NORMAL", 10.0);
+        stub(chile, chile, australia);
+        stubBriefings(Map.of(
+                chile.getAnalysisId(), ref("CRITICAL"),
+                australia.getAnalysisId(), ref("WARNING")));
 
         List<RiskBoardItem> board = service.riskBoard();
 
         assertThat(board).hasSize(2);
-        assertThat(board).extracting(RiskBoardItem::countryName)
-                .containsExactly("칠레", "호주");
-        // 먼저 온 쪽(최신)이 남는다 — 뒤의 NORMAL이 덮어쓰면 심각이 지도에서 사라진다.
+        assertThat(board).extracting(RiskBoardItem::countryName).containsExactly("칠레", "호주");
         assertThat(board.get(0).grade()).isEqualTo("심각");
+        assertThat(board.get(1).grade()).isEqualTo("주의");
     }
 
     /** 좌표 표에 있는 국가는 마커 좌표가 채워진다(없으면 프론트가 마커에서 제외한다). */
     @Test
     void attachesCoordinatesForKnownCountries() {
-        stub(completed("CL", "LITHIUM", "NORMAL", 10.0));
+        Analysis analysis = completed("CL", "LITHIUM", "NORMAL", 10.0);
+        stub(analysis);
+        stubBriefings(Map.of(analysis.getAnalysisId(), ref("WARNING")));
 
         RiskBoardItem item = service.riskBoard().get(0);
 
@@ -140,8 +130,32 @@ class RiskBoardGradingTest {
         assertThat(item.material()).isEqualTo("리튬");
     }
 
+    /** 브리핑 id는 확정과 항상 짝을 이룬다 — 확정인데 null이면 화면이 브리핑을 열 수 없다. */
+    @Test
+    void confirmedMarkerCarriesBriefingId() {
+        Analysis analysis = completed("CL", "LITHIUM", "NORMAL", 10.0);
+        UUID briefingId = UUID.randomUUID();
+        stub(analysis);
+        stubBriefings(Map.of(
+                analysis.getAnalysisId(),
+                new AiBriefingRepository.NewsBriefingRef(briefingId, "WARNING")));
+
+        RiskBoardItem item = service.riskBoard().get(0);
+
+        assertThat(item.confidenceLabel()).isEqualTo("확정");
+        assertThat(item.briefingId()).isEqualTo(briefingId);
+    }
+
     private void stub(Analysis... analyses) {
         when(analysisRepository.findRiskBoardCandidates(any())).thenReturn(List.of(analyses));
+    }
+
+    private void stubBriefings(Map<UUID, AiBriefingRepository.NewsBriefingRef> briefings) {
+        when(aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(any())).thenReturn(briefings);
+    }
+
+    private static AiBriefingRepository.NewsBriefingRef ref(String riskLevel) {
+        return new AiBriefingRepository.NewsBriefingRef(UUID.randomUUID(), riskLevel);
     }
 
     private static Analysis completed(

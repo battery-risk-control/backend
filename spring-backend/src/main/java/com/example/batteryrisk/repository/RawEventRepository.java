@@ -33,26 +33,33 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
      * <p>자재가 특정되지 않은 기사는 제외한다({@code material_category IS NOT NULL}). 구매팀
      * 화면에 정치·사건사고 기사가 올라오면 목록이 쓸모없어진다.
      *
-     * <p>중복 제거 키는 {@code lower(trim(title))}이다. 같은 사건이 GDELT에서 여러 번 보고되며
-     * 대소문자·공백만 다른 제목으로 들어온다. 같은 제목 중에서는 최신 수집분을 남긴다.
+     * <p>중복 제거 키는 {@link NewsEventSql#EVENT_KEY 공통 사건 키}다 — 정규화한 원문 제목에
+     * 자재·국가를 더한 값이다. 같은 사건이 GDELT에서 여러 번 보고되며 대소문자·공백만 다른
+     * 제목으로 들어온다. 같은 사건 중에서는 최신 수집분을 남긴다.
+     *
+     * <p>지도가 쓰는 키와 <b>같은 것</b>이라는 점이 중요하다. 예전에는 여기가 제목만 보고 지도는
+     * {@code (국가, 자재)}로 접어서, 같은 시점에 지도가 주의 3건 · 주요 알림이 2건을 보여줬다
+     * (실측 2026-08-03). 주요 알림은 이 목록에서 파생되므로 여기를 맞추면 함께 맞는다.
      */
     @Query(nativeQuery = true, value = """
             WITH candidates AS (
-                SELECT r.*, a.material_category
+                SELECT r.*, an.material_category,
+            """ + NewsEventSql.EVENT_KEY + """
+                       AS event_key
                 FROM raw_events r
-                JOIN analyses a ON a.analysis_id = r.triggered_analysis_id
+                JOIN analyses an ON an.analysis_id = r.triggered_analysis_id
                 WHERE r.data_type = 'NEWS'
                   AND r.title IS NOT NULL
                   AND r.collected_at >= :since
-                  AND a.material_category IS NOT NULL
+                  AND an.material_category IS NOT NULL
                   AND (CAST(:country AS VARCHAR) IS NULL OR r.country_code = CAST(:country AS VARCHAR))
                   AND (CAST(:materialCategory AS VARCHAR) IS NULL
-                       OR a.material_category = CAST(:materialCategory AS VARCHAR))
+                       OR an.material_category = CAST(:materialCategory AS VARCHAR))
             ),
             deduped AS (
-                SELECT DISTINCT ON (lower(trim(title))) *
+                SELECT DISTINCT ON (event_key) *
                 FROM candidates
-                ORDER BY lower(trim(title)), collected_at DESC
+                ORDER BY event_key, collected_at DESC
             )
             SELECT * FROM deduped
             ORDER BY collected_at DESC

@@ -14,42 +14,36 @@ public interface AnalysisRepository extends JpaRepository<Analysis, UUID> {
     List<Analysis> findBySeverityAndCompletedAtGreaterThanEqual(String severity, Instant since);
 
     /**
-     * 공개 리스크 관제 지도(Seq 23)에 올릴 후보 분석입니다.
+     * 공개 리스크 관제 지도(Seq 23)에 올릴 <b>완결 NEWS 사건</b>. 사건당 1건이다.
      *
-     * <p>지도 마커를 그리려면 등급(severity)·국가(countryCode)·자재(materialCategory)가 모두 있어야 하므로
-     * 하나라도 비면 제외한다. 최신순 정렬은 RiskEventService가 (국가, 자재) 조합별로 가장 최근 1건만
-     * 남기는 중복 제거에 쓰인다 — 같은 뉴스를 반복 분석하면 마커가 같은 좌표에 겹쳐 찍히기 때문이다.
+     * <p>기준과 중복 제거 키는 {@link NewsEventSql}에 한 벌로 정의돼 있고 주요 알림·리스크 모니터링
+     * 목록도 같은 것을 쓴다. 예전에는 지도만 {@code (국가, 자재)}로 접고 목록은 제목으로 접어서,
+     * 같은 시점에 지도는 주의 3건 · 알림은 2건을 보여줬다(실측 2026-08-03).
      *
-     * <p>등급 필터를 명시한다 — {@code materialCategory}가
-     * {@link com.example.batteryrisk.domain.Analysis#attachMaterialCategory}로 등급과 무관하게
-     * 항상 채워지게 되면서, {@code materialCategory IS NOT NULL}이 우연히 겸하고 있던 등급 필터
-     * 역할이 사라졌다. 이걸 명시하지 않으면 NORMAL 이벤트까지 지도에 올라와 마커 상한
-     * ({@code RISK_BOARD_MAX_MARKERS})을 정상 이벤트가 먼저 채워 심각 이벤트를 밀어낸다.
+     * <p><b>등급은 그 뉴스의 완결 브리핑에서만 온다.</b> 예전에는 외부신호 등급(severity)이나
+     * {@code procurement_risk_assessments}의 아무 행이나 통과시켰는데, 후자에는 계약·자재 화면이
+     * 같은 뉴스를 외부신호로 끌어다 쓰면서 남긴 평가가 섞여 있다. 그 등급으로 마커를 칠하면
+     * 같은 기사가 화면마다 다른 색으로 찍힌다.
      *
-     * <p><b>두 축을 모두 본다.</b> 외부신호 등급(severity)만 보면 멀티에이전트가 종합해서
-     * 주의·심각으로 올린 사건이 지도에서 통째로 사라진다 —
-     * {@link com.example.batteryrisk.service.RiskEventService#riskBoard}는 멀티에이전트 등급을
-     * 우선 쓰도록 짜여 있는데, 그 코드에 닿기 전에 여기서 잘려나갔다(실측: 외부신호 NORMAL ·
-     * 멀티에이전트 WARNING 조합 3건이 그렇게 누락됐다). ERP·계약까지 거친 종합 등급이 오히려
-     * 더 확정적인 판단이라 이쪽을 버리면 안 된다.
+     * <p>등급 필터를 명시하는 이유는 그대로다 — 정상 사건까지 올라오면 마커 상한
+     * ({@code RISK_BOARD_MAX_MARKERS})을 먼저 채워 심각 사건을 밀어낸다.
      *
-     * <p>{@code procurement_risk_assessments}는 JPA 엔티티가 아니라 JdbcTemplate으로만 다루므로
-     * JPQL에서 조인할 수 없다. 그래서 네이티브 쿼리로 바꿨다.
+     * <p>{@code material_category IS NOT NULL}은 목록과 같은 조건이다. GDELT 트리아지가 생산국
+     * 기준으로 통과시킨 공급망 무관 기사가 마커로 올라오는 것을 막는다.
+     *
+     * <p>{@code ai_briefings}·{@code raw_events}는 JPA 엔티티가 아니라 JdbcTemplate으로만 다루므로
+     * JPQL에서 조인할 수 없다. 그래서 네이티브 쿼리다.
      */
-    @Query(nativeQuery = true, value = """
+    @Query(nativeQuery = true, value = "WITH "
+            + NewsEventSql.COMPLETED_NEWS_CTE + ",\n"
+            + NewsEventSql.DEDUPED_NEWS_EVENTS_CTE + "\n"
+            + """
             SELECT a.* FROM analyses a
-            WHERE a.status = 'COMPLETED'
-              AND a.country_code IS NOT NULL
-              AND a.material_category IS NOT NULL
-              AND (
-                    a.severity IN ('CRITICAL', 'WARNING')
-                 OR EXISTS (
-                        SELECT 1 FROM procurement_risk_assessments p
-                        WHERE p.analysis_id = a.analysis_id
-                          AND p.procurement_risk_level IN ('CRITICAL', 'WARNING')
-                    )
-              )
-            ORDER BY a.created_at DESC
+            JOIN news_events e ON e.analysis_id = a.analysis_id
+            WHERE a.country_code IS NOT NULL
+              AND e.material_category IS NOT NULL
+              AND e.procurement_risk_level IN ('CRITICAL', 'WARNING')
+            ORDER BY e.collected_at DESC
             """)
     List<Analysis> findRiskBoardCandidates(Pageable pageable);
 

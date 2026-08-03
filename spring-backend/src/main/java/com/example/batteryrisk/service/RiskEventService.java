@@ -389,8 +389,9 @@ public class RiskEventService {
      * 비로그인 공개 지도용 안전 subset. erp_view/quality_check/rag_view/output_artifacts는 제외하고
      * 지도 마커에 필요한 등급·신뢰도·국가·좌표만 내려준다.
      *
-     * <p>완료된 실제 분석({@code analyses})을 최신순으로 읽어 <b>(국가, 자재) 조합당 1건</b>만 남긴다.
-     * 같은 뉴스를 반복 분석하면 동일 좌표에 마커가 겹쳐 찍혀 지도를 읽을 수 없기 때문이다.
+     * <p><b>사건당 1건</b>이다. 접는 규칙은 {@code NewsEventSql}에 있고 주요 알림·리스크 모니터링
+     * 목록도 같은 것을 쓴다 — 지도만 {@code (국가, 자재)}로 접던 때는 같은 시점에 지도가 주의 3건,
+     * 알림이 2건을 보여줬다(실측 2026-08-03).
      *
      * <p>실데이터가 0건이면 placeholder로 폴백한다 — 공개 화면이라 빈 지도보다 계약 형태가 살아 있는 화면을
      * 유지하는 편이 낫고, 시연 도중 DB가 비어도 화면이 깨지지 않는다.
@@ -399,11 +400,6 @@ public class RiskEventService {
         List<Analysis> candidates =
                 analysisRepository.findRiskBoardCandidates(PageRequest.of(0, RISK_BOARD_SCAN_SIZE));
 
-        // 뉴스 속보와 같은 두 축을 붙인다 — 지도와 속보가 같은 뉴스를 다른 등급·다른 신뢰도로
-        // 부르면 화면끼리 모순된다.
-        Map<UUID, String> riskLevelsByAnalysisId = procurementRiskRepository
-                .findLatestRiskLevelsByAnalysisIds(
-                        candidates.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()));
         Map<UUID, String> koreanTitles = loadKoreanTitles(candidates);
         // 지도는 analyses에서 출발하므로 수집 이벤트 id가 없다. 같은 조회로 함께 뽑아 둔다 —
         // 화면이 "이 기사로 브리핑 생성"을 누를 때 필요한 값이라 속보와 같은 걸 실어 줘야 한다.
@@ -414,39 +410,41 @@ public class RiskEventService {
                 aiBriefingRepository.findCompletedNewsBriefingsByAnalysisIds(
                         candidates.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()));
 
-        Map<String, RiskBoardItem> markers = new LinkedHashMap<>();
+        // 자재 미상 분석과 사건 중복은 findRiskBoardCandidates가 이미 걸러준다. 자재 필터가 없으면
+        // GDELT 트리아지가 생산국 기준으로 통과시킨 공급망 무관 기사가 마커로 올라온다 — 실측에서
+        // 국가가 붙은 19건 중 13건이 자재 미상이었고 그중 11건은 NOT_RELEVANT였다
+        // ("Colonel Sanders' bow tie" 같은 기사).
+        Map<UUID, RiskBoardItem> markers = new LinkedHashMap<>();
         for (Analysis analysis : candidates) {
-            // 자재 미상 분석은 findRiskBoardCandidates가 이미 걸러준다(materialCategory IS NOT NULL).
-            // 이 필터가 없으면 GDELT 트리아지가 생산국 기준으로 통과시킨 공급망 무관 기사가 마커로
-            // 올라온다 — 실측에서 국가가 붙은 19건 중 13건이 자재 미상이었고 그중 11건은
-            // NOT_RELEVANT("Colonel Sanders' bow tie" 같은 기사)였다.
+            // 뉴스 등급은 그 뉴스의 완결 브리핑에서만 온다. 계약 브리핑이 만든 종합등급이 뉴스 등급을
+            // 덮어쓰면 같은 기사가 화면마다 다른 색으로 찍힌다.
             AiBriefingRepository.NewsBriefingRef newsBriefing =
                     newsBriefings.get(analysis.getAnalysisId());
-            // 뉴스 등급은 그 뉴스의 브리핑에서만 온다. 계약 브리핑이 만든 종합등급이 뉴스 등급을
-            // 덮어쓰면 같은 기사가 화면마다 다른 색으로 찍힌다.
-            String riskLevel = newsBriefing == null ? null : newsBriefing.procurementRiskLevel();
-            // 마커는 색이 있어야 그려지므로 등급이 반드시 필요하다. 멀티에이전트 종합 등급이
-            // 있으면 그것을, 아직 없으면 외부신호(severity) 등급을 쓴다. "어디까지 검증된 값인가"는
-            // 등급이 아니라 신뢰도 배지(확정/경고/참고)가 말해준다.
-            String grade = gradeOf(riskLevel != null ? riskLevel : analysis.getSeverity());
+            if (newsBriefing == null) {
+                // 후보 자체가 완결 NEWS 브리핑에서 나왔으므로 여기서 비면 두 조회의 기준이 어긋난
+                // 것이다. 조용히 넘기면 지도에서 사건이 사라지는 것으로만 보이므로 남긴다.
+                log.warn("완결 NEWS 사건으로 뽑힌 분석에 브리핑이 없습니다. analysisId={}",
+                        analysis.getAnalysisId());
+                continue;
+            }
+            String grade = gradeOf(newsBriefing.procurementRiskLevel());
             if (grade == null) {
                 continue;
             }
-            String key = analysis.getCountryCode() + "|" + analysis.getMaterialCategory();
-            if (markers.containsKey(key)) {
+            if (markers.containsKey(analysis.getAnalysisId())) {
                 continue;
             }
             if (markers.size() >= RISK_BOARD_MAX_MARKERS) {
                 log.debug("공개 리스크 보드 마커 상한({})에 도달해 이후 후보를 생략합니다.", RISK_BOARD_MAX_MARKERS);
                 break;
             }
-            markers.put(key, toBoardItem(
+            markers.put(analysis.getAnalysisId(), toBoardItem(
                     analysis, grade,
-                    newsConfidenceLabel(analysis, newsBriefing != null),
+                    newsConfidenceLabel(analysis, true),
                     koreanTitles.get(analysis.getAnalysisId()),
                     eventIds.get(analysis.getAnalysisId()),
-                    riskLevel,
-                    newsBriefing == null ? null : newsBriefing.briefingId()));
+                    newsBriefing.procurementRiskLevel(),
+                    newsBriefing.briefingId()));
         }
 
         if (markers.isEmpty()) {
