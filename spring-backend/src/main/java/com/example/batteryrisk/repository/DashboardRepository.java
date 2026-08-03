@@ -242,22 +242,43 @@ public class DashboardRepository {
      *
      * <p>요약 조회와 쿼리를 나눈 이유는 1:N 조인 결과를 한 번에 매핑하면 집계 행이 뉴스 수만큼
      * 복제돼 평균이 어긋나기 때문이다. 대분류 7개 × 최대 3건이라 두 번째 조회는 21행이 상한이다.
+     *
+     * <p><b>뉴스당 1건으로 접는다.</b> 이 자리는 평가 이력이 아니라 "지금 무슨 일이 벌어지고
+     * 있는가"를 보여주는 이슈 목록이다. 같은 뉴스는 자동 트리거·스케줄러·수동 실행으로 여러 번
+     * 평가되므로 평가 행을 그대로 뽑으면 같은 제목이 3줄로 채워져 다른 이슈를 밀어낸다
+     * (실측: 리튬의 "lithium mine halt in Chile" 한 건이 48.0점 평가 5행으로 쌓여 상위 3칸을
+     * 전부 차지했다). 뉴스 안에서는 점수가 높고 최신인 평가를 남긴다.
+     *
+     * <p>접는 키는 <b>표시되는 제목</b>이다. {@code analysis_id}로 접으면 부족하다 — 같은 기사가
+     * 여러 번 재분석되면 {@code analyses} 행 자체가 따로 생기고, 실측에서도 리튬 5개 평가가
+     * 서로 다른 분석 3건에서 나왔다(제목은 전부 같다). 화면에서 같아 보이는 것이 곧 중복이므로
+     * 렌더링에 쓰는 값을 그대로 키로 삼는 게 정확하다. 제목이 없는 행은 서로 합쳐지지 않도록
+     * {@code assessment_id}로 떨어진다.
      */
     public List<DashboardDto.MaterialRiskNewsItem> findMaterialRiskTopNews(String materialCategory) {
         return jdbc.query("""
-                SELECT p.assessment_id, p.procurement_risk_score, p.procurement_risk_level,
-                       p.assessed_at,
-                       COALESCE(r.title_ko, an.event_title) AS title
-                FROM procurement_risk_assessments p
-                LEFT JOIN analyses an ON an.analysis_id = p.analysis_id
-                LEFT JOIN raw_events r ON r.triggered_analysis_id = p.analysis_id
-                WHERE p.material_category = :materialCategory
-                  AND p.procurement_risk_score IS NOT NULL
-                  AND NOT EXISTS (
-                      SELECT 1 FROM procurement_risk_acknowledgements a
-                      WHERE a.assessment_id = p.assessment_id
-                  )
-                ORDER BY p.procurement_risk_score DESC, p.created_at DESC
+                WITH per_news AS (
+                    SELECT DISTINCT ON (
+                               COALESCE(r.title_ko, an.event_title, p.assessment_id::TEXT))
+                           p.assessment_id, p.procurement_risk_score, p.procurement_risk_level,
+                           p.assessed_at, p.created_at,
+                           COALESCE(r.title_ko, an.event_title) AS title
+                    FROM procurement_risk_assessments p
+                    LEFT JOIN analyses an ON an.analysis_id = p.analysis_id
+                    LEFT JOIN raw_events r ON r.triggered_analysis_id = p.analysis_id
+                    WHERE p.material_category = :materialCategory
+                      AND p.procurement_risk_score IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM procurement_risk_acknowledgements a
+                          WHERE a.assessment_id = p.assessment_id
+                      )
+                    ORDER BY COALESCE(r.title_ko, an.event_title, p.assessment_id::TEXT),
+                             p.procurement_risk_score DESC, p.created_at DESC
+                )
+                SELECT assessment_id, procurement_risk_score, procurement_risk_level,
+                       assessed_at, title
+                FROM per_news
+                ORDER BY procurement_risk_score DESC, created_at DESC
                 LIMIT 3
                 """,
                 new MapSqlParameterSource().addValue("materialCategory", materialCategory),
