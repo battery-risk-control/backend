@@ -329,6 +329,106 @@ public class ErpAdminService {
         return response("material_consumptions", erpId, id, true);
     }
 
+    /**
+     * 재고 스냅샷 이력 적재(데이터 관리 화면의 CSV 일괄 반영). 바로 위 {@link
+     * #upsertInventorySnapshot}과 달리 파일이 가진 스냅샷 ID·시각·현재여부를 그대로 넣는다 —
+     * 이유는 {@link ErpAdminDto.InventorySnapshotImportRequest} 주석 참고.
+     *
+     * <p>kg_service 동기화는 부르지 않는다. 일괄 적재는 한 번에 수백 행이 들어오는데 행마다 KG를
+     * 때리면 적재가 그 왕복에 묶이고, 어차피 KG가 필요로 하는 건 "최종 상태 한 번"이다. 시드
+     * 경로(ErpSeedConfig)도 같은 이유로 KG를 부르지 않는다.
+     */
+    @Transactional
+    public ErpAdminDto.UpsertResponse importInventorySnapshot(
+            ErpAdminDto.InventorySnapshotImportRequest request) {
+        boolean existed = single("SELECT inventory_snapshot_id FROM inventory_snapshots"
+                + " WHERE erp_inventory_snapshot_id = :erpId", request.erpInventorySnapshotId()) != null;
+        long materialId = requireFk(repository.resolveMaterialId(request.erpMaterialId()),
+                ErrorCode.ERP_MATERIAL_NOT_FOUND);
+        long warehouseId = requireFk(repository.resolveWarehouseId(request.erpWarehouseId()),
+                ErrorCode.ERP_WAREHOUSE_NOT_FOUND);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("erpId", request.erpInventorySnapshotId())
+                .addValue("materialId", materialId)
+                .addValue("warehouseId", warehouseId)
+                .addValue("onHand", request.onHandQuantity())
+                .addValue("reserved", request.reservedQuantity())
+                .addValue("blocked", request.blockedQuantity())
+                .addValue("qualityHold", request.qualityHoldQuantity())
+                .addValue("safetyStock", request.safetyStockQuantity())
+                .addValue("snapshotAt", request.snapshotAt())
+                .addValue("isCurrent", request.isCurrent())
+                .addValue("sourceUnit", request.sourceUnit())
+                .addValue("normalizedUnit", request.normalizedUnit())
+                .addValue("dataQualityFlag", request.dataQualityFlag());
+        jdbc.update("""
+                INSERT INTO inventory_snapshots (
+                    erp_inventory_snapshot_id, material_id, warehouse_id, on_hand_quantity,
+                    reserved_quantity, blocked_quantity, quality_hold_quantity, safety_stock_quantity,
+                    snapshot_at, is_current, source_unit, normalized_unit, data_quality_flag
+                ) VALUES (
+                    :erpId, :materialId, :warehouseId, :onHand,
+                    :reserved, :blocked, :qualityHold, :safetyStock,
+                    :snapshotAt, :isCurrent, :sourceUnit, :normalizedUnit, :dataQualityFlag
+                )
+                ON CONFLICT (erp_inventory_snapshot_id) DO UPDATE SET
+                    material_id = EXCLUDED.material_id,
+                    warehouse_id = EXCLUDED.warehouse_id,
+                    on_hand_quantity = EXCLUDED.on_hand_quantity,
+                    reserved_quantity = EXCLUDED.reserved_quantity,
+                    blocked_quantity = EXCLUDED.blocked_quantity,
+                    quality_hold_quantity = EXCLUDED.quality_hold_quantity,
+                    safety_stock_quantity = EXCLUDED.safety_stock_quantity,
+                    snapshot_at = EXCLUDED.snapshot_at,
+                    is_current = EXCLUDED.is_current,
+                    source_unit = EXCLUDED.source_unit,
+                    normalized_unit = EXCLUDED.normalized_unit,
+                    data_quality_flag = EXCLUDED.data_quality_flag
+                """, params);
+        Long id = single("SELECT inventory_snapshot_id FROM inventory_snapshots"
+                + " WHERE erp_inventory_snapshot_id = :erpId", request.erpInventorySnapshotId());
+        return response("inventory_snapshots", request.erpInventorySnapshotId(), id, !existed);
+    }
+
+    /** {@link #importInventorySnapshot}과 같은 이유·같은 패턴, 소비량 이력 전용. */
+    @Transactional
+    public ErpAdminDto.UpsertResponse importMaterialConsumption(
+            ErpAdminDto.MaterialConsumptionImportRequest request) {
+        boolean existed = single("SELECT consumption_id FROM material_consumptions"
+                + " WHERE erp_consumption_id = :erpId", request.erpConsumptionId()) != null;
+        long materialId = requireFk(repository.resolveMaterialId(request.erpMaterialId()),
+                ErrorCode.ERP_MATERIAL_NOT_FOUND);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("erpId", request.erpConsumptionId())
+                .addValue("materialId", materialId)
+                .addValue("plantCode", request.plantCode())
+                .addValue("averageDailyUsage", request.averageDailyUsage())
+                .addValue("calculationWindowDays", request.calculationWindowDays())
+                .addValue("calculatedAt", request.calculatedAt())
+                .addValue("isCurrent", request.isCurrent())
+                .addValue("dataQualityFlag", request.dataQualityFlag());
+        jdbc.update("""
+                INSERT INTO material_consumptions (
+                    erp_consumption_id, material_id, plant_code, average_daily_usage,
+                    calculation_window_days, calculated_at, is_current, data_quality_flag
+                ) VALUES (
+                    :erpId, :materialId, :plantCode, :averageDailyUsage,
+                    :calculationWindowDays, :calculatedAt, :isCurrent, :dataQualityFlag
+                )
+                ON CONFLICT (erp_consumption_id) DO UPDATE SET
+                    material_id = EXCLUDED.material_id,
+                    plant_code = EXCLUDED.plant_code,
+                    average_daily_usage = EXCLUDED.average_daily_usage,
+                    calculation_window_days = EXCLUDED.calculation_window_days,
+                    calculated_at = EXCLUDED.calculated_at,
+                    is_current = EXCLUDED.is_current,
+                    data_quality_flag = EXCLUDED.data_quality_flag
+                """, params);
+        Long id = single("SELECT consumption_id FROM material_consumptions"
+                + " WHERE erp_consumption_id = :erpId", request.erpConsumptionId());
+        return response("material_consumptions", request.erpConsumptionId(), id, !existed);
+    }
+
     @Transactional
     public ErpAdminDto.UpsertResponse upsertPurchaseOrder(ErpAdminDto.PurchaseOrderUpsertRequest request) {
         boolean existed = repository.resolvePurchaseOrderId(request.erpPurchaseOrderId()).isPresent();

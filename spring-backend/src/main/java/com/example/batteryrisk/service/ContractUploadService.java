@@ -43,6 +43,11 @@ import java.util.Optional;
 @Service
 public class ContractUploadService {
     private static final Logger log = LoggerFactory.getLogger(ContractUploadService.class);
+    /**
+     * 미리보기 응답에 실어 보낼 원문 길이 상한. 계약서 전문은 수만 자라 그대로 실으면 응답이
+     * 비대해지는데, 화면은 "무엇이 읽혔는지" 확인용으로 앞부분만 보여주면 된다.
+     */
+    private static final int TEXT_PREVIEW_LIMIT = 2000;
 
     private final RestClient fastApiRestClient;
     private final RestClient kgServiceRestClient;
@@ -85,7 +90,11 @@ public class ContractUploadService {
                 existing.map(ErpRepository.ContractRef::erpContractId).orElse(null),
                 expectedNewId,
                 fields.contractNumber(), fields.contractName(),
-                fields.effectiveDate(), fields.expirationDate());
+                fields.effectiveDate(), fields.expirationDate(),
+                file.getOriginalFilename(), file.getSize(),
+                text.length(),
+                text.length() > TEXT_PREVIEW_LIMIT ? text.substring(0, TEXT_PREVIEW_LIMIT) : text,
+                !text.isBlank());
     }
 
     /**
