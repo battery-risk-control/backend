@@ -42,7 +42,10 @@ public class ErpRepository {
                     COALESCE(SUM(quality_hold_quantity), 0) AS quality_hold_quantity,
                     COALESCE(SUM(safety_stock_quantity), 0) AS safety_stock_quantity,
                     COUNT(*) AS row_count,
-                    SUM(CASE WHEN data_quality_flag <> 'VALID' THEN 1 ELSE 0 END) AS invalid_count
+                    -- STALE과 INVALID를 나눠 센다. 예전에는 둘을 <> 'VALID' 하나로 묶어
+                    -- 세면서 INVALID 행이 화면에 STALE로 나갔다 — ErpService 참고.
+                    SUM(CASE WHEN data_quality_flag = 'STALE' THEN 1 ELSE 0 END) AS stale_count,
+                    SUM(CASE WHEN data_quality_flag = 'INVALID' THEN 1 ELSE 0 END) AS invalid_count
                 FROM inventory_snapshots
                 WHERE material_id = :materialId
                   AND is_current = TRUE
@@ -54,6 +57,7 @@ public class ErpRepository {
                 rs.getBigDecimal("quality_hold_quantity"),
                 rs.getBigDecimal("safety_stock_quantity"),
                 rs.getInt("row_count"),
+                rs.getInt("stale_count"),
                 rs.getInt("invalid_count")));
     }
 
@@ -66,7 +70,10 @@ public class ErpRepository {
                     SUM(average_daily_usage) AS average_daily_usage,
                     COUNT(*) AS row_count,
                     SUM(CASE WHEN average_daily_usage IS NULL THEN 1 ELSE 0 END) AS missing_usage_count,
-                    SUM(CASE WHEN data_quality_flag <> 'VALID' THEN 1 ELSE 0 END) AS invalid_count
+                    -- MISSING_USAGE는 여기서 세지 않는다 — 바로 위 missing_usage_count가 이미
+                    -- 그 상태를 잡고, 겹쳐 세면 결측이 STALE로도 잡혀 판정이 흐려진다.
+                    SUM(CASE WHEN data_quality_flag = 'STALE' THEN 1 ELSE 0 END) AS stale_count,
+                    SUM(CASE WHEN data_quality_flag = 'INVALID' THEN 1 ELSE 0 END) AS invalid_count
                 FROM material_consumptions
                 WHERE material_id = :materialId
                   AND is_current = TRUE
@@ -75,6 +82,7 @@ public class ErpRepository {
                 rs.getBigDecimal("average_daily_usage"),
                 rs.getInt("row_count"),
                 rs.getInt("missing_usage_count"),
+                rs.getInt("stale_count"),
                 rs.getInt("invalid_count")));
     }
 
@@ -643,6 +651,11 @@ public class ErpRepository {
 
     public record MaterialRow(long materialId, String erpMaterialId, String materialName, String unit) {}
 
+    /**
+     * {@code staleCount}/{@code invalidCount}는 {@code data_quality_flag}를 <b>따로</b> 센 값이다.
+     * 두 상태의 무게가 다르다 — STALE은 점수를 내되 사유를 붙이는 정도지만, INVALID는 FastAPI
+     * Severity 엔진이 채점 자체를 거부한다({@code INVALID_DATA_QUALITY}).
+     */
     public record InventoryRow(
             BigDecimal onHandQuantity,
             BigDecimal reservedQuantity,
@@ -650,6 +663,7 @@ public class ErpRepository {
             BigDecimal qualityHoldQuantity,
             BigDecimal safetyStockQuantity,
             int rowCount,
+            int staleCount,
             int invalidCount
     ) {}
 
@@ -657,6 +671,7 @@ public class ErpRepository {
             BigDecimal averageDailyUsage,
             int rowCount,
             int missingUsageCount,
+            int staleCount,
             int invalidCount
     ) {}
 
