@@ -273,7 +273,8 @@ public class MarketPriceService {
         return points.stream()
                 .map(point -> new MarketPriceDto.PricePoint(
                         point.getPriceDate().toString(),
-                        base == 0 ? 100.0 : Math.round(point.getClosePrice() / base * 1000.0) / 10.0))
+                        base == 0 ? 100.0 : Math.round(point.getClosePrice() / base * 1000.0) / 10.0,
+                        point.getUpdatedAt()))
                 .toList();
     }
 

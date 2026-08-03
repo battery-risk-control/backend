@@ -18,7 +18,16 @@ public final class MarketPriceDto {
 
     public record PricePoint(
             @Schema(example = "2026-07-29") String date,
-            @Schema(example = "103.4", description = "구간 첫 거래일=100 기준 지수") double priceIndex
+            @Schema(example = "103.4", description = "구간 첫 거래일=100 기준 지수") double priceIndex,
+
+            /**
+             * 이 행을 마지막으로 적재한 시각.
+             *
+             * <p>{@code date}는 <b>거래일</b>이라 날짜뿐이다(일봉). 화면이 "언제 갱신된 값인가"를
+             * 표시하려면 시각이 필요한데, 거래일에 00:00을 붙이면 실제 수집 시각이 아닌 값을
+             * 지어내는 셈이라 이 컬럼을 그대로 내려보낸다.
+             */
+            @Schema(example = "2026-08-03T05:15:32Z") java.time.Instant updatedAt
     ) {}
 
     /**
