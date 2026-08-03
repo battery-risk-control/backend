@@ -269,6 +269,22 @@ public class MultiAgentOrchestrationService {
     }
 
     /**
+     * "완료 처리"를 되돌린다. 그 평가가 KPI·주요 이슈 집계로 되돌아온다.
+     *
+     * <p>{@code acknowledgeAssessment}와 같은 사전 확인을 둔다 — 없는 평가 id로 부르면 지울
+     * 기록도 없어 조용히 성공한 것처럼 보이는데, 그건 오타를 성공으로 돌려주는 것이다.
+     * 평가는 있는데 완료 기록만 없는 경우는 실패가 아니라 "이미 원하는 상태"라 200으로 내리고
+     * {@code notAcknowledged}로 구분한다.
+     */
+    public ProcurementRiskDto.UnacknowledgeResponse unacknowledgeAssessment(UUID assessmentId) {
+        if (procurementRiskRepository.findById(assessmentId).isEmpty()) {
+            throw new BusinessException(ErrorCode.PROCUREMENT_RISK_ASSESSMENT_NOT_FOUND);
+        }
+        boolean removed = procurementRiskRepository.unacknowledge(assessmentId);
+        return new ProcurementRiskDto.UnacknowledgeResponse(assessmentId, !removed);
+    }
+
+    /**
      * 결과를 {@code procurement_risk_assessments}에 남기고 assessmentId를 붙여 돌려준다.
      *
      * <p>저장 실패를 삼키지 않는다. 브리핑 한 건은 LangGraph 노드와 LLM 호출을 태운 비싼

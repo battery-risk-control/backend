@@ -76,4 +76,18 @@ public final class ProcurementRiskDto {
             OffsetDateTime acknowledgedAt,
             boolean alreadyAcknowledged
     ) {}
+
+    /**
+     * 완료 처리 되돌리기 응답.
+     *
+     * <p>{@code notAcknowledged}는 되돌릴 기록이 애초에 없었다는 뜻이다 — 실패가 아니라
+     * "이미 원하는 상태"다. 화면이 "되돌렸습니다"와 "원래 처리 안 돼 있었습니다"를 구분해
+     * 안내할 수 있어야 하므로 200으로 내리고 이 플래그로 알린다({@code acknowledge}의
+     * {@code alreadyAcknowledged}와 같은 방침).
+     */
+    public record UnacknowledgeResponse(
+            UUID assessmentId,
+            @Schema(description = "되돌릴 완료 기록이 없었으면 true. 이 경우에도 결과 상태는 같다.")
+            boolean notAcknowledged
+    ) {}
 }

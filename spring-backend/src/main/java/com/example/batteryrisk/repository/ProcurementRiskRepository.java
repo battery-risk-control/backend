@@ -150,6 +150,23 @@ public class ProcurementRiskRepository {
                         alreadyAcknowledged));
     }
 
+    /**
+     * 완료 처리 되돌리기. 기록만 지우므로 그 평가가 KPI·주요 이슈 집계로 되돌아온다.
+     *
+     * <p>되돌리기가 필요한 이유: "대응 완료"는 한 번 누르면 그 평가가 대시보드에서 사라지는데,
+     * 확인 절차도 취소도 없어 오클릭 한 번이 곧 데이터 손실처럼 보였다. 원본
+     * {@code procurement_risk_assessments}는 애초에 건드리지 않으므로, 기록을 지우면 상태가
+     * 완전히 원래대로 돌아온다.
+     *
+     * @return 실제로 지워진 행이 있으면 true. 이미 없었으면 false(실패가 아니라 "이미 그 상태").
+     */
+    public boolean unacknowledge(UUID assessmentId) {
+        return jdbc.update("""
+                DELETE FROM procurement_risk_acknowledgements
+                WHERE assessment_id = :assessmentId
+                """, new MapSqlParameterSource("assessmentId", assessmentId)) > 0;
+    }
+
     public Optional<ProcurementRiskDto.Assessment> findById(UUID assessmentId) {
         List<ProcurementRiskDto.Assessment> values = jdbc.query("""
                 SELECT *

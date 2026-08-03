@@ -28,6 +28,37 @@ services:
       - battery_chroma_data:/data
     restart: unless-stopped
 
+  # KG 리졸버. 2026-08-03에 호스트 프로세스에서 컨테이너로 옮겼다 — 사람이 PowerShell 창을
+  # 띄워둬야 했고, 그 창을 닫으면 KG_GATE_ENABLED=true 상태에서 모든 뉴스가 조용히 조기
+  # 종료됐다(에러가 아니라 "매칭 없음" 폴백이라 알아채기 어렵다).
+  kg:
+    build:
+      # 컨텍스트가 저장소 루트여야 한다 — main.py가 sys.path에 <repo>/src를 넣으므로
+      # kg_service/ 하나만으로는 build_ontology_graph를 찾지 못한다.
+      context: .
+      dockerfile: kg_service/Dockerfile
+    container_name: battery-risk-kg
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      # 읽기 전용으로 붙인다. KG는 CSV를 읽기만 하고, 실수로 쓰더라도 원본이 상하지 않아야 한다.
+      # 이미지에 굽지 않는 이유는 데이터를 갈아끼울 때 재빌드 없이 재시작만으로 끝내기 위해서다.
+      - ./data/ERP_data/spring-csv:/data/erp:ro
+      - ./data_ref/outbound_mock:/data/outbound:ro
+    ports:
+      # 호스트에도 열어둔다 — /health·/resolve를 직접 찔러보는 게 KG 문제와 배선 문제를
+      # 가르는 가장 빠른 방법이다.
+      - "${KG_PORT:-8100}:8100"
+    healthcheck:
+      # 그래프가 실제로 만들어졌는지까지 본다. main.py의 /health는 그래프가 없으면 503이라
+      # "떴지만 CSV를 못 읽은" 상태가 healthy로 새지 않는다.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8100/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
   fastapi:
     build: ./fastapi-ai
     container_name: battery-risk-fastapi
@@ -76,9 +107,10 @@ services:
       BRIEFING_OPENAI_MODEL: ${BRIEFING_OPENAI_MODEL:-}
       # [surin F9] FastAPI supplier_recommendation_service가 Spring /api/v1/suppliers/qualified로 콜백. docker 네트워크에선 서비스명 spring 사용(localhost 아님).
       SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
-      # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 host.docker.internal로 접근한다.
-      # (spring 서비스의 KG_SERVICE_BASE_URL과 동일한 값 — .env에서 한 번만 설정)
-      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
+      # kg는 이제 같은 compose 네트워크의 서비스다(2026-08-03 이전에는 호스트 프로세스라
+      # host.docker.internal을 썼다). 호스트에서 따로 띄운 KG를 쓰려면 .env에서
+      # KG_SERVICE_BASE_URL=http://host.docker.internal:8100 으로 덮어쓰면 된다.
+      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://kg:8100}
       # KG 게이트 on/off. 기본 true(운영 동작 그대로).
       # kg_service가 안 떠 있으면 리졸버가 "매칭 없음"으로 폴백하고 게이트가 모든 건을 조기
       # 종료시켜, procurement_risk_assessments에 erp_exposure_score=NULL·NORMAL만 쌓인다.
@@ -97,6 +129,9 @@ services:
       - "${FASTAPI_PORT:-8000}:8000"
     depends_on:
       - chroma
+      # 그래프가 다 만들어진 뒤에 뜨게 한다. 먼저 뜨면 첫 몇 건이 "매칭 없음"으로 폴백해
+      # 조기 종료되는데, 그건 에러가 아니라 정상 응답이라 나중에 원인을 되짚기 어렵다.
+      - kg
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -114,9 +149,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-battery_app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-battery_app_password}
       FASTAPI_BASE_URL: http://fastapi:8000
-      # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 컨테이너 네트워크 서비스명이
-      # 아니라 host.docker.internal로 접근해야 한다(.env에 KG_SERVICE_BASE_URL로 설정).
-      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
+      # fastapi와 같은 값을 쓴다(.env에서 한 번만 설정). 기본은 compose 네트워크의 kg 서비스다.
+      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://kg:8100}
       # fastapi 서비스와 같은 변수를 공유한다 — 게이트가 두 군데(Spring: 멀티에이전트를 호출할지 /
       # FastAPI: 그래프 안에서 KG 노드가 short-circuit할지) 있어서 한쪽만 내리면 막힌다.
       KG_GATE_ENABLED: ${KG_GATE_ENABLED:-true}
@@ -187,6 +221,9 @@ services:
         condition: service_healthy
       fastapi:
         condition: service_started
+      # service_healthy로 기다린다 — Spring의 자동 분석 경로가 기동 직후부터 KG를 부른다.
+      kg:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
