@@ -519,16 +519,23 @@ public class PlanningDashboardRepository {
         } catch (IllegalArgumentException e) {
             return null;
         }
+        // 브리핑 본문 4종(briefing·recommended_actions·contract_findings·warnings)은
+        // V29가 procurement_risk_assessments에서 DROP하고 ai_briefings로 정본을 옮겼다
+        // (상류 #19는 V29 이전 스키마 기준이라 p에서 읽는다 — 이 저장소에서는 b가 정답).
+        // p는 assessed_at 하나 때문에 유지한다. 두 LEFT JOIN이 겹치면 행이 곱해지므로
+        // 정렬을 b 최신 → p 최신 순으로 두어 rows.get(0)이 최신 쌍을 집게 한다.
         List<BriefingDetailRow> rows = jdbc.query("""
                 SELECT a.analysis_id, a.material_category, a.severity, a.event_title, a.event_content,
                        bu.name AS business_unit_name,
-                       p.briefing, p.recommended_actions, p.contract_findings, p.warnings, p.assessed_at
+                       b.briefing_text AS briefing, b.recommended_actions, b.contract_findings,
+                       b.warnings, p.assessed_at
                 FROM analyses a
                 LEFT JOIN material_category_business_units cb ON cb.material_category = a.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
+                LEFT JOIN ai_briefings b ON b.analysis_id = a.analysis_id
                 LEFT JOIN procurement_risk_assessments p ON p.analysis_id = a.analysis_id
                 WHERE a.analysis_id = :analysisId
-                ORDER BY p.created_at DESC NULLS LAST
+                ORDER BY b.created_at DESC NULLS LAST, p.created_at DESC NULLS LAST
                 """, new MapSqlParameterSource("analysisId", parsed), (rs, rowNum) -> new BriefingDetailRow(
                 rs.getString("analysis_id"),
                 MATERIAL_NAME_KO.getOrDefault(rs.getString("material_category"), rs.getString("material_category")),
