@@ -238,15 +238,6 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-  frontend:
-    build: ./frontend
-    container_name: battery-risk-frontend
-    ports:
-      - "${FRONTEND_PORT:-5173}:80"
-    depends_on:
-      - spring
-    restart: unless-stopped
-
 volumes:
   battery_postgres_data:
   battery_chroma_data:
