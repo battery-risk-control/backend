@@ -602,8 +602,10 @@ public class PlanningDashboardRepository {
                 WHERE contract_id = :contractId
                 ORDER BY document_id
                 """, new MapSqlParameterSource("contractId", row.contractId()),
+                // document_id는 BIGINT가 아니라 VARCHAR(40)이다(V1, 값 예: ctr_<uuid>).
+                // 포팅 원본의 getLong은 문서가 1건이라도 있으면 "Bad value for type long"으로 500.
                 (rs, rowNum) -> new PlanningDashboardDto.ContractDocumentItem(
-                        String.valueOf(rs.getLong("document_id")),
+                        rs.getString("document_id"),
                         rs.getString("original_file_name"),
                         rs.getString("processing_status"),
                         rs.getInt("chunk_count")));
