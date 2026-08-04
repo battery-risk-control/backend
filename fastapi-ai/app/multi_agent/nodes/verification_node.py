@@ -115,6 +115,91 @@ def validate_llm_citations(
     return error_owner
 
 
+def format_number_variants(
+    value: object,
+) -> list[str]:
+    """숫자를 브리핑에 나올 법한 표기 형태(정수/소수 1·2자리)로 변환한다."""
+
+    try:
+        decimal_value = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return []
+
+    variants = {
+        f"{decimal_value:g}",
+        f"{decimal_value:.1f}",
+        f"{decimal_value:.2f}",
+    }
+    return list(variants)
+
+
+def validate_numeric_facts(
+    briefing: str,
+    state: BriefingState,
+    warnings: list[str],
+) -> str | None:
+    """
+    브리핑에 등장해야 할 핵심 수치가 실제 계산값과 일치하는지 검사한다.
+
+    규칙 1~2("입력에 없는 수량을 만들지 마라")는 프롬프트 지시일 뿐 프로그램으로
+    강제되지 않았다 — 이 함수가 LLM이 점수·재고일수를 잘못 옮겨 적거나 지어내는
+    환각을 잡아낸다. 값이 존재할 때만 검사한다(조기종료 경량 브리핑 등 값 자체가
+    없는 경우까지 막으면 안 되므로).
+    """
+
+    error_owner = None
+    erp_assessment = (
+        state.get("erp_assessment", {}) or {}
+    )
+    contract_assessment = (
+        state.get("contract_assessment", {}) or {}
+    )
+
+    facts = {
+        "외부신호 점수": state.get(
+            "external_signal_score"
+        ),
+        "ERP노출 점수": erp_assessment.get(
+            "erp_exposure_score"
+        ),
+        "계약공백 점수": contract_assessment.get(
+            "contract_gap_score"
+        ),
+        "최종 구매 위험 점수": state.get(
+            "procurement_risk_score"
+        ),
+        "재고 일수": erp_assessment.get(
+            "inventory_days"
+        ),
+        "안전재고 일수": erp_assessment.get(
+            "safety_stock_days"
+        ),
+    }
+
+    for label, value in facts.items():
+        if value is None:
+            continue
+
+        variants = format_number_variants(value)
+        if not variants:
+            continue
+
+        if not any(
+            variant in briefing
+            for variant in variants
+        ):
+            add_warning(
+                warnings,
+                (
+                    f"LLM 브리핑에 {label}({value})과 "
+                    "일치하는 숫자가 없습니다."
+                ),
+            )
+            error_owner = "response"
+
+    return error_owner
+
+
 def validate_briefing_node(
     state: BriefingState,
 ) -> dict:
@@ -242,6 +327,14 @@ def validate_briefing_node(
         )
         if citation_error is not None:
             error_owner = citation_error
+
+        numeric_error = validate_numeric_facts(
+            briefing,
+            state,
+            warnings,
+        )
+        if numeric_error is not None:
+            error_owner = numeric_error
 
     for expression in FORBIDDEN_EXPRESSIONS:
         if expression in briefing:
