@@ -1,17 +1,22 @@
 package com.example.batteryrisk.repository;
 
 import com.example.batteryrisk.dto.PlanningDashboardDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 2계층(경영기획팀, 코드상 Role.STRATEGY) 대시보드 7탭 조회·집계 전용 Repository.
@@ -44,33 +49,31 @@ public class PlanningDashboardRepository {
 
     private static final int MATERIAL_CATEGORY_TOTAL = MATERIAL_NAME_KO.size();
     private static final double CONFIDENCE_CONFIRMED_MIN = 0.7;
+    private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
+    private static final TypeReference<List<Map<String, Object>>> OBJECT_MAP_LIST = new TypeReference<>() {};
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final ObjectMapper objectMapper;
 
-    public PlanningDashboardRepository(NamedParameterJdbcTemplate jdbc) {
+    public PlanningDashboardRepository(NamedParameterJdbcTemplate jdbc, ObjectMapper objectMapper) {
         this.jdbc = jdbc;
+        this.objectMapper = objectMapper;
     }
 
     // ===== 전략 대시보드 =====
 
-    /** 카테고리 단위 최신(미처리) 구매 리스크 평가를 사업부별로 접어 평균 점수를 낸다. */
+    /** 이번 분기 미확인(unacknowledged) 구매 리스크 평가를 사업부별로 누적 평균한다. */
     public List<PlanningDashboardDto.RiskExposureByUnit> loadRiskExposureByUnit() {
         return jdbc.query("""
-                WITH latest AS (
-                    SELECT DISTINCT ON (p.material_category)
-                        p.material_category, p.procurement_risk_score
-                    FROM procurement_risk_assessments p
-                    WHERE p.material_category IS NOT NULL
-                      AND p.assessed_at >= date_trunc('quarter', now())
-                      AND NOT EXISTS (
-                          SELECT 1 FROM procurement_risk_acknowledgements a
-                          WHERE a.assessment_id = p.assessment_id)
-                    ORDER BY p.material_category, p.created_at DESC
-                )
-                SELECT bu.business_unit_id, bu.name, AVG(l.procurement_risk_score) AS exposure_score
-                FROM latest l
-                JOIN material_category_business_units cb ON cb.material_category = l.material_category
+                SELECT bu.business_unit_id, bu.name, AVG(p.procurement_risk_score) AS exposure_score
+                FROM procurement_risk_assessments p
+                JOIN material_category_business_units cb ON cb.material_category = p.material_category
                 JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
+                WHERE p.material_category IS NOT NULL
+                  AND p.assessed_at >= date_trunc('quarter', now())
+                  AND NOT EXISTS (
+                      SELECT 1 FROM procurement_risk_acknowledgements a
+                      WHERE a.assessment_id = p.assessment_id)
                 GROUP BY bu.business_unit_id, bu.name
                 ORDER BY bu.business_unit_id
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new PlanningDashboardDto.RiskExposureByUnit(
@@ -497,6 +500,118 @@ public class PlanningDashboardRepository {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    // ===== AI 브리핑 상세(드릴다운) =====
+
+    private record BriefingDetailRow(
+            String analysisId, String material, String businessUnitName, String severity,
+            String eventTitle, String eventContent,
+            String briefing, String recommendedActionsJson, String contractFindingsJson,
+            String warningsJson, OffsetDateTime assessedAt) {}
+
+    /**
+     * {@code analysisId}가 UUID 형식이 아니면(잘못된 id) 빈 결과로 취급 — DB에 잘못된
+     * 캐스트를 던져 500을 내는 대신 서비스 레이어가 자연스럽게 404로 변환할 수 있게 한다.
+     */
+    public PlanningDashboardDto.AiBriefingDetail findBriefingDetail(String analysisId) {
+        UUID parsed;
+        try {
+            parsed = UUID.fromString(analysisId);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        List<BriefingDetailRow> rows = jdbc.query("""
+                SELECT a.analysis_id, a.material_category, a.severity, a.event_title, a.event_content,
+                       bu.name AS business_unit_name,
+                       p.briefing, p.recommended_actions, p.contract_findings, p.warnings, p.assessed_at
+                FROM analyses a
+                LEFT JOIN material_category_business_units cb ON cb.material_category = a.material_category
+                LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
+                LEFT JOIN procurement_risk_assessments p ON p.analysis_id = a.analysis_id
+                WHERE a.analysis_id = :analysisId
+                ORDER BY p.created_at DESC NULLS LAST
+                """, new MapSqlParameterSource("analysisId", parsed), (rs, rowNum) -> new BriefingDetailRow(
+                rs.getString("analysis_id"),
+                MATERIAL_NAME_KO.getOrDefault(rs.getString("material_category"), rs.getString("material_category")),
+                rs.getString("business_unit_name"),
+                rs.getString("severity"),
+                rs.getString("event_title"),
+                rs.getString("event_content"),
+                rs.getString("briefing"),
+                rs.getString("recommended_actions"),
+                rs.getString("contract_findings"),
+                rs.getString("warnings"),
+                rs.getObject("assessed_at", OffsetDateTime.class)));
+        if (rows.isEmpty()) {
+            return null;
+        }
+        BriefingDetailRow row = rows.get(0);
+        return new PlanningDashboardDto.AiBriefingDetail(
+                row.analysisId(),
+                row.material(),
+                row.businessUnitName(),
+                gradeKo(row.severity()),
+                row.eventTitle(),
+                row.eventContent(),
+                row.briefing(),
+                fromJson(row.recommendedActionsJson(), STRING_LIST),
+                fromJson(row.contractFindingsJson(), OBJECT_MAP_LIST),
+                fromJson(row.warningsJson(), STRING_LIST),
+                row.assessedAt());
+    }
+
+    // ===== 계약 상세(드릴다운) =====
+
+    private record ContractDetailRow(
+            long contractId, String contractNumber, String contractName, String supplierName,
+            String materialName, String businessUnitName, String status,
+            LocalDate startDate, LocalDate endDate) {}
+
+    public PlanningDashboardDto.ContractDetail findContractDetail(String contractNumber) {
+        List<ContractDetailRow> rows = jdbc.query("""
+                SELECT c.contract_id, c.contract_number, c.contract_name, s.supplier_name,
+                       m.material_name, bu.name AS business_unit_name, c.status, c.start_date, c.end_date
+                FROM contracts c
+                JOIN suppliers s ON s.supplier_id = c.supplier_id
+                LEFT JOIN materials m ON m.material_id = c.material_id
+                LEFT JOIN business_units bu ON bu.business_unit_id = m.business_unit_id
+                WHERE c.contract_number = :contractNumber
+                """, new MapSqlParameterSource("contractNumber", contractNumber), (rs, rowNum) -> new ContractDetailRow(
+                rs.getLong("contract_id"),
+                rs.getString("contract_number"),
+                rs.getString("contract_name"),
+                rs.getString("supplier_name"),
+                rs.getString("material_name"),
+                rs.getString("business_unit_name"),
+                rs.getString("status"),
+                rs.getObject("start_date", LocalDate.class),
+                rs.getObject("end_date", LocalDate.class)));
+        if (rows.isEmpty()) {
+            return null;
+        }
+        ContractDetailRow row = rows.get(0);
+        List<PlanningDashboardDto.ContractDocumentItem> documents = jdbc.query("""
+                SELECT document_id, original_file_name, processing_status, chunk_count
+                FROM contract_documents
+                WHERE contract_id = :contractId
+                ORDER BY document_id
+                """, new MapSqlParameterSource("contractId", row.contractId()),
+                (rs, rowNum) -> new PlanningDashboardDto.ContractDocumentItem(
+                        String.valueOf(rs.getLong("document_id")),
+                        rs.getString("original_file_name"),
+                        rs.getString("processing_status"),
+                        rs.getInt("chunk_count")));
+        return new PlanningDashboardDto.ContractDetail(
+                row.contractNumber(),
+                row.contractName(),
+                row.supplierName(),
+                row.materialName(),
+                row.businessUnitName(),
+                row.status(),
+                row.startDate(),
+                row.endDate(),
+                documents);
+    }
+
     // ===== 공용 규칙 =====
 
     /** severity_assessments/procurement_risk_assessments의 영문 등급 → 3단계 한글 등급. UNKNOWN은 null. */
@@ -525,5 +640,17 @@ public class PlanningDashboardRepository {
             return "경고";
         }
         return "확정";
+    }
+
+    /** {@code ProcurementRiskRepository}와 동일한 JSONB 역직렬화 관례. */
+    private <T> T fromJson(String value, TypeReference<T> type) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(value, type);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("브리핑 JSON 역직렬화에 실패했습니다.", e);
+        }
     }
 }

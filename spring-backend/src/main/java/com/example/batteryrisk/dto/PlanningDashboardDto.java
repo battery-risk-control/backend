@@ -3,7 +3,10 @@ package com.example.batteryrisk.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 2계층(경영기획팀, 코드상 Role.STRATEGY) 대시보드 7탭 DTO를 한 파일에 모은다
@@ -119,5 +122,41 @@ public final class PlanningDashboardDto {
             long materialCoverageTotal,
             String lastUpdatedLabel,
             List<ConfidenceDistributionItem> confidenceDistribution
+    ) {}
+
+    /**
+     * AI 브리핑 상세(드릴다운). {@code analysisId}로 조회하며, 해당 분석이 아직
+     * 멀티에이전트 평가(procurement_risk_assessments)를 못 받았으면 {@code briefing}
+     * 이하 필드는 전부 null/빈 값이다(analyses 단독 정보만 채워짐).
+     */
+    public record AiBriefingDetail(
+            String analysisId,
+            String material,
+            String businessUnit,
+            String grade,
+            String headline,
+            String eventContent,
+            String briefing,
+            List<String> recommendedActions,
+            List<Map<String, Object>> contractFindings,
+            List<String> warnings,
+            OffsetDateTime assessedAt
+    ) {}
+
+    public record ContractDocumentItem(
+            String documentId, String originalFileName, String processingStatus, int chunkCount
+    ) {}
+
+    /** 계약 상세(드릴다운). {@code contractNumber}로 조회. */
+    public record ContractDetail(
+            String contractNumber,
+            String contractName,
+            String supplierName,
+            String materialName,
+            String businessUnit,
+            String status,
+            LocalDate startDate,
+            LocalDate endDate,
+            List<ContractDocumentItem> documents
     ) {}
 }

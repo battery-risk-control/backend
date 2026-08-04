@@ -40,7 +40,9 @@ public enum ErrorCode {
     ERP_IMPACT_NOT_AVAILABLE(
             HttpStatus.UNPROCESSABLE_ENTITY, "이 이벤트에는 ERP·계약 영향 분석을 실행할 수 없습니다."),
     MATERIAL_BRIEFING_NOT_AVAILABLE(
-            HttpStatus.UNPROCESSABLE_ENTITY, "이 자재로는 AI 브리핑을 생성할 수 없습니다.");
+            HttpStatus.UNPROCESSABLE_ENTITY, "이 자재로는 AI 브리핑을 생성할 수 없습니다."),
+    ANALYSIS_BRIEFING_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 분석의 브리핑 정보를 찾을 수 없습니다."),
+    CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "계약을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String defaultMessage;
