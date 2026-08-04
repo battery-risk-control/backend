@@ -47,6 +47,15 @@ public class PlanningDashboardRepository {
             "ALUMINUM", "알루미늄",
             "RARE_EARTH", "희토류");
 
+    /**
+     * analyses.material_category는 NULL 허용인데 {@code Map.of} 기반 불변 맵은 null 키
+     * 조회 자체가 NPE다 — 실데이터(자재 미상 분석)에서 브리핑 목록·상세가 통째로 500이
+     * 나던 원인. 조회 전에 거른다.
+     */
+    private static String materialNameKo(String category) {
+        return category == null ? null : MATERIAL_NAME_KO.getOrDefault(category, category);
+    }
+
     private static final int MATERIAL_CATEGORY_TOTAL = MATERIAL_NAME_KO.size();
     private static final double CONFIDENCE_CONFIRMED_MIN = 0.7;
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
@@ -447,7 +456,7 @@ public class PlanningDashboardRepository {
             String category = rs.getString("material_category");
             return new PlanningDashboardDto.BriefingSummaryItem(
                     rs.getString("analysis_id"),
-                    MATERIAL_NAME_KO.getOrDefault(category, category),
+                    materialNameKo(category),
                     grade == null ? "주의" : grade,
                     rs.getString("event_title"),
                     rs.getString("business_unit_name"));
@@ -538,7 +547,7 @@ public class PlanningDashboardRepository {
                 ORDER BY b.created_at DESC NULLS LAST, p.created_at DESC NULLS LAST
                 """, new MapSqlParameterSource("analysisId", parsed), (rs, rowNum) -> new BriefingDetailRow(
                 rs.getString("analysis_id"),
-                MATERIAL_NAME_KO.getOrDefault(rs.getString("material_category"), rs.getString("material_category")),
+                materialNameKo(rs.getString("material_category")),
                 rs.getString("business_unit_name"),
                 rs.getString("severity"),
                 rs.getString("event_title"),
