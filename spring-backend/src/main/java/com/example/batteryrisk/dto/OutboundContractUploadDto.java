@@ -31,6 +31,12 @@ public final class OutboundContractUploadDto {
             @JsonProperty("contract_id") String erpOutboundContractId,
             @JsonProperty("contract_created") boolean contractCreated,
             @JsonProperty("document_id") String documentId,
-            @JsonProperty("processing_status") String processingStatus
+            @JsonProperty("processing_status") String processingStatus,
+
+            /**
+             * KG 동기화 실패 사유. 성공했거나 동기화 대상이 아니면 null이다.
+             * 업로드는 됐는데 지식그래프만 과거에 머무는 상태를 화면이 알려야 한다.
+             */
+            @JsonProperty("kg_sync_warning") String kgSyncWarning
     ) {}
 }

@@ -79,6 +79,19 @@ public class Analysis {
     @Column(name = "recommendation_caveats")
     private String recommendationCaveats;
 
+    /** LLM 추출이 만든 한국어 요약. 화면의 "뉴스 요약" 블록이 쓴다. */
+    @Column(name = "summary_kr")
+    private String summaryKr;
+
+    @Column(name = "tone_score")
+    private Double toneScore;
+
+    @Column(name = "news_count")
+    private Integer newsCount;
+
+    @Column(name = "goldstein_scale")
+    private Double goldsteinScale;
+
     protected Analysis() {}
 
     public static Analysis pending(
@@ -116,6 +129,20 @@ public class Analysis {
         errorCode = null;
         errorMessage = null;
         completedAt = Instant.now();
+    }
+
+    /**
+     * 점수를 만든 입력값(외부신호 상세)과 한국어 요약을 남깁니다.
+     *
+     * <p>{@link #markCompleted}와 나눠 둔 이유: 이쪽은 FastAPI 응답의 extraction·features 블록에서
+     * 오는 값이라 경로에 따라 통째로 비어 있을 수 있고(추출 실패·구버전 응답), 그때 severity 저장까지
+     * 함께 막히면 안 됩니다. 비면 null로 남고 화면이 해당 항목만 숨깁니다.
+     */
+    public void applySignalDetail(String summaryKr, Double toneScore, Integer newsCount, Double goldsteinScale) {
+        this.summaryKr = summaryKr == null || summaryKr.isBlank() ? null : summaryKr.trim();
+        this.toneScore = toneScore;
+        this.newsCount = newsCount;
+        this.goldsteinScale = goldsteinScale;
     }
 
     /**
@@ -163,4 +190,8 @@ public class Analysis {
     public Instant getCompletedAt() { return completedAt; }
     public String getMaterialCategory() { return materialCategory; }
     public String getRecommendationCaveats() { return recommendationCaveats; }
+    public String getSummaryKr() { return summaryKr; }
+    public Double getToneScore() { return toneScore; }
+    public Integer getNewsCount() { return newsCount; }
+    public Double getGoldsteinScale() { return goldsteinScale; }
 }

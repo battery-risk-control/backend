@@ -57,14 +57,10 @@ public final class ProcurementRiskDto {
             Boolean reviewPassed,
             boolean llmUsed,
             boolean mock,
-            OffsetDateTime createdAt,
+            OffsetDateTime createdAt
 
-            @Schema(description = "구매팀 브리핑 본문. use_llm=false면 템플릿 조립본, true면 LLM 생성본")
-            String briefing,
-            List<String> recommendedActions,
-            @Schema(description = "브리핑이 인용한 계약 조항 — 감사추적의 핵심")
-            List<Map<String, Object>> contractFindings,
-            List<String> warnings
+            // 브리핑 본문·권고조치·계약근거·경고는 여기 없다. V29에서 ai_briefings로 옮겼다 —
+            // 이 테이블은 V18 원래 목적대로 점수 이력만 남긴다.
     ) {}
 
     /**
@@ -79,5 +75,19 @@ public final class ProcurementRiskDto {
             Long acknowledgedBy,
             OffsetDateTime acknowledgedAt,
             boolean alreadyAcknowledged
+    ) {}
+
+    /**
+     * 완료 처리 되돌리기 응답.
+     *
+     * <p>{@code notAcknowledged}는 되돌릴 기록이 애초에 없었다는 뜻이다 — 실패가 아니라
+     * "이미 원하는 상태"다. 화면이 "되돌렸습니다"와 "원래 처리 안 돼 있었습니다"를 구분해
+     * 안내할 수 있어야 하므로 200으로 내리고 이 플래그로 알린다({@code acknowledge}의
+     * {@code alreadyAcknowledged}와 같은 방침).
+     */
+    public record UnacknowledgeResponse(
+            UUID assessmentId,
+            @Schema(description = "되돌릴 완료 기록이 없었으면 true. 이 경우에도 결과 상태는 같다.")
+            boolean notAcknowledged
     ) {}
 }

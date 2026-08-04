@@ -182,3 +182,57 @@ def test_analyze_kg_context_node_skips_call_without_country():
     mock_resolve.assert_not_called()
     assert result["kg_matched"] is False
     assert result["kg_shortage_detected"] is False
+
+
+def _bypass_settings():
+    """KG_GATE_ENABLED=false 상태의 Settings. get_settings가 lru_cache라 값을 갈아끼우지 않고
+    호출 자체를 patch한다 — 캐시를 비우면 같은 프로세스의 다른 테스트에 영향이 간다."""
+    from dataclasses import replace
+
+    from app.core.config import get_settings
+
+    return replace(get_settings(), kg_gate_enabled=False)
+
+
+def test_analyze_kg_context_node_bypasses_gate_when_disabled():
+    """KG_GATE_ENABLED=false면 매칭이 없어도 경량 종료하지 않고 뒷단으로 넘긴다."""
+    with (
+        patch(
+            "app.multi_agent.kg.node.resolve_kg_context",
+            return_value=NO_MATCH_RESPONSE,
+        ),
+        patch(
+            "app.multi_agent.kg.node.get_settings",
+            return_value=_bypass_settings(),
+        ),
+    ):
+        result = analyze_kg_context_node(
+            {
+                "country": "US",
+                "affected_materials": ["lithium"],
+                "warnings": ["기존 경고"],
+            },
+        )
+
+    # 사실은 그대로 남긴다 — KG가 확정한 게 아니라는 것을 나중에 구분할 수 있어야 한다.
+    assert result["kg_shortage_detected"] is False
+    assert result["kg_gate_bypassed"] is True
+    # 경량 종료 결과를 채우지 않아야 supervisor가 erp로 이어간다.
+    assert "briefing" not in result
+    assert "procurement_risk_level" not in result
+    # 기존 경고를 덮어쓰지 않고 뒤에 붙인다.
+    assert result["warnings"][0] == "기존 경고"
+    assert "KG_GATE_ENABLED=false" in result["warnings"][1]
+
+
+def test_supervisor_continues_after_gate_bypass():
+    """우회 플래그가 있으면 supervisor가 조기 종료(finish) 대신 erp로 보낸다."""
+    from app.multi_agent.nodes.supervisor_node import select_next_route
+
+    base = {
+        "kg_context": NO_MATCH_RESPONSE,
+        "kg_shortage_detected": False,
+    }
+
+    assert select_next_route(base) == "finish"
+    assert select_next_route({**base, "kg_gate_bypassed": True}) == "erp"

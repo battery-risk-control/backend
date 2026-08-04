@@ -9,10 +9,12 @@ project-backups/
 .idea/
 .pytest_cache/
 .env
+# .env 백업본. 실 OPENAI_API_KEY·KOREAEXIM_API_KEY가 그대로 들어 있는데 .env와 달리
+# 이름이 달라 무시되지 않아, git add -A 한 번이면 키가 커밋된다. 사본도 같이 막는다.
+.env.bak*
+.env.local
 uploads/
 fastapi-ai/data/
-frontend/node_modules/
-frontend/dist/
 
 # 대화 기록 (Claude·Codex 내부 세션 로그, 저장소에 커밋하지 않음)
 docs/*conversation-history*.md
@@ -20,3 +22,9 @@ docs/*conversation-history*.md
 # 수동 API 검증 중 만들어지는 JWT 임시 파일. 절대 커밋 금지.
 *.token.tmp
 .token.tmp
+
+# Claude Code 로컬 지침 (개인 작업 메모, 공유 저장소에 커밋하지 않음)
+.claude/CLAUDE.md
+
+# 로컬 개발 편의 설정 (개인 PC 절대경로 포함)
+.claude/launch.json

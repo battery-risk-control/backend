@@ -110,11 +110,21 @@
 ## FastAPI 내부 개발 API
 
 - `POST /api/v1/internal/llm/extract`
-- `POST /api/v1/internal/ml/classify`
 - `POST /api/v1/internal/severity/score`
 - `POST /api/v1/internal/briefings`
 
 내부 API는 개발·Swagger 테스트용이며 React에서 직접 호출하지 않는다.
+
+> **폐지 (2026-07-30) — `POST /api/v1/internal/ml/classify`**
+>
+> 이 엔드포인트는 제거됐다. 내부 구현이 XGBoost가 아니라 규칙 기반 mock이었고, Spring이 한 번도
+> 호출하지 않았다. Impact Domain은 `/api/v1/internal/llm/extract`의 `impact_domain_draft`를
+> 그대로 최종값으로 쓴다.
+>
+> 이 스펙을 참조 중인 쪽은 **이 항목 하나만 제외**하면 되고 나머지 계약은 변경이 없다.
+> 특히 `/api/v1/analyze` 응답의 `classification` 필드(`impact_domain`·`confidence`·
+> `model_version`·`mock`)는 **그대로 유지**된다 — 값을 채우는 주체가 mock 분류기에서
+> LLM 추출로 바뀌었을 뿐이다. 분류 확률이 없는 경로이므로 `confidence`는 `null`이 온다.
 
 ## 데이터 소유권
 

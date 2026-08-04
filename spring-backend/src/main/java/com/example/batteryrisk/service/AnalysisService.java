@@ -8,8 +8,10 @@ import com.example.batteryrisk.dto.MultiAgentDto;
 import com.example.batteryrisk.exception.GlobalExceptionHandler.AnalysisNotFoundException;
 import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.AnalysisSupplierRecommendationRepository;
+import com.example.batteryrisk.repository.ErpRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -27,24 +29,57 @@ public class AnalysisService {
     private static final Logger log = LoggerFactory.getLogger(AnalysisService.class);
     private static final Set<String> RISKY_SEVERITIES = Set.of("CRITICAL", "WARNING");
 
+    /**
+     * KG 게이트. <b>기본 true</b>이며 {@code @Value}·application.yml·docker-compose 세 곳이
+     * 모두 일치해야 한다(risk-scoring.enabled와 같은 규칙).
+     *
+     * <p>false면 KG가 부족을 확정하지 않아도 멀티에이전트 브리핑을 자동 트리거한다. KG 서버가
+     * 없는 개발·검증 환경에서 자동 경로를 끝까지 흘려보기 위한 스위치다.
+     *
+     * <p>FastAPI에도 같은 이름의 플래그가 있고 둘 다 내려야 자동 경로가 뚫린다 — Spring은
+     * "멀티에이전트를 호출할지", FastAPI는 "그래프 안에서 KG 노드가 short-circuit할지"를 각각
+     * 본다. 2026-08-03에 FastAPI만 내려둔 탓에 브리핑까지 도달하지 못한 적이 있다.
+     */
+    @Value("${app.kg-service.gate-enabled:true}")
+    private boolean kgGateEnabled;
+
+    /**
+     * 자동 트리거된 멀티에이전트 브리핑에서 LLM 문장 생성을 쓸지. <b>기본 true</b>.
+     *
+     * <p>원래 {@code false}로 박혀 있었다. 그러면 response 노드가 규칙 기반 문장만 만들고
+     * {@code BRIEFING_USE_CLAUDE}(Claude/OpenAI 선택)는 아무 효력이 없다 — 그 플래그는
+     * {@code use_llm=true}일 때 provider를 고르는 것이라, 자동 경로에서는 도달조차 못 했다.
+     *
+     * <p>여기까지 오려면 {@code COLLECTION_ANALYSIS_ENABLED=true}로 이미 LLM 비용을 감수하기로
+     * 한 상태이고, RISKY_SEVERITIES·자재추출·KG 세 게이트를 통과한 소수 건이라 기본을 true로 둔다.
+     * 비용을 막아야 하면 이 플래그만 내리면 되고, 그때도 브리핑 자체는 규칙 기반으로 계속 나온다.
+     */
+    @Value("${app.multi-agent.auto-briefing-use-llm:true}")
+    private boolean autoBriefingUseLlm;
+
     private final RestClient fastApiRestClient;
     private final AnalysisRepository analysisRepository;
     private final AnalysisSupplierRecommendationRepository supplierRecommendationRepository;
     private final NotificationService notificationService;
     private final ErpExposureRequestService erpExposureRequestService;
     private final MultiAgentOrchestrationService multiAgentOrchestrationService;
+    private final AiBriefingService aiBriefingService;
+    private final ErpRepository erpRepository;
 
     public AnalysisService(
             RestClient fastApiRestClient, AnalysisRepository analysisRepository,
             AnalysisSupplierRecommendationRepository supplierRecommendationRepository,
             NotificationService notificationService, ErpExposureRequestService erpExposureRequestService,
-            MultiAgentOrchestrationService multiAgentOrchestrationService) {
+            MultiAgentOrchestrationService multiAgentOrchestrationService,
+            AiBriefingService aiBriefingService, ErpRepository erpRepository) {
         this.fastApiRestClient = fastApiRestClient;
         this.analysisRepository = analysisRepository;
         this.supplierRecommendationRepository = supplierRecommendationRepository;
         this.notificationService = notificationService;
         this.erpExposureRequestService = erpExposureRequestService;
         this.multiAgentOrchestrationService = multiAgentOrchestrationService;
+        this.aiBriefingService = aiBriefingService;
+        this.erpRepository = erpRepository;
     }
 
     public AnalysisDto.AnalysisResponse create(AnalysisDto.AnalyzeRequest request) {
@@ -64,6 +99,7 @@ public class AnalysisService {
                     data.severity().severity(), data.severity().score(),
                     String.join(",", data.severity().reasonCodes()), data.severity().ruleVersion(),
                     data.mock());
+            applySignalDetail(analysis, data);
 
             boolean hasMaterial = data.affectedMaterials() != null && !data.affectedMaterials().isEmpty();
             String materialCategory = hasMaterial ? data.affectedMaterials().get(0) : null;
@@ -85,8 +121,10 @@ public class AnalysisService {
                     analysis.attachSupplierRecommendation(materialCategory, recommendation.caveats());
                     persistSupplierRecommendations(analysis.getAnalysisId(), recommendation.recommendations());
                 }
-                if (erpContext.kgShortageConfirmed()) {
-                    triggerMultiAgentBriefingSafely(analysis, data, erpContext);
+                // 게이트를 내렸으면 KG 확정 없이도 태운다. 그 사실은 FastAPI가 응답 warnings에
+                // 남기므로(KG 게이트 우회 문구) 결과만 보고도 근거 없는 지목인지 구분할 수 있다.
+                if (!kgGateEnabled || erpContext.kgShortageConfirmed()) {
+                    triggerMultiAgentBriefingSafely(analysis, data, erpContext, materialCategory);
                 }
             }
 
@@ -100,6 +138,30 @@ public class AnalysisService {
         analysisRepository.saveAndFlush(analysis);
 
         return toResponse(analysis);
+    }
+
+    /**
+     * 점수의 입력값(외부신호 상세)과 한국어 요약을 분석 행에 남긴다 — 리스크 모니터링 상세 화면이
+     * "왜 이 점수인가"를 보여주려면 점수와 입력값이 같은 행에 있어야 한다.
+     *
+     * <p>tone은 {@code features}(=severity가 실제로 먹은 값)에서 가져오고 {@code extraction}은 폴백이다.
+     * 둘은 다를 수 있다 — orchestration_service가 feature_overrides에 tone이 없을 때만 추출 tone으로
+     * 덮어쓰므로, 화면에는 점수를 만든 쪽을 보여주는 편이 맞다.
+     */
+    private static void applySignalDetail(Analysis analysis, AnalysisDto.FastApiAnalyzeData data) {
+        AnalysisDto.ExtractionOverride extraction = data.extraction();
+        AnalysisDto.FastApiFeatureVector features = data.features();
+        if (extraction == null && features == null) {
+            return;
+        }
+        Double toneScore = features != null && features.toneScore() != null
+                ? features.toneScore()
+                : (extraction == null ? null : extraction.toneScore());
+        analysis.applySignalDetail(
+                extraction == null ? null : extraction.summaryKr(),
+                toneScore,
+                features == null ? null : features.newsCount(),
+                features == null ? null : features.goldsteinScale());
     }
 
     private void persistSupplierRecommendations(
@@ -138,15 +200,16 @@ public class AnalysisService {
      * 멀티에이전트(LangGraph) 브리핑 생성을 자동으로 호출한다 — 매칭 없음/재고충분 뉴스까지
      * 전부 태우면 비싼 LLM 다단계가 낭비되므로, KG 게이트를 통과한 것만 자동화한다.
      * 실패해도 분석 생성 자체를 막으면 안 되므로 여기서 흡수한다.
-     *
-     * <p>useLlm=true(2026-08-02 전환) — 실사용자가 보는 브리핑이 규칙기반 조립문이 아니라
-     * Claude Sonnet 5가 작성한 실제 문서(TL;DR·불릿·아웃바운드 배상책임 표)로 나가야 하므로.
-     * KG 게이트를 이미 통과한 뉴스만 여기까지 오기 때문에(위 주석 참고) 무제한으로 LLM이
-     * 도는 게 아니라 "재고부족이 확정된 뉴스"로 이미 좁혀진 상태 — F5 스케줄러(무인 반복
-     * 배치, 여전히 false)와는 트리거 빈도 자체가 다르다.
      */
     private void triggerMultiAgentBriefingSafely(
-            Analysis analysis, AnalysisDto.FastApiAnalyzeData data, ErpExposureContext erpContext) {
+            Analysis analysis, AnalysisDto.FastApiAnalyzeData data, ErpExposureContext erpContext,
+            String materialCategory) {
+        String erpMaterialId = resolveErpMaterialId(erpContext, materialCategory);
+        if (erpMaterialId == null) {
+            log.warn("멀티에이전트 브리핑 건너뜀 — ERP 자재를 정하지 못했습니다. analysisId={} materialCategory={}",
+                    analysis.getAnalysisId(), materialCategory);
+            return;
+        }
         try {
             // FastAPI MultiAgentBriefingRequest의 summary_kr/article_text는 Optional이 아니라
             // 기본값 ""인 str 필드라, Jackson이 null을 그대로 보내면(explicit null) pydantic이
@@ -159,13 +222,51 @@ public class AnalysisService {
                     analysis.getEventContent() != null ? analysis.getEventContent() : "", "",
                     data.classification().impactDomain(), data.classification().impactDomain(),
                     data.severity().severity(), (int) Math.round(data.severity().score()),
-                    erpContext.resolvedErpMaterialId(), erpContext.resolvedErpSupplierId(),
-                    analysis.getCountryCode(), OffsetDateTime.now(), true);
-            multiAgentOrchestrationService.generate(request);
+                    erpMaterialId, erpContext.resolvedErpSupplierId(),
+                    analysis.getCountryCode(), OffsetDateTime.now(), autoBriefingUseLlm);
+            MultiAgentDto.Response response = multiAgentOrchestrationService.generate(request);
+
+            // 점수는 generate()가 procurement_risk_assessments에 남긴다. 본문은 V29부터
+            // ai_briefings가 정본이라 여기서 남긴다 — 그러지 않으면 자동 생성분만 AI 브리핑
+            // 화면 목록에서 통째로 빠진다(V29 이전에 실제로 그랬다).
+            aiBriefingService.recordAutoGenerated(
+                    analysis, erpMaterialId, erpContext.resolvedErpSupplierId(),
+                    materialCategory, response);
         } catch (RuntimeException exception) {
             log.warn("멀티에이전트 브리핑 자동 생성 실패 (analysisId={}): {}",
                     analysis.getAnalysisId(), exception.getMessage());
         }
+    }
+
+    /**
+     * 브리핑 요청에 실을 ERP 자재를 정한다. KG가 확정한 자재를 우선 쓰고, 없으면 대분류를 실제 ERP
+     * 자재로 펼쳐 첫 번째를 쓴다.
+     *
+     * <p>폴백이 필요한 이유: KG 게이트를 내리면(kgGateEnabled=false) KG 서버 없이도 여기까지 오는데,
+     * {@code resolvedErpMaterialId}는 그 KG 응답에서만 채워지므로 null이다. 그대로 보내면
+     * GenerateRequest의 {@code @NotBlank}에 걸려 NPE로 죽는다 — 게이트만 내리고 이걸 안 하면
+     * "게이트는 열렸는데 브리핑은 여전히 0건"이 된다(2026-08-03 실측으로 확인).
+     *
+     * <p>펼치는 방식은 구매 리스크 스케줄러(MultiAgentOrchestrationService)가 쓰는 것과 같은
+     * 조회다. 스케줄러는 대분류에 속한 ERP 자재를 <b>전부</b> 도는 반면 여기서는 첫 건만 쓴다 —
+     * 자동 트리거는 기사 1건당 브리핑 1건이 맞고, LLM 비용도 배수로 늘지 않는다. 대분류당 자재는
+     * 1~2개이고 2개인 건 LITHIUM(탄산/수산화)·GRAPHITE(천연/인조)뿐이다.
+     */
+    private String resolveErpMaterialId(ErpExposureContext erpContext, String materialCategory) {
+        String resolved = erpContext.resolvedErpMaterialId();
+        if (resolved != null && !resolved.isBlank()) {
+            return resolved;
+        }
+        List<String> candidates = erpRepository.findActiveErpMaterialIds(materialCategory);
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        String fallback = candidates.get(0);
+        // KG가 고른 게 아니라 대분류에서 임의로 집은 값이라는 걸 로그에 남긴다 — 브리핑이 왜 이 자재를
+        // 지목했는지 나중에 되짚을 수 있어야 한다.
+        log.info("KG 미확정 — 대분류 {}의 ERP 자재 {}건 중 {}로 브리핑을 생성합니다.",
+                materialCategory, candidates.size(), fallback);
+        return fallback;
     }
 
     /** severity가 CRITICAL/WARNING일 때만 호출됩니다. */

@@ -53,7 +53,7 @@
 
 **★ 추가 안전장치**: `CollectionService` 자동수집 `@Scheduled`를 `app.collection.scheduler-enabled`(기본 **false**)로 가드 → 자동 F3→OpenAI 비용 사고 차단(수동 트리거는 유지). 검증: 부팅 60초 경과 후 자동수집 로그 0건.
 
-**무손실 확정**: surin F3/F4/F9/F10 + merge F5~F8(classifier·multi_agent·briefing·rag·erp_context) 모두 보존 — classifier는 `/ml/classify`, severity v1은 `evaluate()`로 공존.
+**무손실 확정**: surin F3/F4/F9/F10 + merge F5~F8(classifier·multi_agent·briefing·rag·erp_context) 모두 보존 — classifier는 `/ml/classify`, severity v1은 `evaluate()`로 공존. (classifier는 2026-07-30 제거 — 아래 §impact_domain 후속 참고. severity v1은 그대로 공존 중.)
 
 ### ✅ 풀 라이브 E2E (2026-07-29 · mock 추출 · OpenAI 0)
 실제 Spring→FastAPI→Spring 왕복까지 검증. 로그인(AUTH_TEST_SEED 계정) 후 `POST /api/v1/analyses`(칠레 리튬):
@@ -128,6 +128,7 @@
 
 ## 설계 결정 (기록)
 1. **impact_domain**: `/analyze`는 **surin LLM 추출** 채택(merge classifier는 규칙목+휴면 스텁). merge classifier는 `/ml/classify`(internal)로 보존 → 실제 XGBoost 확보 시 토글.
+   - _후속(2026-07-30): 이 "보존" 결정은 철회했다. 보존된 classifier가 XGBoost가 아니라 규칙 기반이라 토글할 실체가 없었고 호출자도 없어서, `/ml/classify`와 함께 제거했다. 실제 모델이 오면 `orchestration_service`의 `classification` 조립부를 교체한다._
 2. **severity**: `/analyze`는 **surin `severity_engine`(v0.2-realtime, 4,081건 검증)**. merge `evaluate()`(v1, ERP기반)는 internal·ERP 경로용으로 보존 → **두 엔진 공존, 무손실**.
 
 ## ⚠️ 적대검증이 잡은 "그냥 두면 터지는" 것 (③⑤⑥에 포함)

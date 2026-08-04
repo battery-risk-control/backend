@@ -1,0 +1,3 @@
+supplier_id,supplier_code,supplier_name,country_code,supplier_status,risk_level,feoc_status,certifications
+SUP-BAD-01,BAD-1001,"Unclosed Quote Supplier,CL,ACTIVE,NORMAL,false,ISO9001
+SUP-BAD-02,BAD-1002,Normal Supplier,AU,ACTIVE,NORMAL,false,ISO14001

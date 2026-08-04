@@ -38,7 +38,11 @@ def select_next_route(
 
     # 매칭 없음 또는 재고 충분 -> erp/contract/risk/response를
     # 건너뛰고 KG 노드가 이미 채워둔 경량 결과로 바로 종료한다.
-    if state.get("kg_shortage_detected") is False:
+    #
+    # 단 게이트를 우회한 실행(KG_GATE_ENABLED=false)은 예외다 — kg_service가 없어 매칭이
+    # 안 될 뿐이므로 여기서 끊으면 뒷단을 영영 확인할 수 없다. 그때는 KG 노드가 경량 결과를
+    # 채우지 않으므로 아래 정상 순서(erp → contract → ...)로 이어진다.
+    if state.get("kg_shortage_detected") is False and not state.get("kg_gate_bypassed"):
         return "finish"
 
     # 최초 실행 순서

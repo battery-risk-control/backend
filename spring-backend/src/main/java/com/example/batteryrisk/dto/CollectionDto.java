@@ -41,8 +41,8 @@ public final class CollectionDto {
 
             // 생략하면 null — severity 공식(base_score = 70×norm_goldstein + 30×article_signal)이
             // norm_goldstein을 중립값으로 취급해 텍스트가 아무리 자극적이어도 severity가 NORMAL
-            // 근처에 머문다. 실제 GDELT 사례(data_core/event_features_normalized.csv)의 값을
-            // 넣으면 실제 파이프라인과 동일한 조건으로 WARNING/CRITICAL 게이트를 테스트할 수 있다.
+            // 근처에 머문다. 실제 GDELT 사례(backend 저장소 data_core/event_features_normalized.csv)의
+            // 값을 넣으면 실제 파이프라인과 동일한 조건으로 WARNING/CRITICAL 게이트를 테스트할 수 있다.
             @JsonProperty("goldstein_scale") Double goldsteinScale
     ) {}
 

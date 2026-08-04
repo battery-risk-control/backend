@@ -11,10 +11,12 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 멀티에이전트 구매 리스크 점수를 PostgreSQL에 저장·조회한다.
@@ -61,11 +63,7 @@ public class ProcurementRiskRepository {
                 .addValue("reviewPassed", assessment.reviewPassed())
                 .addValue("llmUsed", assessment.llmUsed())
                 .addValue("mock", assessment.mock())
-                .addValue("createdAt", assessment.createdAt())
-                .addValue("briefing", assessment.briefing())
-                .addValue("recommendedActions", toJson(assessment.recommendedActions()))
-                .addValue("contractFindings", toJson(assessment.contractFindings()))
-                .addValue("warnings", toJson(assessment.warnings()));
+                .addValue("createdAt", assessment.createdAt());
         jdbc.update("""
                 INSERT INTO procurement_risk_assessments (
                     assessment_id, analysis_id, news_id, material_id, erp_material_id,
@@ -73,8 +71,7 @@ public class ProcurementRiskRepository {
                     external_signal_score, external_signal_level, erp_exposure_score,
                     contract_gap_score, procurement_risk_score, procurement_risk_level,
                     risk_reasons, erp_assessment, contract_assessment,
-                    weight_version, stockout_gate_applied, review_passed, llm_used, mock, created_at,
-                    briefing, recommended_actions, contract_findings, warnings
+                    weight_version, stockout_gate_applied, review_passed, llm_used, mock, created_at
                 ) VALUES (
                     :assessmentId, :analysisId, :newsId, :materialId, :erpMaterialId,
                     :erpSupplierId, :materialCategory, :impactDomainFinal, :assessedAt,
@@ -82,9 +79,7 @@ public class ProcurementRiskRepository {
                     :contractGapScore, :procurementRiskScore, :procurementRiskLevel,
                     CAST(:riskReasons AS JSONB), CAST(:erpAssessment AS JSONB),
                     CAST(:contractAssessment AS JSONB),
-                    :weightVersion, :stockoutGateApplied, :reviewPassed, :llmUsed, :mock, :createdAt,
-                    :briefing, CAST(:recommendedActions AS JSONB), CAST(:contractFindings AS JSONB),
-                    CAST(:warnings AS JSONB)
+                    :weightVersion, :stockoutGateApplied, :reviewPassed, :llmUsed, :mock, :createdAt
                 )
                 """, params);
     }
@@ -155,12 +150,133 @@ public class ProcurementRiskRepository {
                         alreadyAcknowledged));
     }
 
+    /**
+     * 완료 처리 되돌리기. 기록만 지우므로 그 평가가 KPI·주요 이슈 집계로 되돌아온다.
+     *
+     * <p>되돌리기가 필요한 이유: "대응 완료"는 한 번 누르면 그 평가가 대시보드에서 사라지는데,
+     * 확인 절차도 취소도 없어 오클릭 한 번이 곧 데이터 손실처럼 보였다. 원본
+     * {@code procurement_risk_assessments}는 애초에 건드리지 않으므로, 기록을 지우면 상태가
+     * 완전히 원래대로 돌아온다.
+     *
+     * @return 실제로 지워진 행이 있으면 true. 이미 없었으면 false(실패가 아니라 "이미 그 상태").
+     */
+    public boolean unacknowledge(UUID assessmentId) {
+        return jdbc.update("""
+                DELETE FROM procurement_risk_acknowledgements
+                WHERE assessment_id = :assessmentId
+                """, new MapSqlParameterSource("assessmentId", assessmentId)) > 0;
+    }
+
     public Optional<ProcurementRiskDto.Assessment> findById(UUID assessmentId) {
         List<ProcurementRiskDto.Assessment> values = jdbc.query("""
                 SELECT *
                 FROM procurement_risk_assessments
                 WHERE assessment_id = :assessmentId
                 """, new MapSqlParameterSource("assessmentId", assessmentId),
+                (rs, rowNumber) -> mapAssessment(rs));
+        return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
+    }
+
+    /**
+     * 목록 화면용 경량 조회 — {@code analysis_id}별 <b>최신 종합</b> 등급만 뽑는다.
+     *
+     * <p>한 줄에 필요한 건 등급 하나뿐인데 {@link #findById}처럼 전체 Assessment(JSONB 4개 포함)를
+     * 읽으면 목록 20건에 대해 불필요한 파싱이 반복된다. 그래서 두 컬럼만 가져온다.
+     *
+     * <p>같은 뉴스가 여러 번 평가될 수 있어(append-only 이력) {@code DISTINCT ON}으로 최신 1건만 남긴다.
+     *
+     * <p><b>{@code erp_exposure_score IS NOT NULL} 조건이 핵심이다.</b> LangGraph는 KG 게이트에서
+     * 매칭이 없거나 재고가 충분하면 ERP·계약 노드를 건너뛰고 조기 종료하는데, 그때도 행은 남고
+     * 점수 0 · 등급 NORMAL로 기록된다. 이 조건이 없으면 <b>평가하지 못한 뉴스가 "종합 판정 결과
+     * 정상(확정)"으로 화면에 뜬다</b> — 실제로 kg_service가 떠 있지 않으면 모든 실행이 이 경로다.
+     * 조기 종료 경로는 {@code erp_assessment}를 빈 dict로 두므로 이 컬럼이 반드시 비어 있다.
+     *
+     * <p>조기 종료가 더 최신이어도 과거의 종합 판정을 살린다 — 둘 중 실제로 ERP·계약을 본 것은
+     * 그쪽뿐이라, 아무 판정 없음보다 낫다.
+     */
+    public Map<UUID, String> findLatestRiskLevelsByAnalysisIds(Collection<UUID> analysisIds) {
+        if (analysisIds == null || analysisIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Map.Entry<UUID, String>> rows = jdbc.query("""
+                WITH per_material AS (
+                    SELECT DISTINCT ON (analysis_id, erp_material_id)
+                           analysis_id, procurement_risk_level, procurement_risk_score
+                    FROM procurement_risk_assessments
+                    WHERE analysis_id IN (:analysisIds)
+                      AND erp_exposure_score IS NOT NULL
+                    ORDER BY analysis_id, erp_material_id, created_at DESC
+                )
+                SELECT DISTINCT ON (analysis_id) analysis_id, procurement_risk_level
+                FROM per_material
+                ORDER BY analysis_id, %s, procurement_risk_score DESC
+                """.formatted(SEVERITY_RANK_SQL),
+                new MapSqlParameterSource("analysisIds", analysisIds),
+                (rs, rowNumber) -> Map.entry(
+                        rs.getObject("analysis_id", UUID.class),
+                        rs.getString("procurement_risk_level")));
+        return rows.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    /**
+     * 등급 정렬용 severity 순위. 낮을수록 심각하다 — {@code ORDER BY}에 그대로 끼워 쓴다.
+     * 화면 카드가 대분류 단위라 자재별 결과를 "가장 심한 쪽"으로 접을 때 쓰인다.
+     */
+    private static final String SEVERITY_RANK_SQL = """
+            CASE procurement_risk_level
+                WHEN 'CRITICAL' THEN 1
+                WHEN 'WARNING' THEN 2
+                WHEN 'NORMAL' THEN 3
+                ELSE 4
+            END""";
+
+    /**
+     * 분석 1건의 <b>자재별 현재 평가</b>. 자재마다 정확히 한 행씩 돌려준다.
+     *
+     * <p>한 분석이 자재 여러 개로 펼쳐진다 — {@code analyses}에는 대분류만 있고 LITHIUM·GRAPHITE는
+     * ERP 자재가 2개씩이라, 점수화 스케줄러가 자재마다 따로 평가한다
+     * ({@code MultiAgentOrchestrationService.scoreNewAnalyses}). 화면 카드는 대분류 하나이므로
+     * 자재별 결과를 접어야 하는데, 접기 전 원자료가 이 목록이다.
+     *
+     * <p><b>자재마다 유효 평가를 우선 고른다</b>({@code (erp_exposure_score IS NOT NULL) DESC}).
+     * 같은 자재를 재실행해 최근 시도가 KG 게이트에서 조기 종료됐더라도, 과거에 성공한 종합 평가가
+     * 있으면 그쪽을 현재 값으로 본다 — 실제로 ERP·계약을 본 것은 그쪽뿐이라 "판정 없음"보다 낫다.
+     * 유효 평가가 한 번도 없던 자재는 최근 조기 종료 행이 대신 올라온다(화면이 사유를 보여준다).
+     */
+    public List<ProcurementRiskDto.Assessment> findMaterialAssessments(UUID analysisId) {
+        return jdbc.query("""
+                SELECT DISTINCT ON (erp_material_id) *
+                FROM procurement_risk_assessments
+                WHERE analysis_id = :analysisId
+                ORDER BY erp_material_id, (erp_exposure_score IS NOT NULL) DESC, created_at DESC
+                """, new MapSqlParameterSource("analysisId", analysisId),
+                (rs, rowNumber) -> mapAssessment(rs));
+    }
+
+    /** 분석 1건의 가장 최근 평가 시각. 등급과 무관하게 "마지막으로 언제 돌았나"를 보여준다. */
+    public Optional<OffsetDateTime> findLatestAttemptAt(UUID analysisId) {
+        List<OffsetDateTime> values = jdbc.query("""
+                SELECT MAX(created_at) AS latest FROM procurement_risk_assessments
+                WHERE analysis_id = :analysisId
+                """, new MapSqlParameterSource("analysisId", analysisId),
+                (rs, rowNumber) -> rs.getObject("latest", OffsetDateTime.class));
+        return values.isEmpty() ? Optional.empty() : Optional.ofNullable(values.get(0));
+    }
+
+    /**
+     * 분석 1건의 <b>최신</b> 종합 평가 전체. 리스크 모니터링 상세가 세부 점수 3개와 판단 근거를
+     * 함께 보여줘야 해서, 등급만 뽑는 {@link #findLatestRiskLevelsByAnalysisIds}와 달리 전체를 읽는다.
+     *
+     * <p>append-only 이력이라 같은 분석에 여러 행이 쌓인다 — 가장 최근 것이 화면이 보여줄 값이다.
+     */
+    public Optional<ProcurementRiskDto.Assessment> findLatestByAnalysisId(UUID analysisId) {
+        List<ProcurementRiskDto.Assessment> values = jdbc.query("""
+                SELECT *
+                FROM procurement_risk_assessments
+                WHERE analysis_id = :analysisId
+                ORDER BY created_at DESC
+                LIMIT 1
+                """, new MapSqlParameterSource("analysisId", analysisId),
                 (rs, rowNumber) -> mapAssessment(rs));
         return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
     }
@@ -190,11 +306,7 @@ public class ProcurementRiskRepository {
                 nullableBoolean(rs, "review_passed"),
                 rs.getBoolean("llm_used"),
                 rs.getBoolean("mock"),
-                rs.getObject("created_at", OffsetDateTime.class),
-                rs.getString("briefing"),
-                fromJson(rs.getString("recommended_actions"), STRING_LIST),
-                fromJson(rs.getString("contract_findings"), OBJECT_MAP_LIST),
-                fromJson(rs.getString("warnings"), STRING_LIST)
+                rs.getObject("created_at", OffsetDateTime.class)
         );
     }
 

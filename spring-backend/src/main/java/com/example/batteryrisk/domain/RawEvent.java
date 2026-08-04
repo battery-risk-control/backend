@@ -32,6 +32,14 @@ public class RawEvent {
     @Column(name = "title", length = 500)
     private String title;
 
+    /** 한국어로 번역된 제목. null이면 미번역이며 화면은 원문을 그대로 보여준다. */
+    @Column(name = "title_ko", length = 500)
+    private String titleKo;
+
+    /** 번역 시도 횟수. 계속 실패하는 행이 매 주기 예산을 먹지 않도록 재시도를 제한한다. */
+    @Column(name = "translation_attempts", nullable = false)
+    private short translationAttempts;
+
     @Column(name = "content")
     private String content;
 
@@ -78,12 +86,27 @@ public class RawEvent {
         this.triggeredAnalysisId = analysisId;
     }
 
+    /** 번역 성공. 빈 문자열은 저장하지 않는다 — 화면에 빈 헤드라인이 뜨느니 원문이 낫다. */
+    public void applyTranslatedTitle(String translated) {
+        if (translated != null && !translated.isBlank()) {
+            this.titleKo = translated.trim();
+        }
+        this.translationAttempts++;
+    }
+
+    /** 번역 실패. 시도 횟수만 올려 다음 주기에 무한 재시도되지 않게 한다. */
+    public void markTranslationFailed() {
+        this.translationAttempts++;
+    }
+
     public Long getId() { return id; }
     public String getSource() { return source; }
     public String getDataType() { return dataType; }
     public String getExternalId() { return externalId; }
     public String getContentHash() { return contentHash; }
     public String getTitle() { return title; }
+    public String getTitleKo() { return titleKo; }
+    public short getTranslationAttempts() { return translationAttempts; }
     public String getContent() { return content; }
     public String getSourceUrl() { return sourceUrl; }
     public String getCountryCode() { return countryCode; }

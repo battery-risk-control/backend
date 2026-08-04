@@ -132,7 +132,23 @@ public final class AnalysisDto {
             FastApiClassification classification,
             FastApiSeverity severity,
             boolean mock,
-            @JsonProperty("affected_materials") List<String> affectedMaterials
+            @JsonProperty("affected_materials") List<String> affectedMaterials,
+            // 아래 둘은 FastAPI가 예전부터 내려주던 블록인데 Spring이 읽지 않아 버려지고 있었다.
+            // 리스크 모니터링 상세의 "뉴스 요약"·"외부신호" 패널이 이 값들을 쓴다(analyses에 저장).
+            ExtractionOverride extraction,
+            FastApiFeatureVector features
+    ) {}
+
+    /**
+     * severity 계산에 실제로 쓰인 피처 벡터(FastAPI {@code FeatureVector}).
+     *
+     * <p>요청의 {@code feature_overrides}와 값이 다를 수 있다 — FastAPI가 override와 자체 수집값을
+     * 병합하고 비면 기본값을 채우기 때문이다. 화면에는 <b>점수를 만든 쪽</b>인 이 값을 보여준다.
+     */
+    public record FastApiFeatureVector(
+            @JsonProperty("goldstein_scale") Double goldsteinScale,
+            @JsonProperty("news_count") Integer newsCount,
+            @JsonProperty("tone_score") Double toneScore
     ) {}
 
     public record FastApiClassification(

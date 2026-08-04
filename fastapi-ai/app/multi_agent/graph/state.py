@@ -47,6 +47,16 @@ class BriefingState(TypedDict, total=False):
     # — 이후 erp/contract/risk/response 단계를 태울지 결정하는 게이트
     kg_shortage_detected: bool
 
+    # KG_GATE_ENABLED=false로 게이트를 우회했는지.
+    #
+    # kg_service가 떠 있지 않으면 resolve_kg_context가 "매칭 없음"으로 폴백하고 게이트가
+    # 모든 건을 조기 종료시켜, 뒷단(ERP·계약·위험도·브리핑)을 확인할 방법이 없다. 이 플래그가
+    # true면 supervisor가 조기 종료를 건너뛰고 erp부터 정상 경로를 태운다.
+    #
+    # **kg_shortage_detected를 true로 덮어쓰지 않는다.** 그 필드는 "KG가 재고부족을 확정했는가"라는
+    # 사실 그대로 남겨야, 우회한 실행과 진짜 확정된 실행을 나중에 구분할 수 있다.
+    kg_gate_bypassed: bool
+
     # KG가 원산지 매칭으로 좁힌 공급사/계약 식별자
     # (kg_service의 CSV 스냅샷 기준 외부 문자열 ID, ERP DB 내부 숫자 ID와는 다름)
     kg_affected_suppliers: list[str]

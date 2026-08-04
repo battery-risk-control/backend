@@ -1,6 +1,7 @@
 package com.example.batteryrisk.exception;
 
 import com.example.batteryrisk.dto.ApiErrorResponse;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -117,6 +118,27 @@ public class GlobalExceptionHandler {
                 : "요청 값을 확인해 주세요.";
         return ResponseEntity.badRequest()
                 .body(ApiErrorResponse.of("INVALID_REQUEST", message));
+    }
+
+    /**
+     * 쿼리 파라미터 제약 위반(@Validated 컨트롤러의 @Min/@Max 등)도 클라이언트 오류(400)로 처리한다.
+     *
+     * <p>이 핸들러가 없으면 {@code ?days=365} 같은 범위 초과가 제네릭 Exception 핸들러로 떨어져
+     * 500이 나간다 — 호출자는 자기 요청이 잘못됐다는 걸 알 방법이 없고 서버 장애로 오인한다.
+     * {@code @Validated}를 쓰는 컨트롤러(RiskEventController·RiskMonitoringController)가 대상이다.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException exception) {
+        String message = exception.getConstraintViolations().stream()
+                .findFirst()
+                .map(violation -> {
+                    String path = violation.getPropertyPath().toString();
+                    // "events.days"처럼 메서드명이 앞에 붙어 오므로 파라미터 이름만 남긴다.
+                    String parameter = path.substring(path.lastIndexOf('.') + 1);
+                    return parameter + ": " + violation.getMessage();
+                })
+                .orElse("요청 값을 확인해 주세요.");
+        return ResponseEntity.badRequest().body(ApiErrorResponse.of("INVALID_REQUEST", message));
     }
 
     // 요청 본문을 읽지 못하는 경우(깨진 JSON, UTF-8이 아닌 인코딩 등)는 클라이언트 오류(400)로 처리한다.

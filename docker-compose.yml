@@ -28,6 +28,43 @@ services:
       - battery_chroma_data:/data
     restart: unless-stopped
 
+  # KG 리졸버. 2026-08-03에 호스트 프로세스에서 컨테이너로 옮겼다 — 사람이 PowerShell 창을
+  # 띄워둬야 했고, 그 창을 닫으면 KG_GATE_ENABLED=true 상태에서 모든 뉴스가 조용히 조기
+  # 종료됐다(에러가 아니라 "매칭 없음" 폴백이라 알아채기 어렵다).
+  kg:
+    build:
+      # 컨텍스트가 저장소 루트여야 한다 — main.py가 sys.path에 <repo>/src를 넣으므로
+      # kg_service/ 하나만으로는 build_ontology_graph를 찾지 못한다.
+      context: .
+      dockerfile: kg_service/Dockerfile
+    container_name: battery-risk-kg
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      # **읽기 전용으로 두면 안 된다.** kg_service에는 /admin/append_contract·
+      # append_outbound_contract·append_inventory_snapshot·append_material_consumption 이
+      # 있고 전부 이 디렉터리의 CSV에 행을 덧붙인다. Spring도 계약 업로드·ERP 갱신 때 이걸
+      # 부른다(ContractUploadService·OutboundContractUploadService·ErpAdminService).
+      # :ro로 두면 그 호출이 Read-only file system으로 실패하는데, Spring이 예외를 삼키고
+      # log.warn만 남기므로 업로드는 성공한 것처럼 끝나고 KG 그래프만 조용히 과거에 머문다.
+      #
+      # 이미지에 굽지 않는 이유는 그대로다 — 데이터를 갈아끼울 때 재빌드 없이 재시작으로 끝난다.
+      - ./data/ERP_data/spring-csv:/data/erp
+      - ./data_ref/outbound_mock:/data/outbound
+    ports:
+      # 호스트에도 열어둔다 — /health·/resolve를 직접 찔러보는 게 KG 문제와 배선 문제를
+      # 가르는 가장 빠른 방법이다.
+      - "${KG_PORT:-8100}:8100"
+    healthcheck:
+      # 그래프가 실제로 만들어졌는지까지 본다. main.py의 /health는 그래프가 없으면 503이라
+      # "떴지만 CSV를 못 읽은" 상태가 healthy로 새지 않는다.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8100/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
   fastapi:
     build: ./fastapi-ai
     container_name: battery-risk-fastapi
@@ -46,23 +83,61 @@ services:
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-3072}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # .env에 있었지만 컨테이너로 전달되지 않아 코드 기본값만 먹고 있었다(2026-08-03 확인).
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
       # 브리핑 생성 LLM(claude-sonnet-5). 없으면 use_llm=true여도 LLM 호출이 실패한다.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # 기본 30s는 구조화 출력(계약 근거 다건 포함) 프롬프트에 실제로 부족해 APITimeoutError로
       # 폴백되는 것을 실증했다(2026-07-31). 여유 있게 잡는다.
       ANTHROPIC_TIMEOUT_SECONDS: ${ANTHROPIC_TIMEOUT_SECONDS:-90}
+      # 브리핑 1건의 출력 예산. **extended thinking이 이 예산을 함께 쓴다.**
+      # 4096으로는 thinking이 4095를 다 써버려 구조화 출력이 통째로 잘리고
+      # (stop_reason=max_tokens) ValidationError → 규칙 기반 폴백으로 떨어지는 것을
+      # 실증했다(2026-07-31, 콩고+코발트). 8192는 같은 입력에서 thinking 3176 +
+      # output 5325로 여유 있게 끝난다. 줄이려면 실측부터 다시 할 것.
+      #
+      # 지금까지 config.py의 코드 기본값에만 있어서 .env에 적어도 컨테이너까지 전달되지
+      # 않았다(값을 바꾸려면 이미지를 다시 빌드해야 했다) — 여기 올려 환경변수로 조절한다.
+      ANTHROPIC_MAX_TOKENS: ${ANTHROPIC_MAX_TOKENS:-8192}
+      # 브리핑 문장을 Claude로 쓸지(true·기본) OpenAI로 쓸지(false).
+      # false는 Anthropic 키가 아직 없을 때 브리핑 경로(페이로드 조립 → 구조화 출력 →
+      # DB 적재)를 확인하는 용도다. 추출·번역이 쓰는 OPENAI_API_KEY를 그대로 재사용한다.
+      #   ⚠️ OpenAI 경로로는 **thinking 토큰이 max_tokens를 잠식하는 문제를 검증하지 못한다.**
+      #      2026-07-31에 실제로 터졌던 그 버그는 extended thinking이 있는 Claude에서만
+      #      재현되므로, 여기서 초록불이 떠도 Claude 경로의 보증이 아니다.
+      #   ⚠️ 프롬프트가 Claude 기준으로 튜닝돼 있어 문장 품질이 다르다. 그 사실은
+      #      결과의 warnings에 남는다.
+      BRIEFING_USE_CLAUDE: ${BRIEFING_USE_CLAUDE:-true}
+      # 브리핑만 다른 OpenAI 모델로 돌리고 싶을 때. 미설정이면 OPENAI_MODEL을 따른다.
+      BRIEFING_OPENAI_MODEL: ${BRIEFING_OPENAI_MODEL:-}
       # [surin F9] FastAPI supplier_recommendation_service가 Spring /api/v1/suppliers/qualified로 콜백. docker 네트워크에선 서비스명 spring 사용(localhost 아님).
       SPRING_BASE_URL: ${SPRING_BASE_URL:-http://spring:8080}
-      # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 host.docker.internal로 접근한다.
-      # (spring 서비스의 KG_SERVICE_BASE_URL과 동일한 값 — .env에서 한 번만 설정)
-      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
+      # kg는 이제 같은 compose 네트워크의 서비스다(2026-08-03 이전에는 호스트 프로세스라
+      # host.docker.internal을 썼다). 호스트에서 따로 띄운 KG를 쓰려면 .env에서
+      # KG_SERVICE_BASE_URL=http://host.docker.internal:8100 으로 덮어쓰면 된다.
+      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://kg:8100}
+      # KG 게이트 on/off. 기본 true(운영 동작 그대로).
+      # kg_service가 안 떠 있으면 리졸버가 "매칭 없음"으로 폴백하고 게이트가 모든 건을 조기
+      # 종료시켜, procurement_risk_assessments에 erp_exposure_score=NULL·NORMAL만 쌓인다.
+      # false로 두면 게이트를 통과시켜 ERP·계약·위험도·브리핑 노드를 그대로 태운다.
+      #   ⚠️ 우회한 실행은 KG가 확정한 결과가 아니다 — warnings에 그 사실이 남는다.
+      #   ⚠️ 게이트를 열면 모든 건이 LLM 노드를 타므로 호출 비용이 실제로 발생한다.
+      #      확인이 끝나면 다시 true로 되돌릴 것.
+      KG_GATE_ENABLED: ${KG_GATE_ENABLED:-true}
       SEVERITY_RULE_VERSION: ${SEVERITY_RULE_VERSION:-severity-rule-v1}
-      MOCK_MODE: "true"
+      # LLM 추출을 mock으로 대체할지. 기본 true — 켜면 /analyze 한 건마다 실제 OpenAI 추출이
+      # 나가므로, COLLECTION_ANALYSIS_ENABLED·RISK_SCORING_ENABLED와 같은 방침으로 기본 off다.
+      # 실제 추출을 검증할 때만 MOCK_MODE=false로 덮어쓴다.
+      # ("true" 하드코딩이었으나 셸에서 덮어쓸 수 없어 변수 형태로 바꿨다.)
+      MOCK_MODE: ${MOCK_MODE:-true}
     ports:
       - "${FASTAPI_PORT:-8000}:8000"
     depends_on:
       - chroma
+      # 그래프가 다 만들어진 뒤에 뜨게 한다. 먼저 뜨면 첫 몇 건이 "매칭 없음"으로 폴백해
+      # 조기 종료되는데, 그건 에러가 아니라 정상 응답이라 나중에 원인을 되짚기 어렵다.
+      - kg
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -80,9 +155,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-battery_app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-battery_app_password}
       FASTAPI_BASE_URL: http://fastapi:8000
-      # kg_service는 Docker 밖(호스트)에서 도는 별도 프로세스라 컨테이너 네트워크 서비스명이
-      # 아니라 host.docker.internal로 접근해야 한다(.env에 KG_SERVICE_BASE_URL로 설정).
-      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://host.docker.internal:8100}
+      # fastapi와 같은 값을 쓴다(.env에서 한 번만 설정). 기본은 compose 네트워크의 kg 서비스다.
+      KG_SERVICE_BASE_URL: ${KG_SERVICE_BASE_URL:-http://kg:8100}
+      # fastapi 서비스와 같은 변수를 공유한다 — 게이트가 두 군데(Spring: 멀티에이전트를 호출할지 /
+      # FastAPI: 그래프 안에서 KG 노드가 short-circuit할지) 있어서 한쪽만 내리면 막힌다.
+      KG_GATE_ENABLED: ${KG_GATE_ENABLED:-true}
+      # 자동 브리핑에서 LLM 문장 생성을 쓸지. off면 규칙 기반 문장만 나오고 BRIEFING_USE_CLAUDE도 무효다.
+      AUTO_BRIEFING_USE_LLM: ${AUTO_BRIEFING_USE_LLM:-true}
       JWT_SECRET: ${JWT_SECRET:-change-this-development-only-secret-key-please-override-in-env-32bytes+}
       JWT_ACCESS_TOKEN_VALIDITY_SECONDS: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:-3600}
       JWT_REFRESH_TOKEN_VALIDITY_SECONDS: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:-1209600}
@@ -105,6 +184,27 @@ services:
       # 이 플래그와 무관하게 항상 동작하므로, 기본 off로 두어도 분석 테스트 경로는 막히지 않는다.
       COLLECTION_SCHEDULER_ENABLED: ${COLLECTION_SCHEDULER_ENABLED:-false}
       COLLECTION_ANALYSIS_ENABLED: ${COLLECTION_ANALYSIS_ENABLED:-false}
+      # 제목 한국어 번역(5분 주기). 분석과 독립이며 훨씬 싸다 — 제목만 번역하므로 기사당 약 $0.00004.
+      # 기본 off인 이유는 analysis-enabled와 같다: LLM 호출이라 켠 걸 깜빡하면 비용이 계속 나간다.
+      COLLECTION_TRANSLATION_ENABLED: ${COLLECTION_TRANSLATION_ENABLED:-false}
+      # 환율(공개 대시보드 ② 밴드). 한국수출입은행 무료 공개 API라 비용이 없어 스케줄러는 기본 on이지만,
+      # 인증키가 없으면 수집을 조용히 건너뛰므로 키 미설정 상태로 띄워도 부팅에는 문제가 없다.
+      KOREAEXIM_API_KEY: ${KOREAEXIM_API_KEY:-}
+      EXCHANGE_RATE_SCHEDULER_ENABLED: ${EXCHANGE_RATE_SCHEDULER_ENABLED:-true}
+      EXCHANGE_RATE_CURRENCIES: ${EXCHANGE_RATE_CURRENCIES:-USD,EUR,CNH,CLP,AUD,IDR,CDF,ARS,ZAR,BRL,PHP,JPY,CAD,MYR}
+      # 수출입은행이 고시하지 않는 조달국 통화(칠레·아르헨티나·콩고·남아공·브라질·필리핀)를
+      # USD 경유로 계산한다. 키 불필요하지만 화면에 "Rates By Exchange Rate API" 표기가 필요하다.
+      EXCHANGE_RATE_CROSS_ENABLED: ${EXCHANGE_RATE_CROSS_ENABLED:-true}
+      EXCHANGE_RATE_CROSS_CURRENCIES: ${EXCHANGE_RATE_CROSS_CURRENCIES:-CLP,ARS,CDF,ZAR,BRL,PHP}
+      # 원자재 가격(공개 대시보드 가격 추이). yfinance는 인증키가 없는 비공식 경로라 비용은 0이지만
+      # Yahoo가 호출 빈도를 조일 수 있다. 두 스케줄러를 따로 끌 수 있게 나눠 둔다.
+      #   SCHEDULER_ENABLED  매일 07:00 전체 갱신(180일). 끄면 가격 수집이 통째로 멈춘다.
+      #   INTRADAY_ENABLED   15분 장중 갱신(최근 5일). 끄면 하루 1회 갱신으로 돌아간다.
+      #                      호출량 종목 7개 × 96회 = 약 672회/일. 429가 잦으면 여기부터 끈다.
+      #   INTRADAY_CRON      빈도 조절용. 예: 30분 주기는 "0 */30 * * * *"
+      MARKET_PRICE_SCHEDULER_ENABLED: ${MARKET_PRICE_SCHEDULER_ENABLED:-true}
+      MARKET_PRICE_INTRADAY_ENABLED: ${MARKET_PRICE_INTRADAY_ENABLED:-true}
+      MARKET_PRICE_INTRADAY_CRON: ${MARKET_PRICE_INTRADAY_CRON:-0 */15 * * * *}
       # 구매 리스크 점수 자동 축적 스케줄러(F5, 비로그인 대시보드용). 켜는 걸 깜빡하면 점수가
       # 안 쌓일 뿐이지만 끄는 걸 깜빡하면 LLM 비용이 실제로 나가고 되돌릴 수 없다 — 기본 off.
       # 수동 트리거(POST /api/v1/multi-agent/risk-scoring/run)는 이 플래그와 무관하게 항상 가능.
@@ -127,21 +227,15 @@ services:
         condition: service_healthy
       fastapi:
         condition: service_started
+      # service_healthy로 기다린다 — Spring의 자동 분석 경로가 기동 직후부터 KG를 부른다.
+      kg:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 40s
-    restart: unless-stopped
-
-  frontend:
-    build: ./frontend
-    container_name: battery-risk-frontend
-    ports:
-      - "${FRONTEND_PORT:-5173}:80"
-    depends_on:
-      - spring
     restart: unless-stopped
 
 volumes:

@@ -157,6 +157,12 @@ FastAPI는 PostgreSQL에 직접 접근하지 않는다. Spring Boot는 ChromaDB�
 
 > 자동 재시도·실패 단계 재개·추가 근거 최대 2회 탐색은 MVP에서 제외한다.
 
+> **구현 현황 (2026-07-30)** — 위 FastAPI 기능 중 "XGBoost로 Impact Domain 분류"는 구현되지 않았다.
+> `/analyze`는 LLM 추출의 `impact_domain_draft`를 최종값으로 그대로 쓰며(`orchestration_service.py`),
+> 분류 확률이 없어 `confidence`는 `null`이다. 자리만 지키던 규칙 기반 mock 분류기와
+> `/internal/ml/classify` 엔드포인트는 2026-07-30에 제거했다(응답 스키마 `ClassificationResult`는 유지).
+> **학습된 XGBoost가 실제로 도는 곳은 F4 트리아지 필터 하나뿐이다**(`app/models/triage_filter.json`).
+
 ## F4. 외부 데이터 주기 수집
 
 ### 어떤 기능인가?

@@ -20,7 +20,13 @@ public final class ErpAdminDto {
             String erpId,
             Long internalId,
             boolean created,
-            OffsetDateTime processedAt
+            OffsetDateTime processedAt,
+
+            /**
+             * KG 동기화 실패 사유. 재고·소비량처럼 kg_service로 흘려보내는 엔티티만 채워지고,
+             * 성공했거나 동기화 대상이 아니면 null이다.
+             */
+            String kgSyncWarning
     ) {}
 
     public record MaterialUpsertRequest(
@@ -105,6 +111,43 @@ public final class ErpAdminDto {
             @NotBlank String plantCode,
             @DecimalMin("0") BigDecimal averageDailyUsage,
             @NotNull @Positive Integer calculationWindowDays,
+            @NotBlank String dataQualityFlag
+    ) {}
+
+    /**
+     * 재고 스냅샷 <b>이력 적재</b>용. {@link InventorySnapshotUpsertRequest}(일일 갱신)와 달리
+     * 파일이 가진 스냅샷 ID·시각·현재여부를 그대로 보존한다.
+     *
+     * <p>일일 갱신 API는 "새 스냅샷 하나를 현재로 올리고 이전 것을 내린다"가 목적이라 ID를 새로
+     * 채번하고 {@code snapshot_at = CURRENT_TIMESTAMP}, {@code is_current = TRUE}로 고정한다.
+     * 그 경로로 이력 CSV 120행을 넣으면 120건이 전부 "지금" 시각으로 찍히고 마지막 행만 현재로
+     * 남아 시계열이 사라진다. 그래서 일괄 적재(데이터 관리 화면)는 이 요청을 쓴다.
+     */
+    public record InventorySnapshotImportRequest(
+            @NotBlank @Schema(example = "INV-0001") String erpInventorySnapshotId,
+            @NotBlank @Schema(example = "MAT-LI-CARB") String erpMaterialId,
+            @NotBlank @Schema(example = "WH-ICN-01") String erpWarehouseId,
+            @NotNull @DecimalMin("0") BigDecimal onHandQuantity,
+            @NotNull @DecimalMin("0") BigDecimal reservedQuantity,
+            @NotNull @DecimalMin("0") BigDecimal blockedQuantity,
+            @NotNull @DecimalMin("0") BigDecimal qualityHoldQuantity,
+            @NotNull @DecimalMin("0") BigDecimal safetyStockQuantity,
+            @NotNull OffsetDateTime snapshotAt,
+            boolean isCurrent,
+            @NotBlank String sourceUnit,
+            @NotBlank String normalizedUnit,
+            @NotBlank String dataQualityFlag
+    ) {}
+
+    /** {@link InventorySnapshotImportRequest}와 같은 이유·같은 용도, 소비량 이력 전용. */
+    public record MaterialConsumptionImportRequest(
+            @NotBlank @Schema(example = "CON-001") String erpConsumptionId,
+            @NotBlank @Schema(example = "MAT-LI-CARB") String erpMaterialId,
+            @NotBlank String plantCode,
+            @DecimalMin("0") BigDecimal averageDailyUsage,
+            @NotNull @Positive Integer calculationWindowDays,
+            @NotNull OffsetDateTime calculatedAt,
+            boolean isCurrent,
             @NotBlank String dataQualityFlag
     ) {}
 

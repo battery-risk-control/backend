@@ -42,7 +42,10 @@ public class ErpRepository {
                     COALESCE(SUM(quality_hold_quantity), 0) AS quality_hold_quantity,
                     COALESCE(SUM(safety_stock_quantity), 0) AS safety_stock_quantity,
                     COUNT(*) AS row_count,
-                    SUM(CASE WHEN data_quality_flag <> 'VALID' THEN 1 ELSE 0 END) AS invalid_count
+                    -- STALE과 INVALID를 나눠 센다. 예전에는 둘을 <> 'VALID' 하나로 묶어
+                    -- 세면서 INVALID 행이 화면에 STALE로 나갔다 — ErpService 참고.
+                    SUM(CASE WHEN data_quality_flag = 'STALE' THEN 1 ELSE 0 END) AS stale_count,
+                    SUM(CASE WHEN data_quality_flag = 'INVALID' THEN 1 ELSE 0 END) AS invalid_count
                 FROM inventory_snapshots
                 WHERE material_id = :materialId
                   AND is_current = TRUE
@@ -54,6 +57,7 @@ public class ErpRepository {
                 rs.getBigDecimal("quality_hold_quantity"),
                 rs.getBigDecimal("safety_stock_quantity"),
                 rs.getInt("row_count"),
+                rs.getInt("stale_count"),
                 rs.getInt("invalid_count")));
     }
 
@@ -66,7 +70,10 @@ public class ErpRepository {
                     SUM(average_daily_usage) AS average_daily_usage,
                     COUNT(*) AS row_count,
                     SUM(CASE WHEN average_daily_usage IS NULL THEN 1 ELSE 0 END) AS missing_usage_count,
-                    SUM(CASE WHEN data_quality_flag <> 'VALID' THEN 1 ELSE 0 END) AS invalid_count
+                    -- MISSING_USAGE는 여기서 세지 않는다 — 바로 위 missing_usage_count가 이미
+                    -- 그 상태를 잡고, 겹쳐 세면 결측이 STALE로도 잡혀 판정이 흐려진다.
+                    SUM(CASE WHEN data_quality_flag = 'STALE' THEN 1 ELSE 0 END) AS stale_count,
+                    SUM(CASE WHEN data_quality_flag = 'INVALID' THEN 1 ELSE 0 END) AS invalid_count
                 FROM material_consumptions
                 WHERE material_id = :materialId
                   AND is_current = TRUE
@@ -75,6 +82,7 @@ public class ErpRepository {
                 rs.getBigDecimal("average_daily_usage"),
                 rs.getInt("row_count"),
                 rs.getInt("missing_usage_count"),
+                rs.getInt("stale_count"),
                 rs.getInt("invalid_count")));
     }
 
@@ -325,6 +333,40 @@ public class ErpRepository {
         return resolveId("suppliers", "supplier_id", "erp_supplier_id", erpSupplierId);
     }
 
+    /**
+     * 계약 문서를 붙일 대상을 고르는 드롭다운용 공급사 목록.
+     *
+     * <p>거래 중단된 공급사도 함께 준다. 계약이 끝난 공급사의 과거 문서를 뒤늦게 올리는 일이
+     * 있어서, 여기서 걸러 버리면 그 문서를 등록할 방법이 아예 없어진다. 대신 상태를 같이
+     * 내려보내 화면이 표시하게 한다.
+     */
+    public List<SupplierOption> listSupplierOptions() {
+        return jdbc.query("""
+                SELECT erp_supplier_id, supplier_name, country_code, supplier_status
+                FROM suppliers
+                ORDER BY supplier_name
+                """, (rs, rowNumber) -> new SupplierOption(
+                rs.getString("erp_supplier_id"), rs.getString("supplier_name"),
+                rs.getString("country_code"), rs.getString("supplier_status")));
+    }
+
+    /** 위와 같은 용도의 자재 목록. 사용 중단(active=false) 자재도 같은 이유로 포함한다. */
+    public List<MaterialOption> listMaterialOptions() {
+        return jdbc.query("""
+                SELECT erp_material_id, material_name, material_category, active
+                FROM materials
+                ORDER BY material_name
+                """, (rs, rowNumber) -> new MaterialOption(
+                rs.getString("erp_material_id"), rs.getString("material_name"),
+                rs.getString("material_category"), rs.getBoolean("active")));
+    }
+
+    public record SupplierOption(
+            String erpSupplierId, String supplierName, String countryCode, String supplierStatus) {}
+
+    public record MaterialOption(
+            String erpMaterialId, String materialName, String materialCategory, boolean active) {}
+
     public Optional<Long> resolveWarehouseId(String erpWarehouseId) {
         return resolveId("warehouses", "warehouse_id", "erp_warehouse_id", erpWarehouseId);
     }
@@ -504,8 +546,116 @@ public class ErpRepository {
         return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
     }
 
+    /**
+     * 자재 대분류별 조달국 목록. 공개 대시보드 가격 추이의 "국가·지역" 필터가 쓴다.
+     *
+     * <p>공급사 상태(ACTIVE/UNDER_REVIEW)로 거르지 않는다 — 심사 중인 공급사도 조달 관계는 이미
+     * 성립해 있어서, 상태로 걸러내면 인도네시아 니켈·중국 흑연처럼 실제 조달하는 국가가 필터
+     * 목록에서 사라진다. 여기서 정책을 만들지 않고 등록된 관계를 그대로 반영한다.
+     *
+     * <p>공급사명·금액·비중은 포함하지 않는다. 공개 화면이라 "어느 나라에서 조달하는가"까지만
+     * 나가고 조달 구조의 세부(누구에게서 얼마나)는 노출하지 않는다.
+     */
+    public List<MaterialCountryRow> findMaterialSourcingCountries() {
+        return jdbc.query("""
+                SELECT DISTINCT m.material_category, s.country_code
+                FROM supplier_materials sm
+                JOIN suppliers s ON s.supplier_id = sm.supplier_id
+                JOIN materials m ON m.material_id = sm.material_id
+                WHERE s.country_code IS NOT NULL
+                ORDER BY m.material_category, s.country_code
+                """, new MapSqlParameterSource(),
+                (rs, rowNum) -> new MaterialCountryRow(
+                        rs.getString("material_category"), rs.getString("country_code")));
+    }
+
+    public record MaterialCountryRow(String materialCategory, String countryCode) {}
+
+    /**
+     * 공급사 국적·결제통화별 발주 금액 합계. 공개 대시보드 "수입 의존도" 도넛의 원천이다.
+     *
+     * <p>통화별로 나눠서 반환하는 이유: {@code purchase_orders.currency}가 주문마다 USD/EUR/KRW로
+     * 달라, 여기서 합쳐버리면 서로 다른 통화를 더한 값이 나온다. 원화 환산은 환율을 아는
+     * 서비스 계층에서 한다.
+     *
+     * <p>{@code order_date} 구간으로 자르지 않는다 — 시드 발주가 5개월치뿐이라 기간을 좁히면
+     * 표본이 급격히 줄어든다. 기간 필터가 필요해지면 파라미터로 받는다.
+     */
+    public List<CountryPurchaseAmountRow> aggregatePurchaseAmountsByCountry() {
+        return jdbc.query("""
+                SELECT s.country_code,
+                       po.currency,
+                       SUM(poi.ordered_quantity * poi.unit_price) AS amount,
+                       MIN(po.order_date) AS first_order_date,
+                       MAX(po.order_date) AS last_order_date
+                FROM purchase_order_items poi
+                JOIN purchase_orders po ON po.purchase_order_id = poi.purchase_order_id
+                JOIN suppliers s ON s.supplier_id = po.supplier_id
+                WHERE s.country_code IS NOT NULL
+                GROUP BY s.country_code, po.currency
+                """, new MapSqlParameterSource(),
+                (rs, rowNum) -> new CountryPurchaseAmountRow(
+                        rs.getString("country_code"),
+                        rs.getString("currency"),
+                        rs.getBigDecimal("amount"),
+                        rs.getDate("first_order_date").toLocalDate(),
+                        rs.getDate("last_order_date").toLocalDate()));
+    }
+
+    public record CountryPurchaseAmountRow(
+            String countryCode,
+            String currency,
+            BigDecimal amount,
+            LocalDate firstOrderDate,
+            LocalDate lastOrderDate) {}
+
+    /**
+     * 공급사·결제통화별 발주 금액 합계. 대시보드 "공급사 현황"의 의존도 %가 여기서 나온다.
+     *
+     * <p>{@link #aggregatePurchaseAmountsByCountry()}를 공급사 단위로 내린 것이며, 통화를 합치지
+     * 않고 그대로 내보내는 이유도 같다 — 주문마다 통화가 달라 여기서 더하면 서로 다른 화폐를
+     * 더한 값이 된다. 원화 환산(고시 매매기준율)은 환율을 아는 서비스 계층이 한다.
+     */
+    public List<SupplierPurchaseAmountRow> aggregatePurchaseAmountsBySupplier() {
+        return jdbc.query("""
+                SELECT s.supplier_id, s.supplier_code, s.supplier_name, s.country_code,
+                       s.supplier_status, s.risk_level,
+                       po.currency,
+                       SUM(poi.ordered_quantity * poi.unit_price) AS amount
+                FROM purchase_order_items poi
+                JOIN purchase_orders po ON po.purchase_order_id = poi.purchase_order_id
+                JOIN suppliers s ON s.supplier_id = po.supplier_id
+                GROUP BY s.supplier_id, s.supplier_code, s.supplier_name, s.country_code,
+                         s.supplier_status, s.risk_level, po.currency
+                """, new MapSqlParameterSource(),
+                (rs, rowNum) -> new SupplierPurchaseAmountRow(
+                        rs.getLong("supplier_id"),
+                        rs.getString("supplier_code"),
+                        rs.getString("supplier_name"),
+                        rs.getString("country_code"),
+                        rs.getString("supplier_status"),
+                        rs.getString("risk_level"),
+                        rs.getString("currency"),
+                        rs.getBigDecimal("amount")));
+    }
+
+    public record SupplierPurchaseAmountRow(
+            long supplierId,
+            String supplierCode,
+            String supplierName,
+            String countryCode,
+            String supplierStatus,
+            String riskLevel,
+            String currency,
+            BigDecimal amount) {}
+
     public record MaterialRow(long materialId, String erpMaterialId, String materialName, String unit) {}
 
+    /**
+     * {@code staleCount}/{@code invalidCount}는 {@code data_quality_flag}를 <b>따로</b> 센 값이다.
+     * 두 상태의 무게가 다르다 — STALE은 점수를 내되 사유를 붙이는 정도지만, INVALID는 FastAPI
+     * Severity 엔진이 채점 자체를 거부한다({@code INVALID_DATA_QUALITY}).
+     */
     public record InventoryRow(
             BigDecimal onHandQuantity,
             BigDecimal reservedQuantity,
@@ -513,6 +663,7 @@ public class ErpRepository {
             BigDecimal qualityHoldQuantity,
             BigDecimal safetyStockQuantity,
             int rowCount,
+            int staleCount,
             int invalidCount
     ) {}
 
@@ -520,6 +671,7 @@ public class ErpRepository {
             BigDecimal averageDailyUsage,
             int rowCount,
             int missingUsageCount,
+            int staleCount,
             int invalidCount
     ) {}
 

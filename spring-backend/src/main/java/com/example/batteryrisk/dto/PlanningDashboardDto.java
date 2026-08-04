@@ -21,7 +21,7 @@ public final class PlanningDashboardDto {
 
     public record KpiSummaryItem(String label, BigDecimal value, String unit) {}
 
-    /** risk_event에는 없던 사업부 개념 — 이제 실제 material_category→business_unit 매핑(V22) 기반. */
+    /** risk_event에는 없던 사업부 개념 — 이제 실제 material_category→business_unit 매핑(V27) 기반. */
     public record RiskExposureByUnit(String businessUnit, BigDecimal exposureScore) {}
 
     public record VendorRiskHistoryItem(

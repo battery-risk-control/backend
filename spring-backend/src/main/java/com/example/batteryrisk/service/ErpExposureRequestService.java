@@ -87,7 +87,11 @@ public class ErpExposureRequestService {
                 trigger.externalSignalScore(), trigger.externalSignalLevel(),
                 erpAnalysisRequired ? materialCode : null, resolvedErpSupplierId, trigger.affectedCountryCode(),
                 materialContext != null ? materialContext.primaryContractId() : null,
-                trigger.eventSummary(), erpAnalysisRequired, materialContext, purchaseOrders, alternativeSuppliers);
+                trigger.eventSummary(), erpAnalysisRequired, materialContext, purchaseOrders,
+                // requiredQuantity: 이 경로는 ErpService.buildContext를 타지 않아 안전재고 부족분을
+                // 모른다. Agent는 없으면 capacity 판정을 "필요량 미상"으로 낮춰 잡는다.
+                null,
+                alternativeSuppliers);
 
         ExposureResponse response = fastApiRestClient.post()
                 .uri(FASTAPI_EXPOSURE_PATH)
@@ -99,6 +103,52 @@ public class ErpExposureRequestService {
                 response, kgShortageConfirmed, resolvedErpSupplierId,
                 kgShortageConfirmed ? resolvedErpMaterialId : null);
     }
+
+    /**
+     * 멀티에이전트에 넘길 ERP 자재·공급사를 고른다. {@link #analyzeExposure}의 자재 선택 규칙과 같되
+     * ERP Exposure Agent를 호출하지 않는, <b>선택만 하는</b> 경로다.
+     *
+     * <p>사용자가 화면에서 "ERP·계약 영향 분석"을 누르는 경로(리스크 모니터링)를 위한 것이다.
+     * 자동 트리거(Chain A→B)는 KG가 재고부족을 확정한 건만 태우지만, 사용자가 직접 누른 요청까지
+     * KG 확정을 요구하면 대부분의 뉴스에서 버튼이 아무 일도 하지 않는다 — 그래서 KG가 못 고르면
+     * 카테고리 대표 자재({@code material_id} 최소)와 그 주 공급사로 폴백한다.
+     *
+     * @return 자재·공급사를 정하지 못하면(카테고리에 자재가 없거나 주 공급사 미등록) null
+     */
+    public ResolvedErpTarget resolveErpTarget(String countryCode, String materialCategory) {
+        KgResolverService.KgResolveResult kgResult = kgResolverService.resolve(countryCode, materialCategory);
+        if (kgResult.shortageConfirmed()) {
+            Map<String, Object> kgMaterial =
+                    findMaterialForSupplier(kgResult.resolvedErpSupplierId(), materialCategory);
+            if (kgMaterial != null) {
+                return new ResolvedErpTarget(
+                        (String) kgMaterial.get("erp_material_id"), kgResult.resolvedErpSupplierId(), true);
+            }
+        }
+
+        List<Map<String, Object>> fallback = jdbcTemplate.queryForList(
+                "SELECT m.erp_material_id, s.erp_supplier_id "
+                        + "FROM materials m "
+                        + "JOIN supplier_materials sm ON sm.material_id = m.material_id "
+                        + "AND sm.is_alternative = false "
+                        + "JOIN suppliers s ON s.supplier_id = sm.supplier_id "
+                        + "WHERE m.material_category = ? AND m.erp_material_id IS NOT NULL "
+                        + "ORDER BY m.material_id, sm.priority_rank NULLS LAST LIMIT 1",
+                materialCategory);
+        if (fallback.isEmpty()) {
+            return null;
+        }
+        return new ResolvedErpTarget(
+                (String) fallback.get(0).get("erp_material_id"),
+                (String) fallback.get(0).get("erp_supplier_id"),
+                false);
+    }
+
+    /**
+     * @param kgMatched KG가 국가까지 반영해 고른 조합인지. false면 카테고리 대표 자재 폴백이라
+     *                  결과 해석 시 "이 국가와 실제로 연결됐는지는 확인되지 않았다"는 뜻이다.
+     */
+    public record ResolvedErpTarget(String erpMaterialId, String erpSupplierId, boolean kgMatched) {}
 
     /**
      * KG가 확정한 공급사가 이 카테고리에서 실제로 공급하는 구체적 자재를 찾는다.

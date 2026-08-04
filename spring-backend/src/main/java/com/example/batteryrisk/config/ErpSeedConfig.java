@@ -19,12 +19,15 @@ import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** Loads the fixed F6 ERP mock CSV package into PostgreSQL when explicitly enabled. */
 @Configuration
@@ -144,8 +147,8 @@ public class ErpSeedConfig {
     }
 
     /**
-     * 2계층(경영기획팀) 대시보드의 사업부(business_unit) 매핑(V22)을 자재 대분류
-     * 8종 기준으로 채운다. 마이그레이션 시점이 아니라 여기서 해야 하는 이유: V22가
+     * 2계층(경영기획팀) 대시보드의 사업부(business_unit) 매핑(V27)을 자재 대분류
+     * 8종 기준으로 채운다. 마이그레이션 시점이 아니라 여기서 해야 하는 이유: V27이
      * 실행되는 시점엔 materials 테이블이 비어 있다(ERP CSV 시드는 애플리케이션 기동 후
      * ApplicationRunner로 실행되므로 항상 마이그레이션보다 늦다). 매 시드 실행마다 다시
      * 계산하므로 재시드해도 항상 최신 상태로 유지된다.
@@ -339,14 +342,45 @@ public class ErpSeedConfig {
                     normalized_unit = EXCLUDED.normalized_unit,
                     data_quality_flag = EXCLUDED.data_quality_flag
                 """;
+        Duration shift = seedTimeShift(rows, "snapshot_at");
         rows.forEach(row -> jdbc.update(sql,
                 required(row, "inventory_snapshot_id"), reference(materialIds, row, "material_id"),
                 reference(warehouseIds, row, "warehouse_id"), decimal(row, "on_hand_quantity"),
                 decimal(row, "reserved_quantity"), decimal(row, "blocked_quantity"),
                 decimal(row, "quality_hold_quantity"), decimal(row, "safety_stock_quantity"),
-                timestamp(row, "snapshot_at"), bool(row, "is_current"),
+                timestamp(row, "snapshot_at").plus(shift), bool(row, "is_current"),
                 required(row, "source_unit"), required(row, "normalized_unit"),
                 required(row, "data_quality_flag")));
+    }
+
+    /**
+     * 시연용 시드의 시각을 "가장 최근 행이 지금"이 되도록 평행이동시키는 간격.
+     *
+     * <p>왜 필요한가: ERP 재고 스냅샷이 24시간보다 오래되면 데이터 품질이 STALE로 떨어진다
+     * ({@code MaterialRiskService.staleSnapshot}). 시드 CSV는 시각이 파일에 박혀 있어서 날이
+     * 갈수록 <b>모든</b> 자재에 "오래된 스냅샷" 배지가 붙는다 — 실제로 낡은 데이터를 가려내라고
+     * 만든 경고가 상시 점등돼 아무 의미가 없어진다.
+     *
+     * <p>전부 지금으로 눌러버리지 않는 이유: 이 CSV는 주 단위 스냅샷 이력이다(실측 120행 ·
+     * 서로 다른 시각 16개). 같은 값으로 덮으면 "언제부터 재고가 줄었는가"라는 시계열이 통째로
+     * 사라진다. 그래서 <b>간격은 그대로 두고 전체를 밀어</b> 가장 최근 행만 지금에 맞춘다.
+     *
+     * <p>적용 범위는 이 시드 경로뿐이다. 데이터 관리 화면의 CSV 임포트({@code ErpImportService})는
+     * 사용자가 올린 실제 ERP 파일이라 파일에 적힌 시각이 사실이며, 거기서 시각을 밀면 낡은
+     * 데이터를 신선한 것처럼 위조하는 셈이 된다.
+     *
+     * <p>미래로 밀지는 않는다. 이미 최신 행이 현재보다 뒤라면 {@link Duration#ZERO}를 준다 —
+     * 그건 원래 신선한 데이터이고, 앞당기면 "분석 기준 시각보다 미래"라는 다른 판정에 걸린다.
+     */
+    private static Duration seedTimeShift(List<Map<String, String>> rows, String column) {
+        Optional<OffsetDateTime> latest = rows.stream()
+                .map(row -> timestamp(row, column))
+                .max(Comparator.naturalOrder());
+        if (latest.isEmpty()) {
+            return Duration.ZERO;
+        }
+        Duration shift = Duration.between(latest.get(), OffsetDateTime.now());
+        return shift.isNegative() ? Duration.ZERO : shift;
     }
 
     private static void seedConsumption(
@@ -367,10 +401,13 @@ public class ErpSeedConfig {
                     is_current = EXCLUDED.is_current,
                     data_quality_flag = EXCLUDED.data_quality_flag
                 """;
+        // 재고 스냅샷과 같은 방식으로 민다. 한쪽만 밀면 "재고는 오늘, 소비량은 2주 전"이 되어
+        // 재고일수(= 재고 / 일평균소비)의 두 입력이 서로 다른 시점을 가리킨다.
+        Duration shift = seedTimeShift(rows, "calculated_at");
         rows.forEach(row -> jdbc.update(sql,
                 required(row, "consumption_id"), reference(materialIds, row, "material_id"),
                 required(row, "plant_code"), nullableDecimal(row, "average_daily_usage"),
-                integer(row, "calculation_window_days"), timestamp(row, "calculated_at"),
+                integer(row, "calculation_window_days"), timestamp(row, "calculated_at").plus(shift),
                 bool(row, "is_current"), required(row, "data_quality_flag")));
     }
 

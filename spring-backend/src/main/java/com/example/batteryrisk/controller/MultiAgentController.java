@@ -8,6 +8,7 @@ import com.example.batteryrisk.service.MultiAgentOrchestrationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -68,7 +69,7 @@ public class MultiAgentController {
             description = """
                     해당 평가를 처리 완료로 표시합니다. 원본 procurement_risk_assessments 행은
                     바꾸지 않고 별도 로그에만 남기며(append-only 유지), 대시보드 KPI 요약
-                    (/api/v1/dashboard/procurement-risk-summary)의 심각/주의 집계에서 이 평가가
+                    (/api/v1/purchasing-dashboard/kpi-summary)의 심각/주의 집계에서 이 평가가
                     그 자재 대분류의 최신 상태였다면 제외됩니다. 이후 같은 자재에 새 평가가
                     들어오면 자동으로 다시 집계됩니다.
                     """
@@ -79,6 +80,24 @@ public class MultiAgentController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return ApiResponse.ok(service.acknowledgeAssessment(assessmentId, userDetails.getId()));
+    }
+
+    @Operation(
+            summary = "구매 리스크 평가 완료 처리 되돌리기",
+            description = """
+                    완료 처리를 취소해 그 평가를 대시보드 집계로 되돌립니다. 완료 기록만 지우며
+                    원본 procurement_risk_assessments 행은 처음부터 건드리지 않았으므로 상태가
+                    완전히 원래대로 돌아옵니다.
+
+                    되돌릴 기록이 없어도 200입니다 — 결과 상태가 같기 때문입니다. 그 경우
+                    not_acknowledged=true로 구분할 수 있습니다. 없는 평가 id면 404입니다.
+                    """
+    )
+    @DeleteMapping("/assessments/{assessmentId}/acknowledge")
+    public ApiResponse<ProcurementRiskDto.UnacknowledgeResponse> unacknowledge(
+            @PathVariable UUID assessmentId
+    ) {
+        return ApiResponse.ok(service.unacknowledgeAssessment(assessmentId));
     }
 
     @Operation(

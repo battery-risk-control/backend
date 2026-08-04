@@ -2,6 +2,7 @@ package com.example.batteryrisk.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -77,7 +78,40 @@ public final class RiskEventDto {
             String eventSummary,
             String countryCode,
             String countryName,
-            Coordinates coordinates
+            Coordinates coordinates,
+            /**
+             * 기사 원문 링크. 절대 http(s)가 아니면 null이라 화면이 버튼을 숨긴다
+             * ({@link RiskEventService#linkableUrl}).
+             *
+             * <p>뉴스 속보에는 처음부터 있었고 지도에만 없었다 — 그래서 "최신 뉴스"에서 고른
+             * 기사에는 "기사 원문 열기"가 뜨는데 지도 마커로 고르면 안 뜨는 차이가 났다.
+             * 두 경로가 같은 상세 패널을 쓰므로 같은 필드를 실어 보낸다.
+             */
+            String sourceUrl,
+            /** 분석 생성 시각(UTC). 화면이 날짜·시각을 표기한다. */
+            java.time.Instant collectedAt,
+
+            /** 이 기사를 담은 수집 이벤트. 분석만 있고 수집 원본을 못 찾으면 null이다. */
+            Long eventId,
+            /*
+             * 화면 간 식별자·판정 통일용(2026-08-03). 지도·속보·상세·브리핑이 각자 다른 값을
+             * 유도하다 보니 같은 기사가 화면마다 다른 등급으로 보였다. 원천에서 한 번 계산해
+             * 함께 내려보내면 화면이 다시 유도할 일이 없다.
+             */
+            /** 이 기사의 분석. 분석이 아직 없으면 null이다. */
+            java.util.UUID analysisId,
+            /** 외부신호 등급(CRITICAL/WARNING/NORMAL). severity 규칙엔진 결과 그대로다. */
+            String externalSeverity,
+            Double externalSeverityScore,
+            /** 멀티에이전트 종합 등급. 아직 안 돌았으면 null이다. */
+            String procurementRiskLevel,
+            /**
+             * ERP·계약까지 거친 종합 판정이 있는지. false면 위에 보이는 등급은 외부신호 하나만
+             * 근거로 한 잠정값이다 — confidenceLabel의 "경고"/"참고"가 그 뜻이다.
+             */
+            boolean multiAgentCompleted,
+            /** 이 분석으로 만들어진 최신 브리핑. 없으면 null이라 화면이 "생성"을 권한다. */
+            java.util.UUID briefingId
     ) {}
 
     /**
@@ -103,12 +137,53 @@ public final class RiskEventDto {
      */
     public record NewsFeedItem(
             String riskEventId,
+
+            /*
+             * 이 기사를 담고 있는 수집 이벤트(raw_events.id). riskEventId와 따로 두는 이유:
+             * riskEventId는 분석이 붙으면 분석 UUID, 아니면 "RAW-{id}"라서 분석이 붙은 기사에서는
+             * 원본 이벤트 id를 되찾을 수 없었다. 그런데 화면의 "이 기사로 브리핑 생성"과
+             * 리스크 모니터링의 사전 선택(?eventId=)은 둘 다 이 숫자를 요구한다 — 그래서 클릭한
+             * 기사가 다음 화면에서 선택되지 않고 목록만 열렸다. 값은 처음부터 손에 있었고
+             * 응답에서 버려지고 있었을 뿐이다.
+             */
+            @Schema(example = "923", description = "수집 이벤트 id. 브리핑 생성·리스크 모니터링 선택에 쓴다.")
+            Long eventId,
             @Schema(example = "2026-07-29", description = "수집일(Asia/Seoul)") String date,
+            @Schema(description = "수집 시각(UTC). 마퀴의 \"3분 전\" 표기용 — date는 일 단위라 부족하다.")
+            Instant collectedAt,
             String material,
             @Schema(example = "심각", description = "심각/주의/정상. 분석이 붙지 않은 뉴스는 null")
             String grade,
             @Schema(example = "GDELT") String source,
+            @Schema(description = "화면 표시용 헤드라인. 번역본이 있으면 한국어, 없으면 원문이 그대로 들어온다.")
             String headline,
-            String confidenceLabel
+            @Schema(description = "항상 원문 헤드라인. 번역 여부와 무관하게 원문을 확인할 수 있게 한다.")
+            String headlineOriginal,
+            @Schema(description = "headline이 번역본인지. 번역 파이프라인 도입 전에는 항상 false다.")
+            boolean translated,
+            String confidenceLabel,
+            @Schema(example = "ID", description = "ISO 3166-1 alpha-2. 지도 마커 클릭 시 국가 필터에 쓴다.")
+            String countryCode,
+            @Schema(description = "기사 원문 링크. 수집 원본에 없으면 null")
+            String url,
+            /*
+             * 화면 간 식별자·판정 통일용(2026-08-03). 지도·속보·상세·브리핑이 각자 다른 값을
+             * 유도하다 보니 같은 기사가 화면마다 다른 등급으로 보였다. 원천에서 한 번 계산해
+             * 함께 내려보내면 화면이 다시 유도할 일이 없다.
+             */
+            /** 이 기사의 분석. 분석이 아직 없으면 null이다. */
+            java.util.UUID analysisId,
+            /** 외부신호 등급(CRITICAL/WARNING/NORMAL). severity 규칙엔진 결과 그대로다. */
+            String externalSeverity,
+            Double externalSeverityScore,
+            /** 멀티에이전트 종합 등급. 아직 안 돌았으면 null이다. */
+            String procurementRiskLevel,
+            /**
+             * ERP·계약까지 거친 종합 판정이 있는지. false면 위에 보이는 등급은 외부신호 하나만
+             * 근거로 한 잠정값이다 — confidenceLabel의 "경고"/"참고"가 그 뜻이다.
+             */
+            boolean multiAgentCompleted,
+            /** 이 분석으로 만들어진 최신 브리핑. 없으면 null이라 화면이 "생성"을 권한다. */
+            java.util.UUID briefingId
     ) {}
 }

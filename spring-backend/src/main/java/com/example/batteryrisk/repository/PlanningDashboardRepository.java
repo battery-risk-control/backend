@@ -23,7 +23,7 @@ import java.util.UUID;
  * {@link DashboardRepository}와 동일한 관례(NamedParameterJdbcTemplate + 화면이 바로
  * 쓸 수 있는 형태로 집계)를 따른다.
  *
- * <p>사업부(business_unit) 조인은 V22 마이그레이션의 {@code materials.business_unit_id}
+ * <p>사업부(business_unit) 조인은 V27 마이그레이션의 {@code materials.business_unit_id}
  * (자재 단위 조인용)와 {@code material_category_business_units} 뷰(material_category만
  * 있는 procurement_risk_assessments/analyses용, material_id가 NULL일 수 있어 뷰로 우회)
  * 둘을 상황에 맞게 쓴다.
@@ -46,6 +46,15 @@ public class PlanningDashboardRepository {
             "COPPER", "구리",
             "ALUMINUM", "알루미늄",
             "RARE_EARTH", "희토류");
+
+    /**
+     * analyses.material_category는 NULL 허용인데 {@code Map.of} 기반 불변 맵은 null 키
+     * 조회 자체가 NPE다 — 실데이터(자재 미상 분석)에서 브리핑 목록·상세가 통째로 500이
+     * 나던 원인. 조회 전에 거른다.
+     */
+    private static String materialNameKo(String category) {
+        return category == null ? null : MATERIAL_NAME_KO.getOrDefault(category, category);
+    }
 
     private static final int MATERIAL_CATEGORY_TOTAL = MATERIAL_NAME_KO.size();
     private static final double CONFIDENCE_CONFIRMED_MIN = 0.7;
@@ -447,7 +456,7 @@ public class PlanningDashboardRepository {
             String category = rs.getString("material_category");
             return new PlanningDashboardDto.BriefingSummaryItem(
                     rs.getString("analysis_id"),
-                    MATERIAL_NAME_KO.getOrDefault(category, category),
+                    materialNameKo(category),
                     grade == null ? "주의" : grade,
                     rs.getString("event_title"),
                     rs.getString("business_unit_name"));
@@ -519,19 +528,26 @@ public class PlanningDashboardRepository {
         } catch (IllegalArgumentException e) {
             return null;
         }
+        // 브리핑 본문 4종(briefing·recommended_actions·contract_findings·warnings)은
+        // V29가 procurement_risk_assessments에서 DROP하고 ai_briefings로 정본을 옮겼다
+        // (상류 #19는 V29 이전 스키마 기준이라 p에서 읽는다 — 이 저장소에서는 b가 정답).
+        // p는 assessed_at 하나 때문에 유지한다. 두 LEFT JOIN이 겹치면 행이 곱해지므로
+        // 정렬을 b 최신 → p 최신 순으로 두어 rows.get(0)이 최신 쌍을 집게 한다.
         List<BriefingDetailRow> rows = jdbc.query("""
                 SELECT a.analysis_id, a.material_category, a.severity, a.event_title, a.event_content,
                        bu.name AS business_unit_name,
-                       p.briefing, p.recommended_actions, p.contract_findings, p.warnings, p.assessed_at
+                       b.briefing_text AS briefing, b.recommended_actions, b.contract_findings,
+                       b.warnings, p.assessed_at
                 FROM analyses a
                 LEFT JOIN material_category_business_units cb ON cb.material_category = a.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
+                LEFT JOIN ai_briefings b ON b.analysis_id = a.analysis_id
                 LEFT JOIN procurement_risk_assessments p ON p.analysis_id = a.analysis_id
                 WHERE a.analysis_id = :analysisId
-                ORDER BY p.created_at DESC NULLS LAST
+                ORDER BY b.created_at DESC NULLS LAST, p.created_at DESC NULLS LAST
                 """, new MapSqlParameterSource("analysisId", parsed), (rs, rowNum) -> new BriefingDetailRow(
                 rs.getString("analysis_id"),
-                MATERIAL_NAME_KO.getOrDefault(rs.getString("material_category"), rs.getString("material_category")),
+                materialNameKo(rs.getString("material_category")),
                 rs.getString("business_unit_name"),
                 rs.getString("severity"),
                 rs.getString("event_title"),
@@ -595,8 +611,10 @@ public class PlanningDashboardRepository {
                 WHERE contract_id = :contractId
                 ORDER BY document_id
                 """, new MapSqlParameterSource("contractId", row.contractId()),
+                // document_id는 BIGINT가 아니라 VARCHAR(40)이다(V1, 값 예: ctr_<uuid>).
+                // 포팅 원본의 getLong은 문서가 1건이라도 있으면 "Bad value for type long"으로 500.
                 (rs, rowNum) -> new PlanningDashboardDto.ContractDocumentItem(
-                        String.valueOf(rs.getLong("document_id")),
+                        rs.getString("document_id"),
                         rs.getString("original_file_name"),
                         rs.getString("processing_status"),
                         rs.getInt("chunk_count")));

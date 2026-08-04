@@ -39,9 +39,9 @@ class ErpFeatureTest {
                         1L, "MAT-LI-CARB", "Lithium Carbonate", "KG")));
         when(repository.aggregateCurrentInventory(1L, AS_OF))
                 .thenReturn(new ErpRepository.InventoryRow(
-                        bd("40320"), bd("2376"), bd("1080"), bd("864"), bd("15000"), 4, 0));
+                        bd("40320"), bd("2376"), bd("1080"), bd("864"), bd("15000"), 4, 0, 0));
         when(repository.aggregateCurrentConsumption(1L, AS_OF))
-                .thenReturn(new ErpRepository.ConsumptionRow(bd("1000"), 3, 0, 0));
+                .thenReturn(new ErpRepository.ConsumptionRow(bd("1000"), 3, 0, 0, 0));
         when(repository.findSupply(1L, null, AS_OF.toLocalDate()))
                 .thenReturn(Optional.of(new ErpRepository.SupplyRow(
                         11L, "SUP-CHL-01", "ACTIVE", "NO", 101L, "CTR-001", bd("0.45"))));
@@ -79,9 +79,10 @@ class ErpFeatureTest {
                         2L, "MAT-MN-SULF", "Manganese Sulfate", "KG")));
         when(repository.aggregateCurrentInventory(2L, AS_OF))
                 .thenReturn(new ErpRepository.InventoryRow(
-                        bd("1000"), bd("100"), bd("0"), bd("0"), bd("500"), 1, 0));
+                        bd("1000"), bd("100"), bd("0"), bd("0"), bd("500"), 1, 0, 0));
+        // MISSING_USAGE 행은 STALE도 INVALID도 아니다 — 결측은 missingUsageCount가 잡는다.
         when(repository.aggregateCurrentConsumption(2L, AS_OF))
-                .thenReturn(new ErpRepository.ConsumptionRow(null, 1, 1, 1));
+                .thenReturn(new ErpRepository.ConsumptionRow(null, 1, 1, 0, 0));
         when(repository.findSupply(2L, null, AS_OF.toLocalDate()))
                 .thenReturn(Optional.of(new ErpRepository.SupplyRow(
                         12L, "SUP-ZAF-01", "ACTIVE", "NO", 102L, "CTR-010", bd("0.60"))));
@@ -106,6 +107,93 @@ class ErpFeatureTest {
         assertThat(response.dataQualityStatus()).isEqualTo("INCOMPLETE");
     }
 
+    /**
+     * INVALID 행은 INVALID로 나가야 한다 — STALE로 뭉개면 안 된다.
+     *
+     * <p>두 상태는 뒤에서 전혀 다르게 다뤄진다. FastAPI Severity 엔진은 STALE이면 점수를 내고
+     * 사유 코드만 붙이지만(STALE_DATA_QUALITY), INVALID면 채점 자체를 거부한다
+     * (INVALID_DATA_QUALITY, severity UNKNOWN). 뭉개면 "쓸 수 없다"고 표시된 데이터로 계산한
+     * 정상 점수가 화면에 올라가고, 사용자에게는 "오래된 스냅샷"이라고만 보인다.
+     */
+    @Test
+    void reportsInvalidDataAsInvalidNotStale() {
+        givenMaterialWithQualityCounts(
+                /* inventoryStale */ 0, /* inventoryInvalid */ 1,
+                /* consumptionStale */ 0, /* consumptionInvalid */ 0);
+
+        ErpDto.ContextResponse response = service.buildContext(
+                new ErpDto.ContextRequest("MAT-LI-CARB", null, AS_OF));
+
+        assertThat(response.dataQualityStatus()).isEqualTo("INVALID");
+    }
+
+    /** 소비 이력 쪽 INVALID도 같다 — 어느 표에서 왔든 "쓸 수 없다"는 사실은 같다. */
+    @Test
+    void reportsInvalidFromConsumptionRowsToo() {
+        givenMaterialWithQualityCounts(0, 0, 0, 1);
+
+        assertThat(service.buildContext(new ErpDto.ContextRequest("MAT-LI-CARB", null, AS_OF))
+                .dataQualityStatus()).isEqualTo("INVALID");
+    }
+
+    /** STALE 행만 있으면 그대로 STALE. INVALID 분리 때문에 이쪽이 바뀌면 안 된다. */
+    @Test
+    void reportsStaleWhenOnlyStaleRowsExist() {
+        givenMaterialWithQualityCounts(2, 0, 0, 0);
+
+        assertThat(service.buildContext(new ErpDto.ContextRequest("MAT-LI-CARB", null, AS_OF))
+                .dataQualityStatus()).isEqualTo("STALE");
+    }
+
+    /**
+     * 결측과 INVALID가 겹치면 INVALID가 이긴다 — DATA_QUALITY_RANK의 순서
+     * (VALID &lt; STALE &lt; INCOMPLETE &lt; INVALID)를 따른다.
+     */
+    @Test
+    void invalidBeatsIncompleteWhenBothApply() {
+        when(repository.findMaterial("MAT-LI-CARB"))
+                .thenReturn(Optional.of(new ErpRepository.MaterialRow(
+                        1L, "MAT-LI-CARB", "Lithium Carbonate", "KG")));
+        when(repository.aggregateCurrentInventory(1L, AS_OF))
+                .thenReturn(new ErpRepository.InventoryRow(
+                        bd("40320"), bd("2376"), bd("1080"), bd("864"), bd("15000"), 4, 0, 1));
+        // 사용량이 결측이라 INCOMPLETE 조건도 함께 성립한다.
+        when(repository.aggregateCurrentConsumption(1L, AS_OF))
+                .thenReturn(new ErpRepository.ConsumptionRow(null, 1, 1, 0, 0));
+        givenSupplyAndInbound();
+
+        assertThat(service.buildContext(new ErpDto.ContextRequest("MAT-LI-CARB", null, AS_OF))
+                .dataQualityStatus()).isEqualTo("INVALID");
+    }
+
+    /** 품질 카운터만 바꿔 가며 판정을 보는 준비 helper. 나머지 값은 VALID 케이스와 같다. */
+    private void givenMaterialWithQualityCounts(
+            int inventoryStale, int inventoryInvalid, int consumptionStale, int consumptionInvalid) {
+        when(repository.findMaterial("MAT-LI-CARB"))
+                .thenReturn(Optional.of(new ErpRepository.MaterialRow(
+                        1L, "MAT-LI-CARB", "Lithium Carbonate", "KG")));
+        when(repository.aggregateCurrentInventory(1L, AS_OF))
+                .thenReturn(new ErpRepository.InventoryRow(
+                        bd("40320"), bd("2376"), bd("1080"), bd("864"), bd("15000"),
+                        4, inventoryStale, inventoryInvalid));
+        when(repository.aggregateCurrentConsumption(1L, AS_OF))
+                .thenReturn(new ErpRepository.ConsumptionRow(
+                        bd("1000"), 3, 0, consumptionStale, consumptionInvalid));
+        givenSupplyAndInbound();
+    }
+
+    private void givenSupplyAndInbound() {
+        when(repository.findSupply(1L, null, AS_OF.toLocalDate()))
+                .thenReturn(Optional.of(new ErpRepository.SupplyRow(
+                        11L, "SUP-CHL-01", "ACTIVE", "NO", 101L, "CTR-001", bd("0.45"))));
+        when(repository.findNextInbound(1L, AS_OF.toLocalDate()))
+                .thenReturn(Optional.of(new ErpRepository.InboundRow(
+                        LocalDate.parse("2026-07-30"), "CONFIRMED")));
+        when(repository.findAlternativeSupplierStatus(1L, 11L, AS_OF.toLocalDate()))
+                .thenReturn("APPROVED");
+        when(repository.sumRemainingQuantity(1L, AS_OF.toLocalDate())).thenReturn(bd("134900"));
+    }
+
     @Test
     void rejectsUnknownExternalMaterialId() {
         when(repository.findMaterial("MAT-UNKNOWN")).thenReturn(Optional.empty());
@@ -125,7 +213,7 @@ class ErpFeatureTest {
         when(repository.aggregateCurrentInventory(eq(1L), any(OffsetDateTime.class)))
                 .thenReturn(new ErpRepository.InventoryRow(
                         BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                        BigDecimal.ZERO, BigDecimal.ZERO, 0, 0));
+                        BigDecimal.ZERO, BigDecimal.ZERO, 0, 0, 0));
 
         assertThatThrownBy(() -> service.buildContext(
                 new ErpDto.ContextRequest("MAT-LI-CARB", null, AS_OF)))

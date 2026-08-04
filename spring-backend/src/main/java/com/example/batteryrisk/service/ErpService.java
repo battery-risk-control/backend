@@ -103,14 +103,31 @@ public class ErpService {
         );
     }
 
+    /**
+     * 점수 계산에 쓴 ERP 데이터를 믿어도 되는지. {@code MaterialRiskService.DATA_QUALITY_RANK}가
+     * 매기는 순서(VALID &lt; STALE &lt; INCOMPLETE &lt; INVALID)를 따라 <b>나쁜 것부터</b> 본다.
+     *
+     * <p><b>INVALID를 STALE로 뭉개지 않는다.</b> 예전에는 {@code data_quality_flag <> 'VALID'}인
+     * 행을 한 덩어리로 세어 STALE을 돌려줬는데, 두 상태는 뒤에서 전혀 다르게 다뤄진다 —
+     * FastAPI Severity 엔진은 STALE이면 점수를 내고 사유 코드만 붙이지만
+     * ({@code STALE_DATA_QUALITY}), INVALID면 채점 자체를 거부한다
+     * ({@code INVALID_DATA_QUALITY}, severity UNKNOWN). 뭉개는 바람에 "쓸 수 없다"고 표시된
+     * 데이터로 계산한 정상 점수가 화면에 올라갔고, 사용자에게는 "오래된 스냅샷"이라고만 보였다.
+     *
+     * <p>{@code inventory_snapshots}·{@code material_consumptions}의 CHECK 제약이 INVALID를
+     * 허용하므로(V4 마이그레이션) 실제로 들어올 수 있는 값이다.
+     */
     private static String dataQualityStatus(
             ErpRepository.InventoryRow inventory,
             ErpRepository.ConsumptionRow consumption,
             BigDecimal averageDailyUsage) {
+        if (inventory.invalidCount() > 0 || consumption.invalidCount() > 0) {
+            return "INVALID";
+        }
         if (consumption.rowCount() == 0 || consumption.missingUsageCount() > 0 || averageDailyUsage == null) {
             return "INCOMPLETE";
         }
-        if (inventory.invalidCount() > 0 || consumption.invalidCount() > 0) {
+        if (inventory.staleCount() > 0 || consumption.staleCount() > 0) {
             return "STALE";
         }
         return "VALID";

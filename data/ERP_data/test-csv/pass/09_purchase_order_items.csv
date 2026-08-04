@@ -1,0 +1,2 @@
+purchase_order_item_id,purchase_order_id,material_id,contract_id,ordered_quantity,received_quantity,unit,expected_arrival_date,confirmed_arrival_date,unit_price,incoterm,destination_warehouse_id
+POI-TEST-01,PO-TEST-01,MAT-TEST-LI,CTR-TEST-01,20000,20000,KG,2026-09-10,2026-09-12,12.50,CIF,WH-TEST-01

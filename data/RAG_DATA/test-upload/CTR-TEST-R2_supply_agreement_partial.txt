@@ -1,0 +1,34 @@
+MOCK CONTRACT - FOR DATA MANAGEMENT SCREEN TESTING ONLY
+
+Agreement No.: BA-TEST-9002
+Supplier: Cape Manganese Resources (SUP-ZAF-01)
+Material: Nickel Sulfate (MAT-NI-SULF)
+Effective Date: 2026-03-01
+Expiration Date: 31/12/2027
+
+NICKEL SULFATE SUPPLY AGREEMENT
+
+This agreement is entered into between LG Energy Solution, Ltd.
+("Buyer") and Cape Manganese Resources ("Seller").
+
+Article 1
+DEFINITIONS
+
+1.01 "Material" means Seller's nickel sulfate meeting the
+     specifications set out in Schedule A.
+1.02 "Base Volume Commitment" has the meaning in Section 2.01.
+
+Article 2
+SUPPLY COMMITMENT
+
+2.01 Seller shall supply a Base Volume Commitment of 4,200 MT per
+     contract year, representing a 25 percent supply share.
+2.02 Buyer shall issue purchase orders no later than 60 days prior
+     to the requested delivery date.
+
+Article 4
+QUALITY AND INSPECTION
+
+4.01 Material shall meet a minimum purity of 99.2 percent.
+4.02 Buyer shall inspect within 14 days of receipt.
+4.03 Seller shall maintain IATF 16949 and ISO 9001 certification.

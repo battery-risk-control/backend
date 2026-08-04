@@ -1,0 +1,64 @@
+MOCK CONTRACT - FOR DATA MANAGEMENT SCREEN TESTING ONLY
+
+Contract ID: CTR-TEST-R1 (BA-TEST-9001)
+Supplier: Penang Advanced Materials (SUP-MYS-01)
+Material: Synthetic Graphite (MAT-GR-SYN)
+Effective Date: 2026-01-01
+Expiration Date: 2027-12-31
+
+SYNTHETIC GRAPHITE SUPPLY AGREEMENT
+
+This agreement is entered into between LG Energy Solution, Ltd.
+("Buyer") and Penang Advanced Materials ("Seller").
+
+Article 1
+DEFINITIONS
+
+1.01 "Material" means Seller's synthetic graphite meeting the
+     specifications set out in Schedule A.
+1.02 "Business Day" means a day other than Saturday, Sunday or a
+     day on which banks are closed in Korea or Malaysia.
+1.03 "Base Volume Commitment" has the meaning in Section 2.01.
+1.04 "Force Majeure Event" has the meaning in Section 5.01.
+
+Article 2
+SUPPLY COMMITMENT
+
+2.01 Seller shall supply a Base Volume Commitment of 6,000 MT per
+     contract year, representing a 30 percent supply share.
+2.02 Buyer shall issue purchase orders no later than 45 days prior
+     to the requested delivery date.
+2.03 If Seller's production capacity falls short of total demand,
+     Seller shall allocate the Base Volume Commitment to Buyer in
+     priority to supplies to other customers.
+
+Article 3
+PRICE AND PAYMENT
+
+3.01 The unit price is USD 18.40 per metric ton, recalculated quarterly.
+3.02 Payment is due within 30 days of receipt of shipping documents.
+3.03 Delivery terms are CIF Busan under INCOTERMS 2020.
+
+Article 4
+QUALITY AND INSPECTION
+
+4.01 Material shall meet a minimum purity of 99.9 percent.
+4.02 Buyer shall inspect within 14 days of receipt.
+4.03 Seller shall maintain IATF 16949 and ISO 9001 certification.
+
+Article 5
+FORCE MAJEURE
+
+5.01 "Force Majeure Event" means any event beyond a party's reasonable
+     control, including natural disaster, war, strike, government
+     export restriction, port closure, or power interruption.
+5.02 The affected party shall give written notice within 5 Business Days.
+5.03 If a Force Majeure Event continues for more than 90 consecutive
+     days, the other party may terminate this agreement.
+
+Article 6
+SUPPLY DISRUPTION AND ALTERNATIVE SOURCING
+
+6.01 If Seller delays delivery by more than 21 days past the scheduled
+     delivery date, Buyer may source the affected volume from a third party.
+6.02 Excess costs incurred under Section 6.01 shall be borne by Seller.
