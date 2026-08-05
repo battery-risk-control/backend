@@ -339,22 +339,35 @@ public class ErpRepository {
      * <p>거래 중단된 공급사도 함께 준다. 계약이 끝난 공급사의 과거 문서를 뒤늦게 올리는 일이
      * 있어서, 여기서 걸러 버리면 그 문서를 등록할 방법이 아예 없어진다. 대신 상태를 같이
      * 내려보내 화면이 표시하게 한다.
+     *
+     * <p>{@code erp_supplier_id}가 없는 공급사는 제외한다 — 계약 업로드는 이 ID로 대상을
+     * 식별하므로 없으면 애초에 붙일 수 없고, 화면엔 "이름 ()"처럼 빈 코드로만 보인다.
+     * {@link MaterialRiskRepository#findAssessableMaterials()}와 같은 방침이며,
+     * 마이그레이션 참조 시드(R__insert_c1_reference_seed.sql)로 들어온
+     * 'C1 인도네시아 테스트 공급사'가 여기 해당한다.
      */
     public List<SupplierOption> listSupplierOptions() {
         return jdbc.query("""
                 SELECT erp_supplier_id, supplier_name, country_code, supplier_status
                 FROM suppliers
+                WHERE erp_supplier_id IS NOT NULL
                 ORDER BY supplier_name
                 """, (rs, rowNumber) -> new SupplierOption(
                 rs.getString("erp_supplier_id"), rs.getString("supplier_name"),
                 rs.getString("country_code"), rs.getString("supplier_status")));
     }
 
-    /** 위와 같은 용도의 자재 목록. 사용 중단(active=false) 자재도 같은 이유로 포함한다. */
+    /**
+     * 위와 같은 용도의 자재 목록. 사용 중단(active=false) 자재도 같은 이유로 포함한다.
+     *
+     * <p>단, {@code erp_material_id}가 없는 자재는 제외한다 — 위 공급사와 같은 이유이고,
+     * 시드로 들어온 'C1-NICKEL'(화면엔 "니켈 ()")이 여기 해당한다.
+     */
     public List<MaterialOption> listMaterialOptions() {
         return jdbc.query("""
                 SELECT erp_material_id, material_name, material_category, active
                 FROM materials
+                WHERE erp_material_id IS NOT NULL
                 ORDER BY material_name
                 """, (rs, rowNumber) -> new MaterialOption(
                 rs.getString("erp_material_id"), rs.getString("material_name"),

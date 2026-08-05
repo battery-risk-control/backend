@@ -74,7 +74,15 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
             String dataType, String countryCode, Pageable pageable);
 
     /**
-     * 자재 키워드가 제목이나 본문에 있는 뉴스만, 제목 중복을 제거해 최신순으로.
+     * 자재 키워드가 제목·본문에 있거나(리터럴), 분석이 자재로 분류한(analysis.material_category)
+     * 뉴스만, 제목 중복을 제거해 최신순으로.
+     *
+     * <p><b>키워드 OR 분석분류인 이유</b>: 리터럴 키워드만 보면, 분석은 특정 자재로 분류했지만
+     * 제목·본문엔 그 단어가 없는 기사(예: "라인강 저수위" → 구리 바지선 물류)가 피드에서 빠져,
+     * 같은 사건을 리스크 모니터링·지도(둘 다 {@code material_category} 기준)는 보여주는데 피드만
+     * 안 보이는 어긋남이 생긴다. 그래서 {@code analyses}를 LEFT JOIN해 분석분류 뉴스도 포함한다.
+     * (raw_event당 {@code triggered_analysis_id → analysis_id} 매칭이 최대 1건이라 행 증식·페이징
+     * 영향 없음. 합집합이라 기존 키워드 뉴스는 그대로 유지된다.)
      *
      * <p><b>필터를 SQL로 내린 이유</b>: 예전에는 최근 200건을 통째로 읽어 Java에서 걸렀는데,
      * 본문 평균이 4.8천자라 요청마다 약 1MB를 옮기면서 정작 통과하는 건 2%대였다. 페이지를
@@ -96,10 +104,12 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
             SELECT * FROM (
                 SELECT DISTINCT ON (lower(trim(e.title))) e.*
                 FROM raw_events e
+                LEFT JOIN analyses an ON an.analysis_id = e.triggered_analysis_id
                 WHERE e.data_type = 'NEWS'
                   AND e.title IS NOT NULL
                   AND (:countryCode IS NULL OR e.country_code = :countryCode)
-                  AND (coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
+                  AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
+                       OR an.material_category IS NOT NULL)
                 ORDER BY lower(trim(e.title)), e.collected_at DESC
             ) deduped
             ORDER BY deduped.collected_at DESC
@@ -115,10 +125,12 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
     @Query(nativeQuery = true, value = """
             SELECT COUNT(DISTINCT lower(trim(e.title)))
             FROM raw_events e
+            LEFT JOIN analyses an ON an.analysis_id = e.triggered_analysis_id
             WHERE e.data_type = 'NEWS'
               AND e.title IS NOT NULL
               AND (:countryCode IS NULL OR e.country_code = :countryCode)
-              AND (coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
+              AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
+                   OR an.material_category IS NOT NULL)
             """)
     long countSupplyChainNews(String keywordPattern, String countryCode);
 
