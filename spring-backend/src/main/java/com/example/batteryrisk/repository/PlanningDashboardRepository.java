@@ -441,8 +441,10 @@ public class PlanningDashboardRepository {
                 rs.getString("name"), rs.getBigDecimal("briefing_count"), "건", "neutral"));
     }
 
-    public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(int limit) {
-        MapSqlParameterSource params = new MapSqlParameterSource().addValue("limit", limit);
+    public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(int limit, int offset) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("limit", limit)
+                .addValue("offset", offset);
         return jdbc.query("""
                 SELECT a.analysis_id, a.material_category, a.severity, a.event_title, bu.name AS business_unit_name
                 FROM analyses a
@@ -450,7 +452,7 @@ public class PlanningDashboardRepository {
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
                 WHERE a.status = 'COMPLETED' AND a.severity IS NOT NULL
                 ORDER BY a.created_at DESC
-                LIMIT :limit
+                LIMIT :limit OFFSET :offset
                 """, params, (rs, rowNum) -> {
             String grade = gradeKo(rs.getString("severity"));
             String category = rs.getString("material_category");
@@ -461,6 +463,14 @@ public class PlanningDashboardRepository {
                     rs.getString("event_title"),
                     rs.getString("business_unit_name"));
         });
+    }
+
+    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
+    public long countRecentBriefings() {
+        Long count = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM analyses a WHERE a.status = 'COMPLETED' AND a.severity IS NOT NULL
+                """, new MapSqlParameterSource(), Long.class);
+        return count == null ? 0L : count;
     }
 
     /** CRITICAL이면서 이미 처리(acknowledge)된 평가 건수 — "임원 보고 지정" 기본 정의. */

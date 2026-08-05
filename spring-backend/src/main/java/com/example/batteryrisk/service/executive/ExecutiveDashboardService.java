@@ -59,7 +59,7 @@ public class ExecutiveDashboardService {
                 planningDashboardService.supplierAnalysis();
 
         PlanningDashboardDto.AiBriefingSummaryDashboard aiBriefing =
-                planningDashboardService.aiBriefing();
+                planningDashboardService.aiBriefing(0, BRIEFING_LIMIT);
 
         ExecutiveDashboardDto.VerificationSummary verificationSummary =
                 repository.loadVerificationSummary();
