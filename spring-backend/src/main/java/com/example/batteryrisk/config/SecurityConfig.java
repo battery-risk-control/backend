@@ -15,6 +15,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -115,6 +116,41 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/public/**").permitAll()
                         // [surin F9] 자재 대분류별 적격 공급사 공개 조회.
                         .requestMatchers("/api/v1/suppliers/qualified").permitAll()
+                        // 비로그인 대시보드(/public/*)를 구매팀(/purchasing) 화면과 동일하게 보여주기 위한
+                        // 읽기 전용 공개화(2026-08-05, 실제 회사 데이터가 아니라는 전제로 팀 확인 후 반영).
+                        // 조회 전용 GET만 열고, 같은 컨트롤러의 쓰기 액션(파일 업로드·재처리·완료 처리·
+                        // LLM 브리핑 생성 등 실제 비용·데이터 변경이 발생하는 요청)은 계속 인증을 요구한다 —
+                        // 아래 각 패턴은 단일 세그먼트(`*`)만 매치해 그 하위 쓰기 경로(예:
+                        // `/contracts/{id}/documents`, `/contracts/{id}/reprocess`)까지 실수로
+                        // 열리지 않는다. `/ai-briefing/briefings`는 GET(목록)·POST(생성, LLM 호출)가
+                        // 같은 경로를 쓰므로 HttpMethod로 분리해야 POST가 permitAll에 같이 딸려가지 않는다.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/risk-monitoring/events",
+                                "/api/v1/risk-monitoring/events/*"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/material-risk/overview",
+                                "/api/v1/material-risk/materials/*"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/material-risk/materials/*/contract-evidence"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/contract-rag/contracts",
+                                "/api/v1/contract-rag/contracts/*"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/contract-rag/search").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/ai-briefing/context",
+                                "/api/v1/ai-briefing/briefings",
+                                "/api/v1/ai-briefing/briefings/*"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/purchasing-dashboard/kpi-summary",
+                                "/api/v1/purchasing-dashboard/material-risk-summary",
+                                "/api/v1/purchasing-dashboard/acknowledged",
+                                "/api/v1/purchasing-dashboard/supplier-overview"
+                        ).permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
