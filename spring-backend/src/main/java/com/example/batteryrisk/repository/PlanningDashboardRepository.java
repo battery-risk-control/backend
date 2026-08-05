@@ -441,11 +441,32 @@ public class PlanningDashboardRepository {
                 rs.getString("name"), rs.getBigDecimal("briefing_count"), "건", "neutral"));
     }
 
-    public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(int limit) {
-        MapSqlParameterSource params = new MapSqlParameterSource().addValue("limit", limit);
+    public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(
+            int limit,
+            String materialKeywordPattern
+    ) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("limit", limit)
+                .addValue("materialKeywordPattern", materialKeywordPattern);
         return jdbc.query("""
-                SELECT a.analysis_id, a.material_category, a.severity, a.event_title, bu.name AS business_unit_name
+                SELECT
+                    a.analysis_id,
+                    a.material_category,
+                    a.severity,
+                    COALESCE(NULLIF(BTRIM(e.title_ko), ''), a.event_title) AS headline,
+                    bu.name AS business_unit_name
                 FROM analyses a
+                JOIN LATERAL (
+                    SELECT re.title_ko
+                    FROM raw_events re
+                    WHERE re.triggered_analysis_id = a.analysis_id
+                      AND re.data_type = 'NEWS'
+                      AND (
+                          COALESCE(re.title, '') || ' ' || COALESCE(re.content, '')
+                      ) ~* :materialKeywordPattern
+                    ORDER BY re.collected_at DESC
+                    LIMIT 1
+                ) e ON TRUE
                 LEFT JOIN material_category_business_units cb ON cb.material_category = a.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
                 WHERE a.status = 'COMPLETED' AND a.severity IS NOT NULL
@@ -458,7 +479,7 @@ public class PlanningDashboardRepository {
                     rs.getString("analysis_id"),
                     materialNameKo(category),
                     grade == null ? "주의" : grade,
-                    rs.getString("event_title"),
+                    rs.getString("headline"),
                     rs.getString("business_unit_name"));
         });
     }
