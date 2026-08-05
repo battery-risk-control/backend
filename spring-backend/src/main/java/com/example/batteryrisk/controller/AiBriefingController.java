@@ -52,7 +52,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/ai-briefing")
 @SecurityRequirement(name = "bearerAuth")
 @Validated
-@PreAuthorize("hasAnyRole('PURCHASING','STRATEGY')")
+@PreAuthorize("hasAnyRole('PURCHASING','STRATEGY','EXECUTIVE')")
 public class AiBriefingController {
     private final AiBriefingService aiBriefingService;
     private final AiBriefingReportService reportService;
