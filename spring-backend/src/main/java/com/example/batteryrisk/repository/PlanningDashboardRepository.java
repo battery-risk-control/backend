@@ -441,13 +441,34 @@ public class PlanningDashboardRepository {
                 rs.getString("name"), rs.getBigDecimal("briefing_count"), "건", "neutral"));
     }
 
-    public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(int limit, int offset) {
+    public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(
+            int limit,
+            int offset,
+            String materialKeywordPattern
+    ) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("limit", limit)
-                .addValue("offset", offset);
+                .addValue("offset", offset)
+                .addValue("materialKeywordPattern", materialKeywordPattern);
         return jdbc.query("""
-                SELECT a.analysis_id, a.material_category, a.severity, a.event_title, bu.name AS business_unit_name
+                SELECT
+                    a.analysis_id,
+                    a.material_category,
+                    a.severity,
+                    COALESCE(NULLIF(BTRIM(e.title_ko), ''), a.event_title) AS headline,
+                    bu.name AS business_unit_name
                 FROM analyses a
+                JOIN LATERAL (
+                    SELECT re.title_ko
+                    FROM raw_events re
+                    WHERE re.triggered_analysis_id = a.analysis_id
+                      AND re.data_type = 'NEWS'
+                      AND (
+                          COALESCE(re.title, '') || ' ' || COALESCE(re.content, '')
+                      ) ~* :materialKeywordPattern
+                    ORDER BY re.collected_at DESC
+                    LIMIT 1
+                ) e ON TRUE
                 LEFT JOIN material_category_business_units cb ON cb.material_category = a.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
                 WHERE a.status = 'COMPLETED' AND a.severity IS NOT NULL
@@ -460,16 +481,28 @@ public class PlanningDashboardRepository {
                     rs.getString("analysis_id"),
                     materialNameKo(category),
                     grade == null ? "주의" : grade,
-                    rs.getString("event_title"),
+                    rs.getString("headline"),
                     rs.getString("business_unit_name"));
         });
     }
 
     /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
-    public long countRecentBriefings() {
+    public long countRecentBriefings(String materialKeywordPattern) {
         Long count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM analyses a WHERE a.status = 'COMPLETED' AND a.severity IS NOT NULL
-                """, new MapSqlParameterSource(), Long.class);
+                SELECT COUNT(*)
+                FROM analyses a
+                WHERE a.status = 'COMPLETED'
+                  AND a.severity IS NOT NULL
+                  AND EXISTS (
+                      SELECT 1
+                      FROM raw_events re
+                      WHERE re.triggered_analysis_id = a.analysis_id
+                        AND re.data_type = 'NEWS'
+                        AND (
+                            COALESCE(re.title, '') || ' ' || COALESCE(re.content, '')
+                        ) ~* :materialKeywordPattern
+                  )
+                """, new MapSqlParameterSource("materialKeywordPattern", materialKeywordPattern), Long.class);
         return count == null ? 0L : count;
     }
 

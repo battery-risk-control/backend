@@ -208,9 +208,10 @@ public class PlanningDashboardService {
 
     public PlanningDashboardDto.AiBriefingSummaryDashboard aiBriefing(int page, int size) {
         List<PlanningDashboardDto.RankedBarItem> byUnit = repository.loadBriefingCountByUnit();
+        String materialKeywordPattern = RiskEventService.materialKeywordPattern();
         List<PlanningDashboardDto.BriefingSummaryItem> recent =
-                repository.findRecentBriefings(size, page * size);
-        long recentTotalCount = repository.countRecentBriefings();
+                repository.findRecentBriefings(size, page * size, materialKeywordPattern);
+        long recentTotalCount = repository.countRecentBriefings(materialKeywordPattern);
         PlanningDashboardRepository.QuarterKpi quarter = repository.quarterKpi();
         long executiveFlagged = repository.loadExecutiveFlaggedCount();
 
