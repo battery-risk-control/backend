@@ -30,6 +30,7 @@ MATERIAL_TICKER_MAP = {
     "알루미늄": "AA",    # Alcoa (미국 NYSE)
     "구리":   "FCX",     # Freeport-McMoRan (미국 NYSE)
     "흑연":   "SYR.AX",  # Syrah Resources (ASX 상장 - 문서상 'SYR'은 미조회, .AX 필요)
+    "희토류": "REMX",    # VanEck Rare Earth/Strategic Metals ETF (희토류 프록시 — 단일 상장사 부재)
 }
 
 # 뉴스/알람 신뢰도 교차검증용 주요 광산기업·ETF (기획정의서 6. 데이터 소스)

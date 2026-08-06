@@ -31,16 +31,18 @@ import static org.mockito.Mockito.when;
 class MarketPriceTrendTest {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    private RestClient restClient;
     private MaterialPriceRepository priceRepository;
     private ErpRepository erpRepository;
     private MarketPriceService service;
 
     @BeforeEach
     void setUp() {
+        restClient = mock(RestClient.class);
         priceRepository = mock(MaterialPriceRepository.class);
         erpRepository = mock(ErpRepository.class);
         when(erpRepository.findMaterialSourcingCountries()).thenReturn(List.of());
-        service = new MarketPriceService(mock(RestClient.class), priceRepository, erpRepository);
+        service = new MarketPriceService(restClient, priceRepository, erpRepository);
     }
 
     /**
@@ -82,6 +84,44 @@ class MarketPriceTrendTest {
         assertThat(narrow.baseDate()).isEqualTo(LocalDate.now(KST).minusDays(5).toString());
         assertThat(narrow.points()).extracting(MarketPriceDto.PricePoint::priceIndex)
                 .containsExactly(100.0, 104.8);
+    }
+
+    /**
+     * "1일" 탭(days=1)은 일봉이 아니라 FastAPI에서 받은 <b>시간별(1h) 장중 흐름</b>이다. 첫 봉=100으로
+     * 지수화하고, 시각은 KST로 환산해 라벨로 담는다. 등락은 첫 봉→마지막 봉으로 계산한다.
+     */
+    @Test
+    void oneDayTabReturnsHourlyIntradayFlowNormalizedToFirstBar() {
+        stubIntraday(
+                new MarketPriceDto.FastApiPricePoint("COBALT", "GLNCY", "2026-08-07T09:00:00-04:00", 100.0, null),
+                new MarketPriceDto.FastApiPricePoint("COBALT", "GLNCY", "2026-08-07T10:00:00-04:00", 105.0, null),
+                new MarketPriceDto.FastApiPricePoint("COBALT", "GLNCY", "2026-08-07T11:00:00-04:00", 110.0, null));
+        // 리스크 지수는 저장된 일간 변동성에서 온다(시간 단위 정의가 없어) — 여기선 등락만 검증한다.
+        stubPoints(point("COBALT", 1, 50.0));
+
+        MarketPriceDto.PriceSeries series = service.priceTrends(1).get(0);
+
+        // 첫 봉=100 기준: 105/100=105.0, 110/100=110.0.
+        assertThat(series.points()).extracting(MarketPriceDto.PricePoint::priceIndex)
+                .containsExactly(100.0, 105.0, 110.0);
+        // 09:00 EDT(-04:00) = 22:00 KST. 라벨은 KST 시각 문자열.
+        assertThat(series.baseDate()).isEqualTo("2026-08-07T22:00");
+        assertThat(series.points()).extracting(MarketPriceDto.PricePoint::date)
+                .containsExactly("2026-08-07T22:00", "2026-08-07T23:00", "2026-08-08T00:00");
+        // 등락: 첫 봉(100)→마지막 봉(110) = +10.0%
+        assertThat(service.priceSummaries(1).get(0).changeLabel()).isEqualTo("▲ 10.0%");
+    }
+
+    /** FastAPI 시간별 응답을 RestClient 체인에 물린다(본문 없는 POST). */
+    private void stubIntraday(MarketPriceDto.FastApiPricePoint... points) {
+        MarketPriceDto.FastApiPriceResponse response = new MarketPriceDto.FastApiPriceResponse(
+                true, new MarketPriceDto.FastApiPriceResult(List.of(points), List.of(), false));
+        RestClient.RequestBodyUriSpec uriSpec = mock(RestClient.RequestBodyUriSpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        when(restClient.post()).thenReturn(uriSpec);
+        when(uriSpec.uri(org.mockito.ArgumentMatchers.anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(MarketPriceDto.FastApiPriceResponse.class)).thenReturn(response);
     }
 
     /** 요청 구간이 실제 조회 경계로 전달되는지 — 여기가 어긋나면 재산정이 조용히 무력화된다. */
