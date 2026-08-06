@@ -73,6 +73,9 @@ public class AiBriefingController {
                     generate_available로 'LLM 브리핑 생성' 버튼을 미리 비활성화할 수 있다. 그 판정은
                     앞 화면들의 erp_impact_available·briefing_available과 같은 것을 그대로 쓴다.
                     """)
+    // 비로그인 대시보드(/public/*)가 구매팀 화면과 동일하게 보여주기 위해 조회만 공개(2026-08-05).
+    // LLM 브리핑 생성(POST, 비용 발생)·PDF 다운로드는 그대로 인증 필요.
+    @PreAuthorize("permitAll()")
     @GetMapping("/context")
     public ApiResponse<AiBriefingDto.Context> context(
             @Parameter(description = "NEWS/MATERIAL/CONTRACT", example = "NEWS")
@@ -109,6 +112,7 @@ public class AiBriefingController {
                     + "카드에 필요한 값만 담겨 있어 본문·근거는 오지 않는다 — 상세는 briefing_id로 따로 조회한다. "
                     + "필터와 페이징은 모두 서버에서 적용된다. 화면에서 거르면 '먼저 자르고 그 안에서 "
                     + "필터'가 되어 뒷 페이지 항목이 사라진다.")
+    @PreAuthorize("permitAll()")
     @GetMapping("/briefings")
     public ApiResponse<PageResponse<AiBriefingDto.BriefingListItem>> recent(
             @Parameter(description = "대상 유형. NEWS/MATERIAL/CONTRACT. 생략하면 전체", example = "NEWS")
@@ -132,6 +136,7 @@ public class AiBriefingController {
             summary = "브리핑 상세 보기 (구매팀 AI 브리핑)",
             description = "저장된 브리핑을 생성 직후와 같은 모양으로 반환한다. 화면이 방금 만든 것과 "
                     + "다시 열어본 것을 다르게 그릴 이유가 없어 응답 타입을 하나로 뒀다.")
+    @PreAuthorize("permitAll()")
     @GetMapping("/briefings/{briefingId}")
     public ApiResponse<AiBriefingDto.BriefingDetail> get(
             @Parameter(description = "목록의 briefing_id")

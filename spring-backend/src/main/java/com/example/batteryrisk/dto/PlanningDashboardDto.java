@@ -105,11 +105,12 @@ public final class PlanningDashboardDto {
             String riskEventId, String material, String grade, String headline, String businessUnit
     ) {}
 
-    /** AI 브리핑 탭. */
+    /** AI 브리핑 탭. {@code recentTotalCount}는 {@code recent}의 전체 건수(페이지네이션용) — {@code recent} 자체는 요청한 페이지 분량만 담는다. */
     public record AiBriefingSummaryDashboard(
             List<KpiSummaryItem> kpiSummary,
             List<RankedBarItem> byUnit,
-            List<BriefingSummaryItem> recent
+            List<BriefingSummaryItem> recent,
+            long recentTotalCount
     ) {}
 
     public record ConfidenceDistributionItem(String label, BigDecimal ratio) {}

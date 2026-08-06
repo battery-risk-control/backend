@@ -443,10 +443,12 @@ public class PlanningDashboardRepository {
 
     public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(
             int limit,
+            int offset,
             String materialKeywordPattern
     ) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("limit", limit)
+                .addValue("offset", offset)
                 .addValue("materialKeywordPattern", materialKeywordPattern);
         return jdbc.query("""
                 SELECT
@@ -471,7 +473,7 @@ public class PlanningDashboardRepository {
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
                 WHERE a.status = 'COMPLETED' AND a.severity IS NOT NULL
                 ORDER BY a.created_at DESC
-                LIMIT :limit
+                LIMIT :limit OFFSET :offset
                 """, params, (rs, rowNum) -> {
             String grade = gradeKo(rs.getString("severity"));
             String category = rs.getString("material_category");
@@ -482,6 +484,26 @@ public class PlanningDashboardRepository {
                     rs.getString("headline"),
                     rs.getString("business_unit_name"));
         });
+    }
+
+    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
+    public long countRecentBriefings(String materialKeywordPattern) {
+        Long count = jdbc.queryForObject("""
+                SELECT COUNT(*)
+                FROM analyses a
+                WHERE a.status = 'COMPLETED'
+                  AND a.severity IS NOT NULL
+                  AND EXISTS (
+                      SELECT 1
+                      FROM raw_events re
+                      WHERE re.triggered_analysis_id = a.analysis_id
+                        AND re.data_type = 'NEWS'
+                        AND (
+                            COALESCE(re.title, '') || ' ' || COALESCE(re.content, '')
+                        ) ~* :materialKeywordPattern
+                  )
+                """, new MapSqlParameterSource("materialKeywordPattern", materialKeywordPattern), Long.class);
+        return count == null ? 0L : count;
     }
 
     /** CRITICAL이면서 이미 처리(acknowledge)된 평가 건수 — "임원 보고 지정" 기본 정의. */

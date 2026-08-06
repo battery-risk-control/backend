@@ -59,6 +59,9 @@ public class ContractRagController {
             summary = "계약 목록 (구매팀 계약·RAG)",
             description = "검색 범위를 좁힐 때 쓰는 계약 목록이다. 기본값은 ChromaDB에 실제로 적재된 "
                     + "계약만 내려준다 — 적재되지 않은 계약을 고르면 검색이 항상 비기 때문이다.")
+    // 비로그인 대시보드(/public/*)가 구매팀 화면과 동일하게 보여주기 위해 조회만 공개(2026-08-05).
+    // 업로드·재처리(쓰기)는 아래 두 메서드처럼 여전히 hasRole('PURCHASING')로 막힌다.
+    @PreAuthorize("permitAll()")
     @GetMapping("/contracts")
     public ApiResponse<List<ContractRagDto.ContractSummary>> contracts(
             @Parameter(description = "true면 문서가 적재되지 않은 계약도 포함한다.")
@@ -76,6 +79,7 @@ public class ContractRagController {
                     그 조항이 속한 계약 요약이 붙는다. mock=true면 임베딩이 mock이라
                     유사도 점수에 의미가 없다는 뜻이다.
                     """)
+    @PreAuthorize("permitAll()")
     @PostMapping("/search")
     public ApiResponse<ContractRagDto.SearchResponse> search(
             @Valid @RequestBody ContractRagDto.SearchRequest request) {
@@ -86,6 +90,7 @@ public class ContractRagController {
             summary = "계약 문서 상세 (구매팀 계약·RAG)",
             description = "계약 메타(계약번호·기간·공급사·자재)와 적재된 원본 문서 목록, 임베딩 종류·버전을 "
                     + "반환한다. briefing_available로 'AI 브리핑 생성'을 지금 누를 수 있는지 미리 알 수 있다.")
+    @PreAuthorize("permitAll()")
     @GetMapping("/contracts/{contractId}")
     public ApiResponse<ContractRagDto.ContractDetail> contract(
             @Parameter(description = "내부 계약 PK", example = "11")

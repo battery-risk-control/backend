@@ -33,7 +33,6 @@ public class PlanningDashboardService {
     private static final Logger log = LoggerFactory.getLogger(PlanningDashboardService.class);
 
     private static final int CONTRACT_EXPIRING_WITHIN_DAYS = 30;
-    private static final int RECENT_BRIEFING_LIMIT = 10;
     private static final int VENDOR_HISTORY_LIMIT = 20;
     private static final DateTimeFormatter LAST_RUN_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -207,12 +206,12 @@ public class PlanningDashboardService {
 
     // ===== AI 브리핑 =====
 
-    public PlanningDashboardDto.AiBriefingSummaryDashboard aiBriefing() {
+    public PlanningDashboardDto.AiBriefingSummaryDashboard aiBriefing(int page, int size) {
         List<PlanningDashboardDto.RankedBarItem> byUnit = repository.loadBriefingCountByUnit();
-        List<PlanningDashboardDto.BriefingSummaryItem> recent = repository.findRecentBriefings(
-                RECENT_BRIEFING_LIMIT,
-                RiskEventService.materialKeywordPattern()
-        );
+        String materialKeywordPattern = RiskEventService.materialKeywordPattern();
+        List<PlanningDashboardDto.BriefingSummaryItem> recent =
+                repository.findRecentBriefings(size, page * size, materialKeywordPattern);
+        long recentTotalCount = repository.countRecentBriefings(materialKeywordPattern);
         PlanningDashboardRepository.QuarterKpi quarter = repository.quarterKpi();
         long executiveFlagged = repository.loadExecutiveFlaggedCount();
 
@@ -224,7 +223,7 @@ public class PlanningDashboardService {
                 new PlanningDashboardDto.KpiSummaryItem(
                         "임원 보고 지정", BigDecimal.valueOf(executiveFlagged), "건"));
 
-        return new PlanningDashboardDto.AiBriefingSummaryDashboard(kpiSummary, byUnit, recent);
+        return new PlanningDashboardDto.AiBriefingSummaryDashboard(kpiSummary, byUnit, recent, recentTotalCount);
     }
 
     // ===== 데이터 품질 =====
