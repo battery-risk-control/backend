@@ -19,13 +19,74 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 /** F4: 데이터 소스별 Adapter를 실행해 원본을 저장하고, 신규 뉴스에 대해 F3 분석을 트리거합니다. */
 @Service
 public class CollectionService {
     private static final Logger log = LoggerFactory.getLogger(CollectionService.class);
+
+    /**
+     * F3(LLM) 분석을 태우기 전에 본문에 핵심광물 이름이 실제로 있는지 코드로 먼저 거른다.
+     *
+     * <p>도입 배경(2026-08-07): GDELT 트리아지(XGBoost, recall 우선)는 통과율이 60~70%로
+     * 널널해서 15분 구간에 700~1000건씩 통과하는데, 크롤링 예산(FastAPI
+     * {@code MAX_CRAWL_PER_RUN}=30)에 걸려 그중 30건만(파일 순서, 사실상 무작위) 실제로
+     * 크롤링됐다 — 진짜 관련 기사가 31번째 이후에 있으면 그 사이클에서 영영 못 봤다(실측:
+     * TSMC 기사가 이 방식으로 유실됨). 크롤링 예산 자체를 늘리면 크롤링된 것마다 F3 LLM 호출이
+     * 뒤따라 붙어 15분마다 수백~천 건씩 LLM을 호출하게 되고, OpenAI 일일 요청한도(RPD, 롤링
+     * 24시간)를 순식간에 소진한다(2026-08-06~07 실측).
+     *
+     * <p>해결: 크롤링 예산은 그대로 두되(FastAPI 쪽 수정 없음), <b>Spring이 이미 크롤링된 본문을
+     * 갖고 있으므로</b> LLM을 부르기 전에 여기서 한 번 더 걸러 "핵심광물 이름이 문자 그대로
+     * 없으면 LLM도 물어볼 필요 없이 무관"이라는 오늘 고친 프롬프트의 [HARD CONSTRAINT] 규칙을
+     * 코드에서 무료로 선반영한다 — LLM이 어차피 False를 낼 게 뻔한 호출을 아예 안 보낸다.
+     * 단어경계(정규식 {@code \b})를 넣는 이유는 {@link RiskEventService}의
+     * {@code materialKeywordPattern()}과 같다("copper pillars"처럼 단어 자체가 무관한
+     * 문맥에서 등장하는 경우까지는 못 막지만, 합성어에 파묻힌 글자열은 막는다) — SQL
+     * {@code \y} 대신 Java 정규식 {@code \b}를 쓰는 것만 다르고 키워드 목록은 그쪽과 동일하다.
+     */
+    private static final Pattern MATERIAL_KEYWORD_PATTERN = Pattern.compile(
+            "\\b(" + String.join("|",
+                    RiskEventService.MATERIAL_KEYWORDS.values().stream()
+                            .flatMap(List::stream)
+                            .toList())
+                    + ")\\b",
+            Pattern.CASE_INSENSITIVE);
+
+    /**
+     * XGBoost 트리아지의 {@code CORE_PRODUCER_WHITELIST}(triage_filter.py)와 같은 FIPS 10-4
+     * 국가코드 목록을 여기 다시 둔다(다른 언어/저장소라 직접 참조 불가, 값만 그대로 복제).
+     *
+     * <p>{@code mentionsCoreMaterial()}의 키워드 목록이 영어·한국어뿐이라, 이 화이트리스트가
+     * 없으면 칠레·아르헨티나(리튬)·브라질 인접국 등에서 스페인어·포르투갈어로 보도된 진짜
+     * 관련 기사가 "키워드 없음"으로 LLM 호출 자체를 안 받고 조용히 걸러진다 — 이건 원래
+     * 없던 회귀다(이 필터 도입 전에는 크롤링된 기사는 언어 무관하게 전부 LLM(다국어 가능)에게
+     * 넘어갔다). 트리아지가 이미 같은 이유로 "핵심 생산국은 모델 점수와 무관하게 항상 통과"
+     * 원칙을 쓰고 있으므로, 여기서도 동일하게 핵심 생산국이면 키워드 매칭 여부와 무관하게
+     * 항상 LLM으로 넘긴다.
+     */
+    private static final Set<String> CORE_PRODUCER_COUNTRY_CODES = Set.of(
+            "ID", // 니켈(인도네시아)
+            "CG", // 코발트(DRC)
+            "CI", // 리튬(칠레)
+            "AR", // 리튬(아르헨티나)
+            "AS", // 리튬/니켈(호주)
+            "CH", // 흑연(중국)
+            "SF"  // 망간(남아프리카공화국)
+    );
+
+    private static boolean mentionsCoreMaterial(RawEvent event) {
+        if (event.getCountryCode() != null && CORE_PRODUCER_COUNTRY_CODES.contains(event.getCountryCode())) {
+            return true;
+        }
+        String text = (event.getTitle() == null ? "" : event.getTitle())
+                + " " + (event.getContent() == null ? "" : event.getContent());
+        return MATERIAL_KEYWORD_PATTERN.matcher(text).find();
+    }
 
     private final List<DataSourceAdapter> adapters;
     private final RawEventRepository rawEventRepository;
@@ -140,7 +201,17 @@ public class CollectionService {
             // title==null은 트리아지 통과 기사가 0건인 구간의 커서 전진용 sentinel(GdeltRealtimeTriageAdapter)
             // 이므로 분석 트리거 대상이 아니다. 이 체크가 없으면 sentinel 최초 발생 시 title/content가
             // null인 채로 FastAPI 추출(422)·Analysis 저장(event_title NOT NULL 위반)이 조용히 실패한다.
-            if (analysisEnabled && "NEWS".equals(adapter.dataType()) && rawEvent.getTitle() != null) {
+            //
+            // mentionsCoreMaterial()은 크롤링 예산을 늘려도(위 클래스 주석 참고) LLM 호출량이
+            // 그만큼 같이 안 늘게 막는 무료 사전 필터다 — "NEWS"에만 적용한다(DISASTER는 광물
+            // 키워드가 원래 안 붙는 별개 도메인이라 이 필터를 걸면 항상 걸러져버린다).
+            boolean skippedNoKeyword = "NEWS".equals(adapter.dataType())
+                    && rawEvent.getTitle() != null && !mentionsCoreMaterial(rawEvent);
+            if (skippedNoKeyword) {
+                log.debug("핵심광물 키워드 없음 — 분석 생략(저장만): externalId={}", item.externalId());
+            }
+            if (analysisEnabled && "NEWS".equals(adapter.dataType()) && rawEvent.getTitle() != null
+                    && !skippedNoKeyword) {
                 UUID analysisId = triggerAnalysis(rawEvent);
                 if (analysisId != null) {
                     rawEvent.markTriggeredAnalysis(analysisId);

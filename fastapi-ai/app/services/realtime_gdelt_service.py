@@ -25,7 +25,17 @@ LASTUPDATE_URL = "http://data.gdeltproject.org/gdeltv2/lastupdate.txt"
 GDELT_EXPORT_BASE = "http://data.gdeltproject.org/gdeltv2/"
 
 PENDING_SLOTS_CAP = 4       # 15분 단위 4구간(1시간)만 한 번의 호출에서 처리 — 나머지는 다음 주기가 이어받음
-MAX_CRAWL_PER_RUN = 30
+# 2026-08-07: 30 → 400으로 상향(200 실측 후 재조정). 트리아지 통과분(15분 구간당 보통
+# 600~1000건)이 이 예산보다 훨씬 많아서, 기존엔 GDELT 파일 순서(사실상 무작위) 그대로 앞
+# 30개만 크롤링해 진짜 관련 기사가 뒤 순번에 있으면 그 사이클에서 영영 놓쳤다(실측: TSMC
+# 기사 유실). 크롤링 자체는 OpenAI 비용이 없고(newspaper 크롤링만), LLM 호출 폭증 문제는
+# Spring CollectionService.mentionsCoreMaterial()(크롤링된 본문에 핵심광물 이름이 실제로
+# 있는 것만 F3 분석을 태우는 무료 사전 필터)로 따로 막아뒀으므로, 여기서 크롤링량만 늘려도
+# LLM 호출량이 비례해서 늘지 않는다. 실측(2026-08-07): 200건 74초 → 400건 164초(선형보다
+# 느림, 느린 사이트 타임아웃 편차 때문으로 보임) — 400은 3분 타임아웃 대비 여유가 16초뿐이라
+# 위험해서 300으로 낮췄다. 트리아지 통과분 자체가 300 미만인 구간(흔함)에서는 이 상한이
+# 걸리지 않고 그냥 전량 크롤링된다.
+MAX_CRAWL_PER_RUN = 300
 CRAWL_WORKERS = 10
 CRAWL_TIMEOUT_SEC = 8
 MIN_ARTICLE_LEN = 200
