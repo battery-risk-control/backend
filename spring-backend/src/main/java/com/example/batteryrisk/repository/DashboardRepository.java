@@ -179,7 +179,12 @@ public class DashboardRepository {
                     (SELECT COUNT(*) FROM latest WHERE procurement_risk_level = 'NORMAL') AS normal_count,
                     (SELECT AVG(erp_exposure_score) FROM latest) AS erp_exposure_score_avg,
                     (SELECT AVG(external_signal_score) FROM latest) AS external_signal_score_avg,
-                    (SELECT COUNT(*) FROM latest WHERE review_passed = TRUE) AS verified_briefing_count,
+                    -- 검증 브리핑 수는 latest(자재당 최신 1건)에서 세면 안 된다. latest는
+                    -- DISTINCT ON (material_category)로 자재당 1행만 남겨, 같은 자재의 검증 브리핑이
+                    -- 2건이면 오래된 1건이 버려져 2가 1로 접혔다(실측: 검증 2건 → 화면 1건).
+                    -- 브리핑 정본 테이블 ai_briefings에서 직접 센다 — loadSummary의 briefing_count가
+                    -- 같은 테이블을 세는 것과 같은 원칙(자재 dedup은 위험도 집계용이지 브리핑 수 집계용이 아니다).
+                    (SELECT COUNT(*) FROM ai_briefings WHERE review_passed = TRUE) AS verified_briefing_count,
                     (SELECT MAX(assessed_at) FROM latest) AS latest_assessed_at,
                     (SELECT COUNT(*) FROM recent_24h WHERE procurement_risk_level = 'CRITICAL') AS critical_count_24h,
                     (SELECT COUNT(*) FROM recent_24h WHERE procurement_risk_level = 'WARNING') AS warning_count_24h,

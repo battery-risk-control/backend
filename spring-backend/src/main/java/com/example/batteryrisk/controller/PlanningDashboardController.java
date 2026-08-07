@@ -5,9 +5,13 @@ import com.example.batteryrisk.dto.PlanningDashboardDto;
 import com.example.batteryrisk.service.PlanningDashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -25,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/planning")
 @SecurityRequirement(name = "bearerAuth")
+@Validated
 public class PlanningDashboardController {
     private final PlanningDashboardService planningDashboardService;
 
@@ -62,10 +67,14 @@ public class PlanningDashboardController {
         return ApiResponse.ok(planningDashboardService.contractStatus());
     }
 
-    @Operation(summary = "AI 브리핑", description = "사업부별 브리핑 건수, 최근 브리핑 목록, 이번 분기 KPI 요약.")
+    @Operation(
+            summary = "AI 브리핑",
+            description = "사업부별 브리핑 건수, 최근 브리핑 목록(페이지네이션), 이번 분기 KPI 요약.")
     @GetMapping("/ai-briefing")
-    public ApiResponse<PlanningDashboardDto.AiBriefingSummaryDashboard> aiBriefing() {
-        return ApiResponse.ok(planningDashboardService.aiBriefing());
+    public ApiResponse<PlanningDashboardDto.AiBriefingSummaryDashboard> aiBriefing(
+            @RequestParam(name = "page", defaultValue = "0") @Min(0) int page,
+            @RequestParam(name = "size", defaultValue = "10") @Min(1) @Max(50) int size) {
+        return ApiResponse.ok(planningDashboardService.aiBriefing(page, size));
     }
 
     @Operation(summary = "데이터 품질", description = "ERP 적재 상태, RAG 인덱스 상태, 자재 커버리지, 신뢰도 라벨 분포.")

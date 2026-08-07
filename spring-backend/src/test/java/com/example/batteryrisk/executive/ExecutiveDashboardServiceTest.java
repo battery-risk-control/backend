@@ -18,6 +18,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -164,13 +165,14 @@ class ExecutiveDashboardServiceTest {
                 );
 
         when(
-                planningDashboardService.aiBriefing()
+                planningDashboardService.aiBriefing(anyInt(), anyInt())
         ).thenReturn(
                 new PlanningDashboardDto
                         .AiBriefingSummaryDashboard(
                         List.of(),
                         List.of(),
-                        List.of(briefing)
+                        List.of(briefing),
+                        1L
                 )
         );
 

@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -55,6 +57,10 @@ public class MarketPriceService {
 
     /** 조회 구간 기본값. 프론트 기본 선택 탭("1개월")에 맞춘다. */
     private static final int DEFAULT_TREND_DAYS = 30;
+
+    /** "1일" 탭 시간별 라벨의 KST 환산 포맷(yyyy-MM-dd'T'HH:mm). 프론트가 문자열 정렬 후 HH:mm만 표시한다. */
+    private static final java.time.format.DateTimeFormatter KST_MINUTE =
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
     /**
      * 조회 구간 상한. {@link #REFRESH_DAYS}보다 길게 요청해봐야 저장된 데이터가 없어 빈 구간만
@@ -176,6 +182,17 @@ public class MarketPriceService {
                             point.materialCategory(), LocalDate.parse(point.priceDate()),
                             point.closePrice(), point.stockVol20d(), point.ticker()))
                     .toList();
+            // 장중 갱신(5일 창)은 20일 변동성을 계산할 수 없어 전부 null로 온다. 그 null을 그대로
+            // 저장하면 매일 07:00 전체 갱신이 계산해 둔 최근 며칠의 변동성을 지워, 최신 구간(특히
+            // "1일")의 리스크가 0으로 죽는다. 새 값이 null일 때는 기존에 저장된 변동성을 보존한다.
+            for (MaterialPricePoint incoming : entities) {
+                if (incoming.getStockVol20d() == null) {
+                    priceRepository.findById(new MaterialPricePoint.Key(
+                                    incoming.getMaterialCategory(), incoming.getPriceDate()))
+                            .map(MaterialPricePoint::getStockVol20d)
+                            .ifPresent(incoming::setStockVol20d);
+                }
+            }
             // 복합키(자재, 거래일)라 이미 있는 날짜는 갱신, 없으면 삽입으로 수렴한다.
             priceRepository.saveAll(entities);
 
@@ -199,9 +216,13 @@ public class MarketPriceService {
      * 그래서 구간을 바꾸면 기준일도 같이 옮겨 100에서 다시 시작해야 한다 — 고정 기준일을 쓰면
      * 7일 차트가 105에서 시작해 "기준일=100" 표기와 화면이 어긋난다.
      *
-     * @param days 조회 구간(일). 1~{@value #MAX_TREND_DAYS}로 자른다.
+     * @param days 조회 구간(일). 1~{@value #MAX_TREND_DAYS}로 자른다. days==1은 "1일" 탭으로,
+     *             일봉이 아니라 최근 1거래일 <b>시간별 흐름</b>을 반환한다({@link #intradayTrends()}).
      */
     public List<MarketPriceDto.PriceSeries> priceTrends(int days) {
+        if (days == 1) {
+            return intradayTrends();
+        }
         Map<String, List<MarketPriceDto.SourcingCountry>> sourcing = sourcingCountriesByMaterial();
         return groupByMaterial(days).entrySet().stream()
                 .map(entry -> new MarketPriceDto.PriceSeries(
@@ -238,6 +259,9 @@ public class MarketPriceService {
      * 자재별 리스크 판정을 별도로 정의하기 전까지의 대용이며, 임의 수치가 아니라 표준 지표를 쓴다.
      */
     public List<MarketPriceDto.PriceSummary> priceSummaries(int days) {
+        if (days == 1) {
+            return intradaySummaries();
+        }
         return groupByMaterial(days).entrySet().stream()
                 .map(entry -> {
                     List<MaterialPricePoint> points = entry.getValue();
@@ -260,6 +284,85 @@ public class MarketPriceService {
         return grouped;
     }
 
+    // ── "1일" 탭: 시간별 장중 흐름 ─────────────────────────────────────────
+    // 일봉 1점으로는 하루 흐름을 못 그려(100/0%/0), FastAPI에서 최근 1거래일 시간별(1h) 시세를
+    // 실시간으로 받아 시간축 차트를 만든다. 거래소가 미국·호주로 섞여 시각이 제각각이라 KST로
+    // 환산해 한 축에 정렬한다(프론트는 KST 시각 문자열을 그대로 정렬·표시). 저장은 하지 않는다.
+
+    /** 최근 1거래일 시간별 지수 추이(자재별 첫 봉=100). */
+    public List<MarketPriceDto.PriceSeries> intradayTrends() {
+        Map<String, List<MarketPriceDto.SourcingCountry>> sourcing = sourcingCountriesByMaterial();
+        return fetchIntradayByMaterial().entrySet().stream()
+                .map(entry -> new MarketPriceDto.PriceSeries(
+                        RiskEventService.MATERIAL_NAME_KO.getOrDefault(entry.getKey(), entry.getKey()),
+                        "지수(기준일=100)",
+                        toKstLabel(entry.getValue().get(0).priceDate()),
+                        sourcing.getOrDefault(entry.getKey(), List.of()),
+                        toIntradayIndexedPoints(entry.getValue())))
+                .toList();
+    }
+
+    /**
+     * 최근 1거래일 시간별 요약 카드. 등락은 <b>당일 첫 봉→마지막 봉</b>으로 계산하고, 리스크 지수는
+     * 시간 단위로 정의가 없어 <b>저장된 일간 변동성</b>을 그대로 쓴다(값의 성격을 탭마다 바꾸지 않는다).
+     */
+    public List<MarketPriceDto.PriceSummary> intradaySummaries() {
+        Map<String, List<MaterialPricePoint>> daily = groupByMaterial(30);
+        return fetchIntradayByMaterial().entrySet().stream()
+                .map(entry -> {
+                    List<MarketPriceDto.FastApiPricePoint> points = entry.getValue();
+                    int riskScore = riskScore(daily.getOrDefault(entry.getKey(), List.of()));
+                    return new MarketPriceDto.PriceSummary(
+                            RiskEventService.MATERIAL_NAME_KO.getOrDefault(entry.getKey(), entry.getKey()),
+                            formatChange(points.get(0).closePrice(),
+                                    points.get(points.size() - 1).closePrice()),
+                            riskScore, grade(riskScore));
+                })
+                .toList();
+    }
+
+    /** FastAPI 시간별 조회 결과를 자재별로 묶는다(응답이 자재·시각 순이라 그대로 순서 유지). */
+    private Map<String, List<MarketPriceDto.FastApiPricePoint>> fetchIntradayByMaterial() {
+        MarketPriceDto.FastApiPriceResponse response = fastApiRestClient.post()
+                .uri("/api/v1/internal/market/intraday")
+                .retrieve()
+                .body(MarketPriceDto.FastApiPriceResponse.class);
+        if (response == null || !response.success() || response.data() == null
+                || response.data().points() == null) {
+            throw new IllegalStateException("FastAPI 장중 가격 응답이 올바르지 않습니다.");
+        }
+        Map<String, List<MarketPriceDto.FastApiPricePoint>> grouped = new LinkedHashMap<>();
+        for (MarketPriceDto.FastApiPricePoint point : response.data().points()) {
+            grouped.computeIfAbsent(point.materialCategory(), key -> new ArrayList<>()).add(point);
+        }
+        return grouped;
+    }
+
+    /** 시간별 지수 포인트. 날짜(date)에는 KST 시각 문자열(yyyy-MM-dd'T'HH:mm)을 담아 프론트가 정렬·표시한다. */
+    private static List<MarketPriceDto.PricePoint> toIntradayIndexedPoints(
+            List<MarketPriceDto.FastApiPricePoint> points) {
+        double base = points.get(0).closePrice();
+        Instant now = Instant.now();
+        return points.stream()
+                .map(point -> new MarketPriceDto.PricePoint(
+                        toKstLabel(point.priceDate()),
+                        base == 0 ? 100.0 : Math.round(point.closePrice() / base * 1000.0) / 10.0,
+                        now))
+                .toList();
+    }
+
+    /** tz-aware ISO(예: 2026-08-07T09:00:00-04:00)를 KST 시각 문자열로 환산한다. */
+    private static String toKstLabel(String isoTimestamp) {
+        try {
+            return OffsetDateTime.parse(isoTimestamp)
+                    .atZoneSameInstant(SERVICE_ZONE)
+                    .format(KST_MINUTE);
+        } catch (java.time.format.DateTimeParseException exception) {
+            // 오프셋이 없는 형식이면 그대로 둔다 — 프론트가 문자열 정렬만 하므로 깨지지 않는다.
+            return isoTimestamp;
+        }
+    }
+
     /**
      * 구간을 유효 범위로 자른다. 잘못된 값에 400을 던지지 않고 조용히 맞추는 것은 뉴스 속보의
      * limit 처리와 같은 방침이다 — 공개 화면이라 파라미터 하나 때문에 패널이 통째로 비면 안 된다.
@@ -280,8 +383,11 @@ public class MarketPriceService {
 
     /** 구간 첫 거래일 대비 등락. 프론트 mock과 같은 표기(▲/▼ + 소수 1자리 %)를 유지한다. */
     private static String changeLabel(List<MaterialPricePoint> points) {
-        double first = points.get(0).getClosePrice();
-        double last = points.get(points.size() - 1).getClosePrice();
+        return formatChange(points.get(0).getClosePrice(), points.get(points.size() - 1).getClosePrice());
+    }
+
+    /** 첫 값 대비 마지막 값의 등락 표기(▲/▼ + 소수 1자리 %). 일봉·시간별 요약이 함께 쓴다. */
+    private static String formatChange(double first, double last) {
         if (first == 0) {
             return "— 0.0%";
         }

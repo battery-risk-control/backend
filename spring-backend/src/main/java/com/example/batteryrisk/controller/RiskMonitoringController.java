@@ -55,6 +55,9 @@ public class RiskMonitoringController {
             description = "수집·번역된 뉴스를 최신순으로 반환한다. 같은 기사는 제목 기준으로 한 번만 나가고, "
                     + "자재가 특정되지 않은 기사(공급망 무관)는 제외한다. grade는 멀티에이전트가 끝난 기사면 "
                     + "종합 위험도, 아니면 외부신호 기준 잠정값이며 multi_agent_completed로 구분한다.")
+    // 비로그인 대시보드(/public/*)가 구매팀 화면과 동일하게 보여주기 위해 조회만 공개(2026-08-05).
+    // 클래스 단위 hasAnyRole을 이 메서드만 덮어쓴다 — 실행 계열(runErpImpact)은 그대로 인증 필요.
+    @PreAuthorize("permitAll()")
     @GetMapping("/events")
     public ApiResponse<List<RiskMonitoringDto.EventItem>> events(
             @Parameter(description = "심각/주의/정상. 생략하면 전체", example = "심각")
@@ -78,6 +81,7 @@ public class RiskMonitoringController {
             summary = "리스크 이벤트 상세 (구매팀)",
             description = "뉴스 요약·영향 원자재·외부신호·좌표·원문 링크와, 멀티에이전트가 끝난 기사면 "
                     + "종합 평가(세부 점수 3개·판단 근거)를 함께 반환한다.")
+    @PreAuthorize("permitAll()")
     @GetMapping("/events/{eventId}")
     public ApiResponse<RiskMonitoringDto.EventDetail> event(
             @Parameter(description = "목록의 event_id", example = "252")

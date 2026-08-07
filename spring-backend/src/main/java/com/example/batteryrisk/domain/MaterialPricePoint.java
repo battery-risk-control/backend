@@ -83,6 +83,13 @@ public class MaterialPricePoint {
         return point;
     }
 
+    /**
+     * 20일 변동성을 보존용으로만 덮어쓴다. 장중 갱신(5일 창)은 20일 변동성을 계산할 수 없어 전부
+     * null로 오는데, 그 null이 매일 07:00에 계산해 둔 최근 변동성을 지워 리스크가 0으로 죽었다.
+     * MarketPriceService.refresh가 "새 값이 null이면 기존 값을 유지"하려고 이 setter를 쓴다.
+     */
+    public void setStockVol20d(Double stockVol20d) { this.stockVol20d = stockVol20d; }
+
     public String getMaterialCategory() { return materialCategory; }
     public LocalDate getPriceDate() { return priceDate; }
     public double getClosePrice() { return closePrice; }

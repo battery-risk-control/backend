@@ -54,6 +54,8 @@ public class MaterialRiskController {
                     자재 수만큼 ERP Exposure Agent를 호출하므로 60초 캐시가 붙어 있다. 계산 시각은
                     응답의 as_of에 담겨 있고, 화면의 "새로고침"은 refresh=true로 캐시를 건너뛴다.
                     """)
+    // 비로그인 대시보드(/public/*)가 구매팀 화면과 동일하게 보여주기 위해 조회만 공개(2026-08-05).
+    @PreAuthorize("permitAll()")
     @GetMapping("/overview")
     public ApiResponse<MaterialRiskDto.Overview> overview(
             @Parameter(description = "캐시를 건너뛰고 다시 계산할지. 화면의 새로고침 버튼이 쓴다.")
@@ -66,6 +68,7 @@ public class MaterialRiskController {
             description = "ERP 노출 정보(재고·안전재고·예상 입고·공급 공백·의존도), 주 공급사, 연결 계약, "
                     + "ERP 노출도 세부 점수 5개를 반환한다. briefing_available로 'AI 브리핑 생성' "
                     + "버튼을 미리 비활성화할 수 있다.")
+    @PreAuthorize("permitAll()")
     @GetMapping("/materials/{erpMaterialId}")
     public ApiResponse<MaterialRiskDto.MaterialDetail> detail(
             @Parameter(description = "목록의 erp_material_id", example = "MAT-CO-SULF")
@@ -82,6 +85,7 @@ public class MaterialRiskController {
 
                     연결 계약이 없는 자재는 422로 막는다.
                     """)
+    @PreAuthorize("permitAll()")
     @PostMapping("/materials/{erpMaterialId}/contract-evidence")
     public ApiResponse<MaterialRiskDto.ContractEvidence> contractEvidence(
             @Parameter(description = "목록의 erp_material_id", example = "MAT-CO-SULF")

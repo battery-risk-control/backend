@@ -685,7 +685,8 @@ public class RiskEventService {
                 analysis == null ? null : analysis.getSeverityScore(),
                 riskLevel,
                 riskLevel != null,
-                briefingId);
+                briefingId,
+                analysis == null ? null : analysis.getSummaryKr());
     }
 
     /**
@@ -781,7 +782,9 @@ public class RiskEventService {
                 // placeholder는 실제 기사가 아니므로 원문 링크가 없다. 프론트가 "원문" 버튼을 숨긴다.
                 null,
                 // 분석·평가·브리핑이 전부 없는 자리표시자다. 지어내면 화면이 없는 것을 열려 한다.
-                null, null, null, null, false, null);
+                // 마지막 null은 summaryKr — placeholder는 분석이 없어 요약도 없다.
+                null, null, null, null, false, null,
+                null);
     }
 
     /** placeholder id 형식 "RISK-yyyy-MMdd-nnn"에서 날짜를 뽑는다. 형식이 다르면 오늘 날짜로 둔다. */
