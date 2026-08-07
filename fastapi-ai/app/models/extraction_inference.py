@@ -98,9 +98,11 @@ class MockExtractionInference:
 
 class _ArticleRiskExtraction(BaseModel):
     is_supply_chain_relevant: bool = Field(
-        description="핵심광물(리튬/코발트/니켈/흑연/망간/구리/철/희토류/알루미늄/주석/갈륨/게르마늄/"
-                    "안티모니/텅스텐)의 글로벌 공급망 리스크(공급 부족, 가격 변동, 정책 제재 등)와 "
-                    "직결된 새로운 리스크 이벤트인지 여부."
+        # 나열 목록은 아래 affected_material의 enum(MaterialCategory 8종)과 일치시킨다 —
+        # 예전에는 철/주석/갈륨/게르마늄/안티모니/텅스텐까지 14종을 안내했지만 enum이 8종으로
+        # 제한해 그 항목들은 모델이 골라도 조용히 []로 접혔다(설명과 출력이 어긋남).
+        description="핵심광물(리튬/코발트/니켈/흑연/망간/구리/알루미늄/희토류)의 글로벌 공급망 "
+                    "리스크(공급 부족, 가격 변동, 정책 제재 등)와 직결된 새로운 리스크 이벤트인지 여부."
     )
     country: str = Field(description="리스크 이벤트가 발생한 국가. 불분명하면 '알 수 없음'")
     # Structured Outputs가 이 Literal을 JSON 스키마 enum으로 변환해, 모델이 목록 밖 값을
