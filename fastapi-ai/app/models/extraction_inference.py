@@ -108,7 +108,10 @@ class _ArticleRiskExtraction(BaseModel):
     # Structured Outputs가 이 Literal을 JSON 스키마 enum으로 변환해, 모델이 목록 밖 값을
     # 생성하지 못하도록 강제한다. 덕분에 DB material_category와 항상 일치한다.
     affected_material: list[MaterialCategory] = Field(
-        description="영향받은 원자재 대분류. 목록에 없으면 빈 배열 []")
+        description="영향받은 원자재 대분류. 기사 본문에 해당 원자재(또는 명백한 동의어·제품명)가 "
+                    "실제로 언급되거나 직접적으로 연관된 경우에만 선택할 것 — 목록에 없거나 "
+                    "확신할 수 없으면 반드시 빈 배열 []. '공급망 리스크 기사인 것 같다'는 "
+                    "막연한 인상만으로 아무 자재나 추측해서 채우지 말 것.")
     tone_score: float = Field(description="-1.0(극도로 부정적/위기) ~ +1.0(극도로 긍정적/기회)")
     event_type: str = Field(description="파업, 관세 부과, 수출 금지 등 구체적 사건 키워드. 없으면 '알 수 없음'")
     impact_domain_draft: Literal["생산", "지정학", "정책", "물류", "시장", "기타/무관"] = Field(
@@ -124,8 +127,30 @@ Read the news article and extract key supply chain risk indicators into structur
 
 [CRITICAL RULE - 2단계 필터링]
 1단계: 이 기사가 핵심광물 공급망 리스크와 진정으로 관련 있는지 엄격히 판별. 전쟁/선거/정치
-기사라도 광물 이야기가 핵심 주제가 아니면 False.
-2단계: False면 impact_domain_draft는 무조건 "기타/무관".
+기사라도 광물 이야기가 핵심 주제가 아니면 False. 군사/안보/드론/테러/스파이/공항 보안 사건,
+해협·항로의 지정학적 긴장 등은 그 자체로는 False다 — 기사 안에서 핵심광물의 채굴·정제·수출·
+가격·물류가 구체적으로 언급되거나 논리적으로 직접 이어질 때만 True로 판정한다. "전략적
+요충지라서 원자재에 영향을 줄 수도 있다" 같은 추론만으로는 True로 판정하지 말 것.
+2단계: False면 impact_domain_draft는 무조건 "기타/무관", affected_material은 반드시 빈 배열([]).
+True인 경우에도 어떤 구체적 자재가 영향받는지 본문에서 확인되지 않으면 affected_material은
+빈 배열로 둔다 — 추측으로 채우는 것보다 비워두는 것이 낫다.
+
+[HARD CONSTRAINT - 광물 명시 앵커]
+본문에 핵심광물 이름(리튬/코발트/니켈/흑연/망간/구리/알루미늄/희토류 또는 그 영문명이
+문자 그대로) 등장하지 않으면, 전쟁/제재/화물/물류/해협/유가 등 다른 신호가 아무리 강해도
+반드시 False로 판정한다. 기사에 "공급망(supply chain)"이라는 단어가 등장한다는 사실만으로
+관련 있다고 판단하지 말 것 — 그 단어가 핵심광물과 무관한 문맥(일반 물류, 식품, 반도체,
+군수품 등)에서 쓰였을 수 있다.
+
+[NEGATIVE EXAMPLES - False로 판정해야 하는 경우]
+- "독일 공항에서 우크라이나 화물기 근처 폭발물 드론 발견, 여러 항공편 우회"
+  → False (드론/보안/화물기 사건일 뿐 광물 언급 없음)
+- "이란-오만 호르무즈 해협 통항 협정 타결 임박, 유가 소폭 하락"
+  → False (해협/유가/지정학 이슈지만 광물 언급 없음)
+
+[POSITIVE EXAMPLE - True로 판정해야 하는 경우]
+- "콩고민주공화국 코발트 광산 파업 발생, 배터리 제조사向 선적 중단"
+  → True, affected_material=["COBALT"], impact_domain_draft="생산"
 
 [Rules for impact_domain_draft]
 - 생산: 광산 파업, 자연재해로 인한 조업 중단, 설비 고장 등 직접적 생산 차질
