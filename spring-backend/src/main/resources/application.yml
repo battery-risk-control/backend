@@ -177,6 +177,11 @@ app:
     # 프론트 e2e용 고정 테스트 계정 시드. 운영에는 끄고, CI/로컬 e2e에서만 true로 켠다.
     test-seed:
       enabled: ${AUTH_TEST_SEED_ENABLED:false}
+      # 승인 완료 테스트 계정(구매·기획·임원)의 email 컬럼에 넣을 값. 비우면 각 @test.local을 쓴다.
+      # F10 메일 검증 편의용 — 여기에 실제 받은편지함을 두면 psql 없이 재기동만으로 수신자가 바뀐다.
+      # 발신 주소(mail-from)와 같은 값을 재사용한다(자기 자신에게 보내는 검증). 로그인 아이디(username)는
+      # 그대로 @test.local이라 로그인엔 영향이 없다.
+      recipient-email: ${NOTIFICATION_MAIL_FROM:}
   historical-data:
     # [surin F4] BDI/GDACS 과거 아카이브 적재 경로. 로컬 경로 하드코딩 대신 env로 외부화(미설정 시 적재 스킵).
     extra-path: ${HISTORICAL_DATA_EXTRA_PATH:}

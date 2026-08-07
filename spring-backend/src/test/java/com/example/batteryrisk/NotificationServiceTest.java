@@ -1,8 +1,11 @@
 package com.example.batteryrisk;
 
 import com.example.batteryrisk.domain.NotificationLog;
+import com.example.batteryrisk.domain.Role;
 import com.example.batteryrisk.domain.User;
 import com.example.batteryrisk.dto.ProcurementRiskDto;
+import com.example.batteryrisk.repository.AiBriefingRepository;
+import com.example.batteryrisk.repository.AnalysisRepository;
 import com.example.batteryrisk.repository.NotificationLogRepository;
 import com.example.batteryrisk.repository.ProcurementRiskRepository;
 import com.example.batteryrisk.repository.UserRepository;
@@ -41,6 +44,8 @@ class NotificationServiceTest {
     private UserRepository userRepository;
     private NotificationLogRepository notificationLogRepository;
     private ProcurementRiskRepository procurementRiskRepository;
+    private AnalysisRepository analysisRepository;
+    private AiBriefingRepository aiBriefingRepository;
     private NotificationService service;
 
     @BeforeEach
@@ -50,8 +55,11 @@ class NotificationServiceTest {
         userRepository = mock(UserRepository.class);
         notificationLogRepository = mock(NotificationLogRepository.class);
         procurementRiskRepository = mock(ProcurementRiskRepository.class);
+        analysisRepository = mock(AnalysisRepository.class);
+        aiBriefingRepository = mock(AiBriefingRepository.class);
         service = new NotificationService(
-                List.of(emailChannel), userRepository, notificationLogRepository, procurementRiskRepository);
+                List.of(emailChannel), userRepository, notificationLogRepository, procurementRiskRepository,
+                analysisRepository, aiBriefingRepository);
 
         User buyer = mock(User.class);
         when(buyer.getEmail()).thenReturn("buyer@corp.com");
@@ -76,6 +84,35 @@ class NotificationServiceTest {
         assertThat(logEntry.getChannel()).isEqualTo("EMAIL");
         assertThat(logEntry.getAssessmentId()).isEqualTo(assessment.assessmentId());
         assertThat(logEntry.getRecipient()).isEqualTo("buyer@corp.com");
+    }
+
+    @Test
+    void criticalSubjectCarriesRoleLabelPerRecipient() {
+        User purchasing = mock(User.class);
+        when(purchasing.getEmail()).thenReturn("p@corp.com");
+        when(purchasing.getRole()).thenReturn(Role.PURCHASING);
+        User strategy = mock(User.class);
+        when(strategy.getEmail()).thenReturn("s@corp.com");
+        when(strategy.getRole()).thenReturn(Role.STRATEGY);
+        User executive = mock(User.class);
+        when(executive.getEmail()).thenReturn("e@corp.com");
+        when(executive.getRole()).thenReturn(Role.EXECUTIVE);
+        when(userRepository.findByRoleInAndEnabledTrueAndEmailIsNotNull(anyList()))
+                .thenReturn(List.of(purchasing, strategy, executive));
+        when(notificationLogRepository.existsByAssessmentIdAndChannelAndRecipient(any(), any(), any()))
+                .thenReturn(false);
+
+        service.notifyCritical(assessment("CRITICAL", UUID.randomUUID()));
+
+        assertThat(capturedSubjectFor("p@corp.com")).startsWith("[구매팀 알림] ");
+        assertThat(capturedSubjectFor("s@corp.com")).startsWith("[경영기획팀 알림] ");
+        assertThat(capturedSubjectFor("e@corp.com")).startsWith("[경영진 알림] ");
+    }
+
+    private String capturedSubjectFor(String recipient) {
+        ArgumentCaptor<String> subject = ArgumentCaptor.forClass(String.class);
+        verify(emailChannel).send(eq(recipient), subject.capture(), any());
+        return subject.getValue();
     }
 
     @Test

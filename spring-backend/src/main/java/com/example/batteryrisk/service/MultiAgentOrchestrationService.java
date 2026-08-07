@@ -330,8 +330,9 @@ public class MultiAgentOrchestrationService {
         procurementRiskRepository.save(assessment);
         // F10: 최종 합성 등급이 CRITICAL이면 즉시 메일. 외부 뉴스 severity가 아니라 이 합성 등급이
         // 기준이므로 트리거를 여기(합성 평가 저장 직후)에 둔다. 자재별로 assessment가 하나씩이라
-        // 자재 단위로 정확히 한 통씩 나간다.
-        notifyCriticalSafely(assessment);
+        // 자재 단위로 정확히 한 통씩 나간다. 이 시점엔 ai_briefings 저장 이전이라 브리핑 본문·권장조치를
+        // response에서 직접 넘겨 메일에 담는다.
+        notifyCriticalSafely(assessment, response);
         return response.withAssessmentId(assessmentId);
     }
 
@@ -339,12 +340,12 @@ public class MultiAgentOrchestrationService {
      * F10: 합성 등급이 CRITICAL인 평가에 대해서만 즉시 알림을 건다. 메일 발송 실패가 브리핑
      * 생성·저장을 되돌리면 안 되므로 여기서 흡수한다(기존 AnalysisService의 방침과 동일).
      */
-    private void notifyCriticalSafely(ProcurementRiskDto.Assessment assessment) {
+    private void notifyCriticalSafely(ProcurementRiskDto.Assessment assessment, MultiAgentDto.Response response) {
         if (!"CRITICAL".equals(assessment.procurementRiskLevel())) {
             return;
         }
         try {
-            notificationService.notifyCritical(assessment);
+            notificationService.notifyCritical(assessment, response.briefing(), response.recommendedActions());
         } catch (RuntimeException exception) {
             log.warn("CRITICAL 알림 발송 처리 중 오류 (assessmentId={}): {}",
                     assessment.assessmentId(), exception.getMessage());
