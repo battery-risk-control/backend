@@ -2,7 +2,6 @@ package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.dto.auth.LoginRequest;
 import com.example.batteryrisk.dto.auth.LoginResponse;
-import com.example.batteryrisk.dto.auth.RefreshRequest;
 import com.example.batteryrisk.dto.auth.RefreshResponse;
 import com.example.batteryrisk.dto.auth.UserSummary;
 import com.example.batteryrisk.exception.BusinessException;
@@ -76,9 +75,7 @@ public class AuthService {
                 UserSummary.from(userDetails.getUser()));
     }
 
-    public RefreshResponse refresh(RefreshRequest request) {
-        String refreshToken = request.refreshToken();
-
+    public RefreshResponse refresh(String refreshToken) {
         if (jwtTokenProvider.isExpired(refreshToken)) {
             throw new BusinessException(ErrorCode.TOKEN_EXPIRED);
         }

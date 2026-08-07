@@ -3,17 +3,20 @@ package com.example.batteryrisk;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.batteryrisk.repository.RevokedTokenSessionRepository;
 import com.example.batteryrisk.security.JwtTokenProvider;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -80,24 +83,30 @@ class AuthFlowTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.role").value("STRATEGY"));
 
-        String loginJson = mockMvc.perform(post("/api/v1/auth/login")
+        MockHttpServletResponse loginResponse = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new LoginPayload("strategist1", "Strategy123!"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.refresh_token").exists())
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(jsonPath("$.data.access_token").exists())
+                // refresh 토큰은 body가 아니라 HttpOnly 쿠키로만 내려온다.
+                .andExpect(jsonPath("$.data.refresh_token").doesNotExist())
+                .andReturn().getResponse();
 
-        String accessToken = objectMapper.readTree(loginJson).at("/data/access_token").asText();
-        String refreshToken = objectMapper.readTree(loginJson).at("/data/refresh_token").asText();
+        String accessToken = objectMapper.readTree(loginResponse.getContentAsString())
+                .at("/data/access_token").asText();
+        Cookie refreshCookie = loginResponse.getCookie("refresh_token");
+        assertNotNull(refreshCookie);
+        assertTrue(refreshCookie.isHttpOnly());
 
+        // refresh 토큰을 access token 자리(Bearer)에 넣으면 인증에 실패해야 한다.
         mockMvc.perform(get("/api/v1/auth/me")
-                        .header("Authorization", "Bearer " + refreshToken))
+                        .header("Authorization", "Bearer " + refreshCookie.getValue()))
                 .andExpect(status().isUnauthorized());
 
+        // refresh는 요청 body가 아니라 쿠키로 한다.
         String refreshResponseJson = mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshPayload(refreshToken))))
+                        .cookie(refreshCookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.access_token").exists())
                 .andReturn().getResponse().getContentAsString();
@@ -114,9 +123,9 @@ class AuthFlowTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk());
 
+        // 로그아웃으로 세션이 블랙리스트되면 같은 refresh 쿠키로도 재발급이 막힌다.
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshPayload(refreshToken))))
+                        .cookie(refreshCookie))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("TOKEN_INVALID"));
     }
@@ -152,8 +161,4 @@ class AuthFlowTest {
 
     private record SignupPayload(String username, String password, String name, String role) {}
     private record LoginPayload(String username, String password) {}
-
-    private record RefreshPayload(
-            @com.fasterxml.jackson.annotation.JsonProperty("refresh_token") String refreshToken
-    ) {}
 }

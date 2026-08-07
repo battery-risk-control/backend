@@ -174,6 +174,12 @@ app:
       directory: ${OUTBOUND_RAG_SEED_DIRECTORY:}
       document-type: ${OUTBOUND_RAG_SEED_DOCUMENT_TYPE:CONTRACT}
   auth:
+    # refresh 토큰 HttpOnly 쿠키 속성. dev(http localhost)는 SameSite=Lax·Secure off로 동작하고,
+    # 운영(https)에서는 REFRESH_COOKIE_SAME_SITE=None·REFRESH_COOKIE_SECURE=true로 올린다
+    # (SameSite=None은 반드시 Secure=true여야 브라우저가 받는다).
+    refresh-cookie:
+      secure: ${REFRESH_COOKIE_SECURE:false}
+      same-site: ${REFRESH_COOKIE_SAME_SITE:Lax}
     # 프론트 e2e용 고정 테스트 계정 시드. 운영에는 끄고, CI/로컬 e2e에서만 true로 켠다.
     test-seed:
       enabled: ${AUTH_TEST_SEED_ENABLED:false}
