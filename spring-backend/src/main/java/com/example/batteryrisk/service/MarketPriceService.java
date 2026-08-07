@@ -208,13 +208,20 @@ public class MarketPriceService {
     }
 
     /**
-     * 공개 가격 추이. 자재별로 <b>조회 구간 첫 거래일</b>을 100으로 둔 지수를 만든다 — 종목마다
-     * 주가 절대값이 달라(예: BHP 60달러대, ALB 130달러대) 원값 그대로는 한 차트에 겹쳐 그릴 수 없다.
+     * 공개 가격 추이. 자재별로 <b>6개월({@value #REFRESH_DAYS}일) 창 첫 거래일</b>을 100으로 둔
+     * 지수를 만든다 — 종목마다 주가 절대값이 달라(예: BHP 60달러대, ALB 130달러대) 원값 그대로는
+     * 한 차트에 겹쳐 그릴 수 없다.
      *
-     * <p><b>기준일은 구간에 종속된다.</b> 저장된 값은 프록시 종목의 주가(달러/주)이지 자재의
-     * 톤당 가격이 아니라서, 절대값 자체에는 의미가 없고 "구간 시작 대비 몇 %"만 뜻이 있다.
-     * 그래서 구간을 바꾸면 기준일도 같이 옮겨 100에서 다시 시작해야 한다 — 고정 기준일을 쓰면
-     * 7일 차트가 105에서 시작해 "기준일=100" 표기와 화면이 어긋난다.
+     * <p><b>일별 탭(1주~6개월)은 기준일을 6개월 창 첫 거래일로 고정한다.</b> 예전에는 기준일이
+     * 조회 구간에 종속돼(7일이면 7일 전, 30일이면 30일 전) 같은 거래일이라도 탭마다 지수 값이
+     * 달랐다. 이제는 어느 탭에서 보든 같은 날짜의 지수가 같은 값이 되고, 짧은 탭에서는 왼쪽 끝이
+     * 100이 아니라 "6개월 전 대비 현재 수준"에서 시작한다("구간 시작 대비 몇 %"는 요약 카드의
+     * {@code change_label}이 계속 담당한다). 6개월치를 한 번만 조회해 앵커를 잡고, 요청 구간은
+     * 메모리에서 잘라 쓰므로 쿼리가 늘지 않는다.
+     *
+     * <p><b>"1일" 탭만 별도 기준이다.</b> 하루 등락은 6개월 스케일에서 거의 평평해 보이지 않으므로,
+     * 인트라데이는 예외적으로 당일 첫 봉(시가)을 100으로 둔다({@link #intradayTrends()}). 기준이
+     * 다르다는 안내는 프론트가 "1일" 탭에서만 노출한다.
      *
      * @param days 조회 구간(일). 1~{@value #MAX_TREND_DAYS}로 자른다. days==1은 "1일" 탭으로,
      *             일봉이 아니라 최근 1거래일 <b>시간별 흐름</b>을 반환한다({@link #intradayTrends()}).
@@ -224,13 +231,22 @@ public class MarketPriceService {
             return intradayTrends();
         }
         Map<String, List<MarketPriceDto.SourcingCountry>> sourcing = sourcingCountriesByMaterial();
-        return groupByMaterial(days).entrySet().stream()
-                .map(entry -> new MarketPriceDto.PriceSeries(
-                        RiskEventService.MATERIAL_NAME_KO.getOrDefault(entry.getKey(), entry.getKey()),
-                        "지수(기준일=100)",
-                        entry.getValue().get(0).getPriceDate().toString(),
-                        sourcing.getOrDefault(entry.getKey(), List.of()),
-                        toIndexedPoints(entry.getValue())))
+        LocalDate windowFrom = LocalDate.now(SERVICE_ZONE).minusDays(clampDays(days));
+        return groupByMaterial(REFRESH_DAYS).entrySet().stream()
+                .map(entry -> {
+                    List<MaterialPricePoint> full = entry.getValue();
+                    // 앵커 = 6개월 창 첫 거래일 종가. 요청 구간이 짧아도 이 기준으로 나눈다.
+                    double base = full.get(0).getClosePrice();
+                    List<MaterialPricePoint> window = full.stream()
+                            .filter(point -> !point.getPriceDate().isBefore(windowFrom))
+                            .toList();
+                    return new MarketPriceDto.PriceSeries(
+                            RiskEventService.MATERIAL_NAME_KO.getOrDefault(entry.getKey(), entry.getKey()),
+                            "지수(6개월 전=100)",
+                            full.get(0).getPriceDate().toString(),
+                            sourcing.getOrDefault(entry.getKey(), List.of()),
+                            toIndexedPoints(window, base));
+                })
                 .toList();
     }
 
@@ -289,13 +305,19 @@ public class MarketPriceService {
     // 실시간으로 받아 시간축 차트를 만든다. 거래소가 미국·호주로 섞여 시각이 제각각이라 KST로
     // 환산해 한 축에 정렬한다(프론트는 KST 시각 문자열을 그대로 정렬·표시). 저장은 하지 않는다.
 
-    /** 최근 1거래일 시간별 지수 추이(자재별 첫 봉=100). */
+    /**
+     * 최근 1거래일 시간별 지수 추이(자재별 첫 봉=100).
+     *
+     * <p>일별 탭과 달리 <b>당일 첫 봉(시가)을 100</b>으로 둔다 — 하루 등락은 6개월 앵커 스케일에서
+     * 거의 평평해 시간별 흐름이 안 보이기 때문이다. 기준이 다르므로 단위 라벨도 구분하고, 프론트가
+     * "1일" 탭에서만 별도 기준 안내를 띄운다.
+     */
     public List<MarketPriceDto.PriceSeries> intradayTrends() {
         Map<String, List<MarketPriceDto.SourcingCountry>> sourcing = sourcingCountriesByMaterial();
         return fetchIntradayByMaterial().entrySet().stream()
                 .map(entry -> new MarketPriceDto.PriceSeries(
                         RiskEventService.MATERIAL_NAME_KO.getOrDefault(entry.getKey(), entry.getKey()),
-                        "지수(기준일=100)",
+                        "지수(당일 시가=100)",
                         toKstLabel(entry.getValue().get(0).priceDate()),
                         sourcing.getOrDefault(entry.getKey(), List.of()),
                         toIntradayIndexedPoints(entry.getValue())))
@@ -371,8 +393,7 @@ public class MarketPriceService {
         return Math.max(1, Math.min(days, MAX_TREND_DAYS));
     }
 
-    private static List<MarketPriceDto.PricePoint> toIndexedPoints(List<MaterialPricePoint> points) {
-        double base = points.get(0).getClosePrice();
+    private static List<MarketPriceDto.PricePoint> toIndexedPoints(List<MaterialPricePoint> points, double base) {
         return points.stream()
                 .map(point -> new MarketPriceDto.PricePoint(
                         point.getPriceDate().toString(),
