@@ -212,6 +212,14 @@ services:
       RISK_SCORING_BATCH_SIZE: ${RISK_SCORING_BATCH_SIZE:-10}
       RISK_SCORING_INTERVAL_MS: ${RISK_SCORING_INTERVAL_MS:-1800000}
       RISK_SCORING_INITIAL_DELAY_MS: ${RISK_SCORING_INITIAL_DELAY_MS:-120000}
+      # F10 메일 알림(SMTP). 전부 비우면(기본값) JavaMailSender host가 빈 문자열이라 발송만
+      # 비활성되고 부팅은 정상이다 — 자격증명은 각자 .env에 채운다(Gmail이면 앱 비밀번호).
+      # 로컬 검증은 MailHog 등을 띄우고 SMTP_HOST=mailhog SMTP_PORT=1025로 잡으면 실발송 없이 확인된다.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      NOTIFICATION_MAIL_FROM: ${NOTIFICATION_MAIL_FROM:-}
       TZ: Asia/Seoul
     ports:
       - "${SPRING_PORT:-8080}:8080"

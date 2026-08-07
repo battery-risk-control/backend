@@ -5,13 +5,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 public interface AnalysisRepository extends JpaRepository<Analysis, UUID> {
-    /** F10: 일일 브리핑 대상 WARNING 분석 목록입니다. */
-    List<Analysis> findBySeverityAndCompletedAtGreaterThanEqual(String severity, Instant since);
+    // F10 일일 다이제스트는 외부 severity(analyses.severity="WARNING") 대신 최종 합성 등급
+    // (procurement_risk_assessments)을 집계하도록 바뀌어(V33), 여기 있던
+    // findBySeverityAndCompletedAtGreaterThanEqual 파인더는 제거됐다. 집계는
+    // ProcurementRiskRepository.findRecentWarningAssessments가 맡는다.
 
     /**
      * 공개 리스크 관제 지도(Seq 23)에 올릴 <b>완결 NEWS 사건</b>. 사건당 1건이다.

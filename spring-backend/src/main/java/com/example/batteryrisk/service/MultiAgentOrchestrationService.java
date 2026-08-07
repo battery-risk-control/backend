@@ -61,6 +61,7 @@ public class MultiAgentOrchestrationService {
     private final AnalysisRepository analysisRepository;
     private final ProcurementRiskRepository procurementRiskRepository;
     private final KgResolverService kgResolverService;
+    private final NotificationService notificationService;
 
     public MultiAgentOrchestrationService(
         ErpService erpService,
@@ -68,7 +69,8 @@ public class MultiAgentOrchestrationService {
         ErpRepository erpRepository,
         AnalysisRepository analysisRepository,
         ProcurementRiskRepository procurementRiskRepository,
-        KgResolverService kgResolverService
+        KgResolverService kgResolverService,
+        NotificationService notificationService
 ) {
     this.erpService = erpService;
     this.multiAgentService = multiAgentService;
@@ -76,6 +78,7 @@ public class MultiAgentOrchestrationService {
     this.analysisRepository = analysisRepository;
     this.procurementRiskRepository = procurementRiskRepository;
     this.kgResolverService = kgResolverService;
+    this.notificationService = notificationService;
 }
 
     /**
@@ -299,7 +302,7 @@ public class MultiAgentOrchestrationService {
             MultiAgentDto.Response response
     ) {
         UUID assessmentId = UUID.randomUUID();
-        procurementRiskRepository.save(new ProcurementRiskDto.Assessment(
+        ProcurementRiskDto.Assessment assessment = new ProcurementRiskDto.Assessment(
                 assessmentId,
                 externalSignal.analysisId(),
                 request.newsId(),
@@ -323,8 +326,29 @@ public class MultiAgentOrchestrationService {
                 response.reviewPassed(),
                 response.llmUsed(),
                 externalSignal.mock(),
-                OffsetDateTime.now()));
+                OffsetDateTime.now());
+        procurementRiskRepository.save(assessment);
+        // F10: 최종 합성 등급이 CRITICAL이면 즉시 메일. 외부 뉴스 severity가 아니라 이 합성 등급이
+        // 기준이므로 트리거를 여기(합성 평가 저장 직후)에 둔다. 자재별로 assessment가 하나씩이라
+        // 자재 단위로 정확히 한 통씩 나간다.
+        notifyCriticalSafely(assessment);
         return response.withAssessmentId(assessmentId);
+    }
+
+    /**
+     * F10: 합성 등급이 CRITICAL인 평가에 대해서만 즉시 알림을 건다. 메일 발송 실패가 브리핑
+     * 생성·저장을 되돌리면 안 되므로 여기서 흡수한다(기존 AnalysisService의 방침과 동일).
+     */
+    private void notifyCriticalSafely(ProcurementRiskDto.Assessment assessment) {
+        if (!"CRITICAL".equals(assessment.procurementRiskLevel())) {
+            return;
+        }
+        try {
+            notificationService.notifyCritical(assessment);
+        } catch (RuntimeException exception) {
+            log.warn("CRITICAL 알림 발송 처리 중 오류 (assessmentId={}): {}",
+                    assessment.assessmentId(), exception.getMessage());
+        }
     }
 
     /**

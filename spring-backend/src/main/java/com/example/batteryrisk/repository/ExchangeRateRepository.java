@@ -19,4 +19,10 @@ public interface ExchangeRateRepository
      */
     List<ExchangeRatePoint> findByRateDateGreaterThanEqualOrderByCurrencyCodeAscRateDateAsc(
             LocalDate from);
+
+    /**
+     * 해당 고시일 데이터가 이미 있는지. 공표 시간대 창(window) 폴링이 "오늘 고시를 이미 확보했으면
+     * 외부 호출을 건너뛴다"를 판정하는 데 쓴다 — 잡은 뒤의 반복 틱은 이 존재 확인만 하고 끝난다.
+     */
+    boolean existsByRateDate(LocalDate rateDate);
 }

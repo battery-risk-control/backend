@@ -281,6 +281,31 @@ public class ProcurementRiskRepository {
         return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
     }
 
+    /**
+     * F10 일일 다이제스트용 — 최근 구간 안에서 <b>최종 합성 등급이 WARNING</b>인 자재별 최신 평가.
+     *
+     * <p>{@code (analysis_id, erp_material_id)}로 최신 1건씩 접은 뒤(같은 뉴스·자재가 append-only로
+     * 여러 번 쌓이므로), 그 최신 평가가 WARNING인 것만 남긴다 — WARNING 필터를 접기 전에 걸면
+     * 최신이 NORMAL로 내려간 자재도 과거 WARNING 때문에 잘못 뽑힌다. {@code erp_exposure_score
+     * IS NOT NULL}로 KG 조기 종료(점수 0·NORMAL) 행을 배제하는 것은 {@link
+     * #findLatestRiskLevelsByAnalysisIds}와 같은 방침이다(조기 종료는 애초에 WARNING을 내지 않지만
+     * 접기 기준을 일관되게 둔다).
+     */
+    public List<ProcurementRiskDto.Assessment> findRecentWarningAssessments(OffsetDateTime since) {
+        return jdbc.query("""
+                SELECT * FROM (
+                    SELECT DISTINCT ON (analysis_id, erp_material_id) *
+                    FROM procurement_risk_assessments
+                    WHERE created_at >= :since
+                      AND erp_exposure_score IS NOT NULL
+                    ORDER BY analysis_id, erp_material_id, created_at DESC
+                ) latest
+                WHERE procurement_risk_level = 'WARNING'
+                ORDER BY procurement_risk_score DESC
+                """, new MapSqlParameterSource("since", since),
+                (rs, rowNumber) -> mapAssessment(rs));
+    }
+
     private ProcurementRiskDto.Assessment mapAssessment(ResultSet rs) throws SQLException {
         return new ProcurementRiskDto.Assessment(
                 rs.getObject("assessment_id", UUID.class),
