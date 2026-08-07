@@ -60,7 +60,6 @@ public class AnalysisService {
     private final RestClient fastApiRestClient;
     private final AnalysisRepository analysisRepository;
     private final AnalysisSupplierRecommendationRepository supplierRecommendationRepository;
-    private final NotificationService notificationService;
     private final ErpExposureRequestService erpExposureRequestService;
     private final MultiAgentOrchestrationService multiAgentOrchestrationService;
     private final AiBriefingService aiBriefingService;
@@ -69,13 +68,12 @@ public class AnalysisService {
     public AnalysisService(
             RestClient fastApiRestClient, AnalysisRepository analysisRepository,
             AnalysisSupplierRecommendationRepository supplierRecommendationRepository,
-            NotificationService notificationService, ErpExposureRequestService erpExposureRequestService,
+            ErpExposureRequestService erpExposureRequestService,
             MultiAgentOrchestrationService multiAgentOrchestrationService,
             AiBriefingService aiBriefingService, ErpRepository erpRepository) {
         this.fastApiRestClient = fastApiRestClient;
         this.analysisRepository = analysisRepository;
         this.supplierRecommendationRepository = supplierRecommendationRepository;
-        this.notificationService = notificationService;
         this.erpExposureRequestService = erpExposureRequestService;
         this.multiAgentOrchestrationService = multiAgentOrchestrationService;
         this.aiBriefingService = aiBriefingService;
@@ -128,9 +126,9 @@ public class AnalysisService {
                 }
             }
 
-            if ("CRITICAL".equals(data.severity().severity())) {
-                notifyCriticalSafely(analysis);
-            }
+            // F10 즉시 알림은 외부 뉴스 severity가 아니라 최종 합성 등급 기준으로 바뀌었다(V33).
+            // 트리거는 합성 평가가 저장되는 MultiAgentOrchestrationService.persist()로 옮겨졌다 —
+            // 합성 등급은 멀티에이전트가 돈 뒤에만 존재하기 때문이다.
         } catch (RuntimeException exception) {
             log.warn("FastAPI 분석 호출에 실패하여 분석을 FAILED 처리합니다. analysisId={}", analysis.getAnalysisId(), exception);
             analysis.markFailed("FASTAPI_ANALYZE_FAILED", "FastAPI 분석 호출에 실패했습니다.");
@@ -184,15 +182,6 @@ public class AnalysisService {
         Analysis analysis = analysisRepository.findById(id)
                 .orElseThrow(() -> new AnalysisNotFoundException(analysisId));
         return toResponse(analysis);
-    }
-
-    /** F10: CRITICAL 즉시 알림. 발송 실패가 분석 생성 자체를 실패시키면 안 되므로 여기서 흡수합니다. */
-    private void notifyCriticalSafely(Analysis analysis) {
-        try {
-            notificationService.notifyCritical(analysis);
-        } catch (RuntimeException exception) {
-            log.warn("CRITICAL 알림 발송 처리 중 오류 (analysisId={}): {}", analysis.getAnalysisId(), exception.getMessage());
-        }
     }
 
     /**

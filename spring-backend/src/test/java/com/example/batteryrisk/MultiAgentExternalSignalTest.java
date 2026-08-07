@@ -13,6 +13,7 @@ import com.example.batteryrisk.service.ErpService;
 import com.example.batteryrisk.service.KgResolverService;
 import com.example.batteryrisk.service.MultiAgentOrchestrationService;
 import com.example.batteryrisk.service.MultiAgentService;
+import com.example.batteryrisk.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -110,7 +111,8 @@ class MultiAgentExternalSignalTest {
                 .thenReturn(KgResolverService.KgResolveResult.NOT_MATCHED);
         service = new MultiAgentOrchestrationService(
                 erpService, multiAgentService, erpRepository,
-                analysisRepository, procurementRiskRepository, kgResolverService);
+                analysisRepository, procurementRiskRepository, kgResolverService,
+                mock(NotificationService.class));
         when(erpService.buildContext(any())).thenReturn(erpContext());
         when(multiAgentService.generate(any())).thenReturn(stubResponse());
     }
@@ -145,7 +147,7 @@ class MultiAgentExternalSignalTest {
         MultiAgentOrchestrationService seamService = new MultiAgentOrchestrationService(
                 erpService, new MultiAgentService(builder.build()),
                 mock(ErpRepository.class), analysisRepository, procurementRiskRepository,
-                kgResolverService);
+                kgResolverService, mock(NotificationService.class));
 
         Analysis analysis = completedAnalysis("CRITICAL", 81.7, "BASE_SCORE_ONLY");
         when(analysisRepository.findById(analysis.getAnalysisId())).thenReturn(Optional.of(analysis));

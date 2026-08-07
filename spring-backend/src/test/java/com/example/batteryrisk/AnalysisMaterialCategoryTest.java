@@ -9,7 +9,6 @@ import com.example.batteryrisk.service.AiBriefingService;
 import com.example.batteryrisk.service.AnalysisService;
 import com.example.batteryrisk.service.ErpExposureRequestService;
 import com.example.batteryrisk.service.MultiAgentOrchestrationService;
-import com.example.batteryrisk.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -45,7 +44,6 @@ class AnalysisMaterialCategoryTest {
     private final AnalysisRepository analysisRepository = mock(AnalysisRepository.class);
     private final AnalysisSupplierRecommendationRepository supplierRecommendationRepository =
             mock(AnalysisSupplierRecommendationRepository.class);
-    private final NotificationService notificationService = mock(NotificationService.class);
     private final ErpExposureRequestService erpExposureRequestService =
             mock(ErpExposureRequestService.class);
     private final MultiAgentOrchestrationService multiAgentOrchestrationService =
@@ -57,7 +55,7 @@ class AnalysisMaterialCategoryTest {
 
     private final AnalysisService service = new AnalysisService(
             fastApiRestClient, analysisRepository, supplierRecommendationRepository,
-            notificationService, erpExposureRequestService, multiAgentOrchestrationService,
+            erpExposureRequestService, multiAgentOrchestrationService,
             aiBriefingService, erpRepository);
 
     @BeforeEach

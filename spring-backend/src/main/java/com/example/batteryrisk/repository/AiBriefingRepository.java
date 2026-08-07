@@ -482,6 +482,32 @@ public class AiBriefingRepository {
         }
     }
 
+    /**
+     * F10 메일 본문 enrichment용 — 평가에 연결된 <b>최신</b> 브리핑의 본문·권장조치만 가져온다.
+     * 전체 {@link AiBriefingDto.BriefingDetail}(JSONB 여러 개)을 열지 않고 두 컬럼만 읽는다.
+     * 일일 다이제스트는 이미 저장된 브리핑을 여기서 끌어오고, 즉시 CRITICAL 메일은 저장 이전이라
+     * {@code response} 값을 직접 쓰므로 이걸 호출하지 않는다.
+     */
+    public Optional<BriefingSummary> findLatestSummaryByAssessmentId(UUID assessmentId) {
+        if (assessmentId == null) {
+            return Optional.empty();
+        }
+        List<BriefingSummary> rows = jdbc.query("""
+                SELECT briefing_text, recommended_actions
+                FROM ai_briefings
+                WHERE assessment_id = :assessmentId
+                ORDER BY created_at DESC
+                LIMIT 1
+                """, new MapSqlParameterSource("assessmentId", assessmentId),
+                (rs, n) -> new BriefingSummary(
+                        rs.getString("briefing_text"),
+                        fromJson(rs.getString("recommended_actions"), STRING_LIST)));
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
+    /** 메일 본문용 브리핑 요약 — 본문과 권장조치만. */
+    public record BriefingSummary(String briefingText, List<String> recommendedActions) {}
+
     private <T> T fromJson(String value, TypeReference<T> type) {
         if (value == null) {
             return null;

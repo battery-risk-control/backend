@@ -18,7 +18,8 @@ public final class MarketPriceDto {
 
     public record PricePoint(
             @Schema(example = "2026-07-29") String date,
-            @Schema(example = "103.4", description = "구간 첫 거래일=100 기준 지수") double priceIndex,
+            @Schema(example = "112.3", description = "6개월 창 첫 거래일=100 기준 지수(단, '1일' 탭은 당일 시가=100)")
+            double priceIndex,
 
             /**
              * 이 행을 마지막으로 적재한 시각.
@@ -33,9 +34,10 @@ public final class MarketPriceDto {
     /**
      * 자재 한 종의 시계열.
      *
-     * <p>{@code baseDate}는 지수 100의 기준이 된 거래일이다 — 조회 구간에 따라 달라지므로
-     * ({@code days=7}이면 7일 전, {@code days=30}이면 30일 전) 화면이 "무엇 대비 몇 %"인지
-     * 표기하려면 이 값이 필요하다. 구간에 데이터가 없으면 null이다.
+     * <p>{@code baseDate}는 지수 100의 기준이 된 거래일이다. 일별 탭(1주~6개월)은 모두 6개월 창
+     * 첫 거래일로 <b>고정</b>돼 어느 탭에서 보든 같은 값이다(예전에는 조회 구간마다 달랐다).
+     * "1일" 탭만 당일 첫 봉(시가)을 100으로 둔 별도 기준이라 baseDate가 당일이 된다. 구간에
+     * 데이터가 없으면 null이다.
      *
      * <p>단위 문자열에 날짜를 섞지 않고 필드를 나눈 이유: 화면마다 날짜 표기가 다르고
      * (목업은 {@code 07/25}, 상세는 {@code 2026-07-25}), 단위와 기준일은 서로 다른 정보다.

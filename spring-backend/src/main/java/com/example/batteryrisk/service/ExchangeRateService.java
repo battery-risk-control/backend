@@ -161,10 +161,37 @@ public class ExchangeRateService {
     }
 
     /**
-     * 평일 11:20과 16:00(KST). 11:20은 원천 갱신(11시 전후) 직후이고, 16:00은 갱신이 늦어졌을 때의
-     * 재시도다. 주말에는 새 고시가 없으므로 아예 돌지 않는다 — 돌아도 빈 응답만 받는다.
+     * 공표 시간대 창(window) 폴링 — 평일 11:00~12:45, 15분 간격(KST).
+     *
+     * <p>원천은 오전 11시 "전후"에 하루 한 번 새 고시를 낸다. 예전처럼 11:20 한 번만 조회하면
+     * 공표가 11:25로 늦어진 날은 16:00 재시도까지 4시간 넘게 어제 값이 걸린다. 출근 후 새 고시가
+     * 뜨는 즉시(몇 분 내) 반영되도록 공표 시간대를 15분 간격으로 훑는다.
+     *
+     * <p>오늘 고시를 이미 확보했으면 외부 호출 없이 존재 확인만 하고 끝낸다 — 잡은 뒤의 남은 틱은
+     * 사실상 공짜라 원천 한도(1000콜/일)에 부담이 없다. 프론트는 이미 60초마다 재조회하므로,
+     * DB에 들어오는 순간 사용자는 새로고침 없이도 최신 값을 본다. 아주 늦은 공표(11~12시대 이후)는
+     * {@link #refreshDaily} 16:00 fallback이 받는다.
      */
-    @Scheduled(cron = "0 20 11,16 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0/15 11-12 * * MON-FRI", zone = "Asia/Seoul")
+    public void refreshDuringPublishWindow() {
+        if (!schedulerEnabled) {
+            log.debug("환율 자동 갱신 비활성(app.exchange-rate.scheduler-enabled=false) — 창 폴링 건너뜀");
+            return;
+        }
+        LocalDate today = LocalDate.now(SERVICE_ZONE);
+        if (rateRepository.existsByRateDate(today)) {
+            log.debug("오늘({}) 고시환율 이미 확보 — 창 폴링에서 외부 호출 건너뜀", today);
+            return;
+        }
+        refresh();
+    }
+
+    /**
+     * 16:00(KST) 늦은 공표 대비 fallback. 공표 시간대 창 폴링({@link #refreshDuringPublishWindow})이
+     * 11~12시대에 오늘 고시를 잡지 못한 날(원천 공표가 매우 늦은 경우)을 받는다. 주말에는 새 고시가
+     * 없으므로 아예 돌지 않는다 — 돌아도 빈 응답만 받는다.
+     */
+    @Scheduled(cron = "0 0 16 * * MON-FRI", zone = "Asia/Seoul")
     public void refreshDaily() {
         if (!schedulerEnabled) {
             log.debug("환율 자동 갱신 비활성(app.exchange-rate.scheduler-enabled=false) — 건너뜀");
