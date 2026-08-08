@@ -658,8 +658,14 @@ public class RiskEventService {
      */
     private static NewsFeedItem toNewsFeedItem(
             RawEvent event, Analysis analysis, String riskLevel, UUID briefingId) {
-        String material = analysis != null && analysis.getMaterialCategory() != null
-                ? MATERIAL_NAME_KO.getOrDefault(analysis.getMaterialCategory(), analysis.getMaterialCategory())
+        // 완결된(COMPLETED) 분석은 LLM이 이미 "관련 자재 없음"까지 포함해 판정을 끝낸 것이므로
+        // 그 판정을 그대로 믿는다 — guessMaterial()의 단순 키워드 매칭(예: 반도체 기사의
+        // "copper pillars"를 "구리"로 오인)으로 덮어쓰지 않는다. 분석이 아예 없거나(수집만 되고
+        // 아직 분석 전) 실패(FAILED, 예: LLM 호출 오류)했을 때만 — 즉 LLM의 판정 자체가 없을
+        // 때만 — 화면에 뭐라도 보여주기 위해 키워드 추측으로 대체한다.
+        boolean hasCompletedJudgment = analysis != null && "COMPLETED".equals(analysis.getStatus());
+        String material = hasCompletedJudgment
+                ? materialNameKo(analysis.getMaterialCategory())
                 : guessMaterial(event.getTitle(), event.getContent());
         String original = event.getTitle();
         // 번역본이 있으면 그걸 표시하고, 없으면 원문을 그대로 쓴다. 번역은 별도 스케줄러가
