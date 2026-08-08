@@ -90,33 +90,49 @@ public class PlanningDashboardRepository {
                 rs.getBigDecimal("exposure_score")));
     }
 
-    /** 공급사별 최근 90일 리스크 이력. analyses.supplier_id 직접 FK로 집계(이름 매칭 불필요). */
+    /**
+     * 공급사별 최근 90일 리스크 이력. {@code procurement_risk_assessments.erp_supplier_id}로 집계한다.
+     *
+     * <p><b>analyses.supplier_id는 쓰지 않는다.</b> 뉴스 분석은 국가·자재 단위라 supplier_id가 항상
+     * null이라 아무 것도 잡히지 않는다(빈 패널의 원인). 공급사와 연결된 리스크는 멀티에이전트 채점
+     * 결과(procurement_risk_assessments)에만 erp_supplier_id로 붙으므로 그쪽을 집계한다.
+     *
+     * <p>KG 게이트 조기 종료 건(점수 0·NORMAL)은 {@code erp_exposure_score IS NULL}이라 제외한다 —
+     * 실제로 ERP 노출을 본 평가만 이력으로 센다(다른 조회의 dedup 방침과 동일).
+     *
+     * <p>등급은 최신 평가의 {@code procurement_risk_level}, confidence 라벨은 mock이면 "참고",
+     * reviewer 검증 통과면 "확정", 아니면 "경고"로 둔다(assessments엔 수치 confidence가 없어
+     * review_passed로 대체).
+     */
     public List<PlanningDashboardDto.VendorRiskHistoryItem> loadVendorRiskHistory(int limit) {
         MapSqlParameterSource params = new MapSqlParameterSource().addValue("limit", limit);
         return jdbc.query("""
                 WITH ranked AS (
-                    SELECT a.supplier_id, a.severity, a.mock, a.confidence, a.created_at,
-                           ROW_NUMBER() OVER (PARTITION BY a.supplier_id ORDER BY a.created_at DESC) AS rn
-                    FROM analyses a
-                    WHERE a.status = 'COMPLETED' AND a.supplier_id IS NOT NULL
-                      AND a.created_at >= now() - INTERVAL '90 days'
+                    SELECT p.erp_supplier_id, p.procurement_risk_level, p.mock, p.review_passed, p.created_at,
+                           ROW_NUMBER() OVER (PARTITION BY p.erp_supplier_id ORDER BY p.created_at DESC) AS rn
+                    FROM procurement_risk_assessments p
+                    WHERE p.erp_supplier_id IS NOT NULL
+                      AND p.erp_exposure_score IS NOT NULL
+                      AND NOT p.mock
+                      AND p.created_at >= now() - INTERVAL '90 days'
                 )
                 SELECT s.erp_supplier_id, s.supplier_name,
                        COUNT(*) AS risk_count_90d,
-                       MAX(r.severity) FILTER (WHERE r.rn = 1) AS latest_severity,
+                       MAX(r.procurement_risk_level) FILTER (WHERE r.rn = 1) AS latest_level,
                        MAX(CASE WHEN r.mock THEN 1 ELSE 0 END) FILTER (WHERE r.rn = 1) AS latest_mock,
-                       MAX(r.confidence) FILTER (WHERE r.rn = 1) AS latest_confidence
+                       MAX(CASE WHEN r.review_passed THEN 1 ELSE 0 END) FILTER (WHERE r.rn = 1) AS latest_review_passed
                 FROM ranked r
-                JOIN suppliers s ON s.supplier_id = r.supplier_id
-                GROUP BY s.supplier_id, s.erp_supplier_id, s.supplier_name
+                JOIN suppliers s ON s.erp_supplier_id = r.erp_supplier_id
+                GROUP BY s.erp_supplier_id, s.supplier_name
                 ORDER BY risk_count_90d DESC
                 LIMIT :limit
                 """, params, (rs, rowNum) -> new PlanningDashboardDto.VendorRiskHistoryItem(
                 rs.getString("erp_supplier_id"),
                 rs.getString("supplier_name"),
                 rs.getLong("risk_count_90d"),
-                gradeKo(rs.getString("latest_severity")),
-                confidenceLabel(rs.getInt("latest_mock") == 1, (Double) rs.getObject("latest_confidence"))));
+                gradeKo(rs.getString("latest_level")),
+                confidenceLabel(rs.getInt("latest_mock") == 1,
+                        rs.getInt("latest_review_passed") == 1 ? Double.valueOf(1.0) : null)));
     }
 
     public record QuarterKpi(long detectedCount, BigDecimal criticalRatio, BigDecimal avgResponseDays) {}
@@ -149,11 +165,45 @@ public class PlanningDashboardRepository {
             String materialName, String businessUnitName,
             String severity, BigDecimal score, BigDecimal safetyStockDays) {}
 
+    /**
+     * 자재별 최신 위험도. <b>합성 위험 평가(procurement_risk_assessments)</b>를 소스로 쓴다.
+     *
+     * <p>예전에는 {@code severity_assessments}를 읽었는데, 그 테이블은 BriefingService의 ERP 심각도
+     * 평가가 돈 자재만 채워져 실제로는 mock 1건(Nickel)뿐이라 대시보드가 mock 하나로만 떴다.
+     * 합성 평가는 앱 전체(1계층·협력사 이력)와 같은 실데이터 소스이고 여러 자재·사업부를 담는다.
+     * KG 조기 종료(점수 0·NORMAL)는 {@code erp_exposure_score IS NULL}로, mock은 {@code NOT mock}으로 뺀다.
+     *
+     * <p>재고일수는 합성 평가에 없어 <b>ERP 재고에서 직접 계산</b>한다 — 자재별 현재고
+     * ({@code inventory_snapshots.on_hand_quantity} 합계) / 일 사용량
+     * ({@code material_consumptions.average_daily_usage} 합계). 일 사용량이 0/없으면 null.
+     */
     private static final String LATEST_MATERIAL_SEVERITY_CTE = """
-            WITH latest AS (
-                SELECT DISTINCT ON (material_id) material_id, severity, score, safety_stock_days
-                FROM severity_assessments
-                ORDER BY material_id, created_at DESC
+            WITH assessed AS (
+                SELECT DISTINCT ON (p.erp_material_id)
+                       p.erp_material_id,
+                       p.procurement_risk_level AS severity,
+                       p.procurement_risk_score AS score
+                FROM procurement_risk_assessments p
+                WHERE p.erp_exposure_score IS NOT NULL
+                  AND p.erp_material_id IS NOT NULL
+                  AND NOT p.mock
+                ORDER BY p.erp_material_id, p.created_at DESC
+            ),
+            material_inventory AS (
+                SELECT material_id, SUM(on_hand_quantity) AS on_hand
+                FROM inventory_snapshots WHERE is_current GROUP BY material_id
+            ),
+            material_usage AS (
+                SELECT material_id, SUM(average_daily_usage) AS daily_usage
+                FROM material_consumptions WHERE is_current GROUP BY material_id
+            ),
+            latest AS (
+                SELECT a.erp_material_id, a.severity, a.score,
+                       ROUND(inv.on_hand / NULLIF(usg.daily_usage, 0), 1) AS safety_stock_days
+                FROM assessed a
+                JOIN materials m ON m.erp_material_id = a.erp_material_id
+                LEFT JOIN material_inventory inv ON inv.material_id = m.material_id
+                LEFT JOIN material_usage usg ON usg.material_id = m.material_id
             )
             """;
 
@@ -162,7 +212,7 @@ public class PlanningDashboardRepository {
                 SELECT m.material_name, m.business_unit_id, bu.name AS business_unit_name,
                        l.severity, l.score, l.safety_stock_days
                 FROM latest l
-                JOIN materials m ON m.material_id = l.material_id
+                JOIN materials m ON m.erp_material_id = l.erp_material_id
                 LEFT JOIN business_units bu ON bu.business_unit_id = m.business_unit_id
                 ORDER BY l.score DESC
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new MaterialSeverityRow(
@@ -226,12 +276,13 @@ public class PlanningDashboardRepository {
     public BigDecimal[] loadQuarterScoreComparison() {
         Map<String, Object> row = jdbc.queryForMap("""
                 SELECT
-                    AVG(score) FILTER (WHERE assessed_at >= date_trunc('quarter', now())) AS current_avg,
-                    AVG(score) FILTER (
+                    AVG(procurement_risk_score) FILTER (WHERE assessed_at >= date_trunc('quarter', now())) AS current_avg,
+                    AVG(procurement_risk_score) FILTER (
                         WHERE assessed_at >= date_trunc('quarter', now()) - INTERVAL '3 months'
                           AND assessed_at < date_trunc('quarter', now())
                     ) AS previous_avg
-                FROM severity_assessments
+                FROM procurement_risk_assessments
+                WHERE erp_exposure_score IS NOT NULL AND NOT mock
                 """, new MapSqlParameterSource());
         return new BigDecimal[]{(BigDecimal) row.get("current_avg"), (BigDecimal) row.get("previous_avg")};
     }
