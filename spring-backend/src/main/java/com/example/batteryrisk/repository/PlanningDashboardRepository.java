@@ -516,6 +516,11 @@ public class PlanningDashboardRepository {
                     a.analysis_id,
                     a.material_category,
                     a.severity,
+                    (SELECT p.procurement_risk_level
+                       FROM procurement_risk_assessments p
+                      WHERE p.analysis_id = a.analysis_id
+                      ORDER BY p.created_at DESC
+                      LIMIT 1) AS risk_level,
                     COALESCE(NULLIF(BTRIM(e.title_ko), ''), a.event_title) AS headline,
                     bu.name AS business_unit_name
                 FROM analyses a
@@ -536,7 +541,13 @@ public class PlanningDashboardRepository {
                 ORDER BY a.created_at DESC
                 LIMIT :limit OFFSET :offset
                 """, params, (rs, rowNum) -> {
-            String grade = gradeKo(rs.getString("severity"));
+            // 뱃지 등급은 종합 위험등급(procurement_risk_level)에서 온다. analyses.severity(외부신호 축)를
+            // 쓰면 같은 이벤트가 1계층·브리핑 본문과 다른 색으로 찍힌다(RiskEventService의 규칙과 동일).
+            // 종합등급이 아직 없는 건만 외부신호로 폴백한다.
+            String grade = gradeKo(rs.getString("risk_level"));
+            if (grade == null) {
+                grade = gradeKo(rs.getString("severity"));
+            }
             String category = rs.getString("material_category");
             return new PlanningDashboardDto.BriefingSummaryItem(
                     rs.getString("analysis_id"),
@@ -616,7 +627,7 @@ public class PlanningDashboardRepository {
     // ===== AI 브리핑 상세(드릴다운) =====
 
     private record BriefingDetailRow(
-            String analysisId, String material, String businessUnitName, String severity,
+            String analysisId, String material, String businessUnitName, String severity, String riskLevel,
             String eventTitle, String eventContent,
             String briefing, String recommendedActionsJson, String contractFindingsJson,
             String warningsJson, OffsetDateTime assessedAt) {}
@@ -641,7 +652,7 @@ public class PlanningDashboardRepository {
                 SELECT a.analysis_id, a.material_category, a.severity, a.event_title, a.event_content,
                        bu.name AS business_unit_name,
                        b.briefing_text AS briefing, b.recommended_actions, b.contract_findings,
-                       b.warnings, p.assessed_at
+                       b.warnings, p.assessed_at, p.procurement_risk_level AS risk_level
                 FROM analyses a
                 LEFT JOIN material_category_business_units cb ON cb.material_category = a.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
@@ -654,6 +665,7 @@ public class PlanningDashboardRepository {
                 materialNameKo(rs.getString("material_category")),
                 rs.getString("business_unit_name"),
                 rs.getString("severity"),
+                rs.getString("risk_level"),
                 rs.getString("event_title"),
                 rs.getString("event_content"),
                 rs.getString("briefing"),
@@ -665,11 +677,17 @@ public class PlanningDashboardRepository {
             return null;
         }
         BriefingDetailRow row = rows.get(0);
+        // 뱃지 등급은 종합 위험등급(procurement_risk_level)을 우선한다 — 종합등급이 아직 없을 때만
+        // 외부신호(severity)로 폴백한다. 1계층·브리핑 본문과 같은 종합 축을 쓰게 하기 위함이다.
+        String grade = gradeKo(row.riskLevel());
+        if (grade == null) {
+            grade = gradeKo(row.severity());
+        }
         return new PlanningDashboardDto.AiBriefingDetail(
                 row.analysisId(),
                 row.material(),
                 row.businessUnitName(),
-                gradeKo(row.severity()),
+                grade,
                 row.eventTitle(),
                 row.eventContent(),
                 row.briefing(),
