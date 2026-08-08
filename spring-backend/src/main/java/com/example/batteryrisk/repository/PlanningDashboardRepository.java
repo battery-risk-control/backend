@@ -353,20 +353,30 @@ public class PlanningDashboardRepository {
             long supplierId, String erpSupplierId, String supplierName,
             long riskCount90d, String latestSeverity) {}
 
+    /**
+     * 공급사별 최근 90일 리스크 집계. {@code procurement_risk_assessments.erp_supplier_id} 기준.
+     *
+     * <p>{@code analyses.supplier_id}는 뉴스가 국가·자재 단위라 항상 NULL이라 아무 것도 잡히지 않는다
+     * (공급사 분석 대시보드가 빈 원인). 공급사와 연결된 리스크는 멀티에이전트 합성 평가에만
+     * erp_supplier_id로 붙으므로 그쪽을 집계한다(협력사 리스크 이력과 동일). KG 조기 종료(점수 0)와
+     * mock은 제외한다.
+     */
     private List<SupplierAggregateRow> loadSupplierAggregate() {
         return jdbc.query("""
                 WITH ranked AS (
-                    SELECT a.supplier_id, a.severity, a.created_at,
-                           ROW_NUMBER() OVER (PARTITION BY a.supplier_id ORDER BY a.created_at DESC) AS rn
-                    FROM analyses a
-                    WHERE a.status = 'COMPLETED' AND a.supplier_id IS NOT NULL
-                      AND a.created_at >= now() - INTERVAL '90 days'
+                    SELECT p.erp_supplier_id, p.procurement_risk_level, p.created_at,
+                           ROW_NUMBER() OVER (PARTITION BY p.erp_supplier_id ORDER BY p.created_at DESC) AS rn
+                    FROM procurement_risk_assessments p
+                    WHERE p.erp_supplier_id IS NOT NULL
+                      AND p.erp_exposure_score IS NOT NULL
+                      AND NOT p.mock
+                      AND p.created_at >= now() - INTERVAL '90 days'
                 )
                 SELECT s.supplier_id, s.erp_supplier_id, s.supplier_name,
                        COUNT(*) AS risk_count_90d,
-                       MAX(r.severity) FILTER (WHERE r.rn = 1) AS latest_severity
+                       MAX(r.procurement_risk_level) FILTER (WHERE r.rn = 1) AS latest_severity
                 FROM ranked r
-                JOIN suppliers s ON s.supplier_id = r.supplier_id
+                JOIN suppliers s ON s.erp_supplier_id = r.erp_supplier_id
                 GROUP BY s.supplier_id, s.erp_supplier_id, s.supplier_name
                 ORDER BY risk_count_90d DESC
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new SupplierAggregateRow(
