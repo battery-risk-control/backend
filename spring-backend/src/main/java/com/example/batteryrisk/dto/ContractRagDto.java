@@ -24,7 +24,14 @@ public final class ContractRagDto {
 
     // ---------------------------------------------------------------- 계약 목록·상세
 
-    /** 계약 선택 드롭다운과 검색 결과 카드에 함께 붙는 계약 요약. */
+    /**
+     * 계약 선택 드롭다운과 검색 결과 카드에 함께 붙는 계약 요약.
+     *
+     * <p>매입(인바운드)·납품(아웃바운드) 두 종류를 <b>한 타입</b>으로 담는다 — 검색 결과에
+     * 두 종류가 섞여 내려오고 드롭다운도 한 목록에 모으므로, {@code kind}로 갈라 화면이
+     * 라벨을 정한다. 인바운드는 supplier/material만, 아웃바운드는 product/customer만 채워지고
+     * 반대쪽은 null이다.
+     */
     public record ContractSummary(
             @JsonProperty("contract_id") Long contractId,
             @JsonProperty("erp_contract_id") String erpContractId,
@@ -42,7 +49,15 @@ public final class ContractRagDto {
             @JsonProperty("material_name") String materialName,
             @JsonProperty("material_category") String materialCategory,
             @JsonProperty("document_count") int documentCount,
-            @JsonProperty("indexed_chunk_count") int indexedChunkCount
+            @JsonProperty("indexed_chunk_count") int indexedChunkCount,
+            /** "INBOUND"(원자재 매입) 또는 "OUTBOUND"(제품 납품). 화면이 배지·라벨을 정한다. */
+            String kind,
+            @JsonProperty("product_id") Long productId,
+            @JsonProperty("erp_product_id") String erpProductId,
+            @JsonProperty("product_name") String productName,
+            @JsonProperty("customer_id") Long customerId,
+            @JsonProperty("erp_customer_id") String erpCustomerId,
+            @JsonProperty("customer_name") String customerName
     ) {}
 
     /** 우측 "계약 문서" 패널. 계약 메타 + 적재된 원본 문서와 임베딩 상태. */
@@ -78,16 +93,28 @@ public final class ContractRagDto {
     /**
      * 조항 검색 요청. {@code contractId}를 비우면 <b>전체 계약</b>을 훑는다 — 화면은 검색창에
      * 단어만 넣는 흐름이라 이게 기본이고, 계약을 고르면 그 계약으로 좁힌다.
+     *
+     * <p>{@code kind}로 검색 범위를 매입/납품으로 좁힐 수 있다("ALL"·"INBOUND"·"OUTBOUND").
+     * 특정 <b>납품</b>계약을 콕 집을 때는 product_id+customer_id를 함께 보낸다 —
+     * 아웃바운드 contract_id는 인바운드와 번호가 겹쳐 단독으로는 계약을 특정할 수 없다.
      */
     public record SearchRequest(
             @NotBlank @Size(max = 2000) String query,
+            String kind,
             @JsonProperty("contract_id") @Positive Long contractId,
             @JsonProperty("supplier_id") @Positive Long supplierId,
             @JsonProperty("material_id") @Positive Long materialId,
+            @JsonProperty("product_id") @Positive Long productId,
+            @JsonProperty("customer_id") @Positive Long customerId,
             @JsonProperty("top_k") @Min(1) @Max(50) Integer topK
     ) {
         public int resolvedTopK() {
             return topK == null ? 5 : topK;
+        }
+
+        /** null/빈값이면 전체("ALL"). 그 외에는 대문자로 정규화한다. */
+        public String resolvedKind() {
+            return kind == null || kind.isBlank() ? "ALL" : kind.toUpperCase(java.util.Locale.ROOT);
         }
     }
 

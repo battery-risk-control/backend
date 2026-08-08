@@ -137,7 +137,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/contract-rag/contracts",
-                                "/api/v1/contract-rag/contracts/*"
+                                "/api/v1/contract-rag/contracts/*",
+                                "/api/v1/contract-rag/outbound-contracts/*"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/contract-rag/search").permitAll()
                         .requestMatchers(HttpMethod.GET,

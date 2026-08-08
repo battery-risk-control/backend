@@ -59,9 +59,10 @@ class PlanningDashboardDetailSqlTest {
                     created_at          TIMESTAMP WITH TIME ZONE NOT NULL)""");
         jdbc.getJdbcTemplate().execute("""
                 CREATE TABLE IF NOT EXISTS procurement_risk_assessments (
-                    analysis_id UUID,
-                    assessed_at TIMESTAMP WITH TIME ZONE NOT NULL,
-                    created_at  TIMESTAMP WITH TIME ZONE NOT NULL)""");
+                    analysis_id            UUID,
+                    procurement_risk_level VARCHAR(20),
+                    assessed_at            TIMESTAMP WITH TIME ZONE NOT NULL,
+                    created_at             TIMESTAMP WITH TIME ZONE NOT NULL)""");
         jdbc.getJdbcTemplate().execute("""
                 CREATE TABLE IF NOT EXISTS suppliers (
                     supplier_id   BIGINT PRIMARY KEY,
@@ -113,9 +114,12 @@ class PlanningDashboardDetailSqlTest {
                 VALUES (:id, '최신 브리핑 본문', '["대체 공급사 검토"]',
                         '[{"contract_id": 1001, "page": 1}]', '["참고 경고"]', :now)""",
                 Map.of("id", ANALYSIS_ID, "now", OffsetDateTime.now()));
+        // 종합 위험등급(procurement_risk_level)은 WARNING — analyses.severity(CRITICAL, 외부신호 축)와
+        // 일부러 다르게 둬, 뱃지 grade가 외부신호가 아니라 종합등급에서 오는지 검증한다.
         jdbc.update("""
-                INSERT INTO procurement_risk_assessments (analysis_id, assessed_at, created_at)
-                VALUES (:id, :at, :at)""",
+                INSERT INTO procurement_risk_assessments (analysis_id, procurement_risk_level,
+                                                          assessed_at, created_at)
+                VALUES (:id, 'WARNING', :at, :at)""",
                 Map.of("id", ANALYSIS_ID, "at", OffsetDateTime.now()));
 
         // --- 계약 상세 픽스처 ---
@@ -152,6 +156,9 @@ class PlanningDashboardDetailSqlTest {
         assertThat(detail.warnings()).containsExactly("참고 경고");
         assertThat(detail.businessUnit()).isEqualTo("배터리셀사업부");
         assertThat(detail.assessedAt()).isNotNull();
+        // 뱃지 등급은 종합등급(procurement_risk_level=WARNING→주의)에서 온다.
+        // analyses.severity(CRITICAL, 외부신호 축)를 읽으면 '심각'이 나와 1계층·본문과 어긋난다.
+        assertThat(detail.grade()).isEqualTo("주의");
     }
 
     @Test

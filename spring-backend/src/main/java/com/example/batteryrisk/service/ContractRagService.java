@@ -124,7 +124,12 @@ public class ContractRagService {
      * 골라 봤자 검색 결과가 항상 비어 화면이 고장 난 것처럼 보이기 때문이다.
      */
     public List<ContractRagDto.ContractSummary> contracts(boolean includeUnindexed) {
-        return repository.findContracts(!includeUnindexed);
+        // 매입(인바운드) 다음에 납품(아웃바운드)를 잇는다. 화면이 kind로 그룹을 나눠 보여주므로
+        // 여기서는 두 목록을 이어 붙이기만 한다.
+        List<ContractRagDto.ContractSummary> merged =
+                new ArrayList<>(repository.findContracts(!includeUnindexed));
+        merged.addAll(repository.findOutboundContracts(!includeUnindexed));
+        return merged;
     }
 
     /** 우측 "계약 문서" 패널. 임베딩 표시는 가장 최근에 처리된 문서 기준이다. */
@@ -148,6 +153,31 @@ public class ContractRagService {
                 blockedReason);
     }
 
+    /**
+     * 우측 "계약 문서" 패널의 아웃바운드(제품 납품) 버전. 구조는 {@link #contract}와 같되
+     * 아웃바운드 테이블을 본다. AI 브리핑은 뉴스→원자재 위험 경로라 납품계약에는 해당이 없어
+     * 항상 비활성으로 내려보낸다(화면이 버튼을 잠그고 사유를 보여준다).
+     */
+    public ContractRagDto.ContractDetail outboundContract(long outboundContractId) {
+        ContractRagDto.ContractSummary contract = repository.findOutboundContract(outboundContractId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ERP_CONTRACT_NOT_FOUND));
+        List<ContractRagDto.DocumentItem> documents = repository.findOutboundDocuments(outboundContractId);
+
+        ContractRagDto.DocumentItem latest = documents.stream()
+                .filter(document -> document.embeddingType() != null)
+                .findFirst()
+                .orElse(null);
+
+        return new ContractRagDto.ContractDetail(
+                contract,
+                documents,
+                latest == null ? null : latest.embeddingType(),
+                latest == null ? null : latest.embeddingVersion(),
+                latest == null ? null : isMockEmbedding(latest.embeddingType()),
+                false,
+                "납품계약은 AI 브리핑 대상이 아닙니다. 브리핑은 원자재 매입계약 기준으로 실행됩니다.");
+    }
+
     // ---------------------------------------------------------------- 조항 검색
 
     /**
@@ -168,16 +198,30 @@ public class ContractRagService {
         FastApiSearchResponse response = callFastApiSearch(request);
         FastApiSearchResult result = response.data();
 
-        Set<Long> contractIds = new LinkedHashSet<>();
+        // 결과를 매입/납품으로 갈라 각자의 테이블에서 메타를 채운다. **인바운드 contracts로
+        // 아웃바운드를 조회하면 안 된다** — contract_id(=outbound_contract_id) 번호가 인바운드와
+        // 겹쳐 엉뚱한 계약명이 붙는다. product_id 유무로 어느 쪽인지 가른다(아웃바운드 청크에만
+        // product_id가 실려 온다).
+        Set<Long> inboundIds = new LinkedHashSet<>();
+        Set<Long> outboundIds = new LinkedHashSet<>();
         for (FastApiSearchItem item : result.results()) {
-            contractIds.add(item.contractId());
+            if (item.productId() != null) {
+                outboundIds.add(item.contractId());
+            } else {
+                inboundIds.add(item.contractId());
+            }
         }
-        Map<Long, ContractRagDto.ContractSummary> contractsById =
-                repository.findContractsByIds(contractIds);
+        Map<Long, ContractRagDto.ContractSummary> inboundById =
+                repository.findContractsByIds(inboundIds);
+        Map<Long, ContractRagDto.ContractSummary> outboundById =
+                repository.findOutboundContractsByIds(outboundIds);
 
         List<ContractRagDto.SearchItem> items = new ArrayList<>();
         for (FastApiSearchItem item : result.results()) {
             ClauseHeading heading = ClauseHeading.parse(item.content());
+            ContractRagDto.ContractSummary contract = item.productId() != null
+                    ? outboundById.get(item.contractId())
+                    : inboundById.get(item.contractId());
             items.add(new ContractRagDto.SearchItem(
                     item.documentId(),
                     item.chunkIndex(),
@@ -189,7 +233,7 @@ public class ContractRagService {
                     item.content(),
                     item.contentHash(),
                     SEARCH_SOURCE,
-                    contractsById.get(item.contractId())));
+                    contract));
         }
 
         return new ContractRagDto.SearchResponse(
@@ -313,8 +357,8 @@ public class ContractRagService {
 
     private FastApiSearchResponse callFastApiSearch(ContractRagDto.SearchRequest request) {
         FastApiSearchRequest upstream = new FastApiSearchRequest(
-                request.query(), request.contractId(), request.supplierId(),
-                request.materialId(), request.resolvedTopK());
+                request.query(), request.resolvedKind(), request.contractId(), request.supplierId(),
+                request.materialId(), request.productId(), request.customerId(), request.resolvedTopK());
         FastApiSearchResponse response;
         try {
             response = fastApiRestClient.post()
@@ -416,9 +460,12 @@ public class ContractRagService {
     // FastAPI /api/v1/contract-rag/search 와 주고받는 형태. 화면 응답과 분리해 둔다.
     private record FastApiSearchRequest(
             String query,
+            String kind,
             @JsonProperty("contract_id") Long contractId,
             @JsonProperty("supplier_id") Long supplierId,
             @JsonProperty("material_id") Long materialId,
+            @JsonProperty("product_id") Long productId,
+            @JsonProperty("customer_id") Long customerId,
             @JsonProperty("top_k") int topK) {}
 
     private record FastApiSearchResponse(boolean success, FastApiSearchResult data) {}
@@ -438,5 +485,10 @@ public class ContractRagService {
             @JsonProperty("page_number") int pageNumber,
             String content,
             @JsonProperty("content_hash") String contentHash,
-            @JsonProperty("similarity_score") double similarityScore) {}
+            @JsonProperty("similarity_score") double similarityScore,
+            @JsonProperty("supplier_id") Long supplierId,
+            @JsonProperty("material_id") Long materialId,
+            // product_id가 실려 오면 이 청크는 아웃바운드(납품) 계약이다 — 메타 보강 테이블을 가른다.
+            @JsonProperty("product_id") Long productId,
+            @JsonProperty("customer_id") Long customerId) {}
 }

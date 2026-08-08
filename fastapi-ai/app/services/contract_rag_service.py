@@ -38,6 +38,8 @@ class ContractChunkHit:
     similarity_score: float
     supplier_id: int | None
     material_id: int | None
+    product_id: int | None
+    customer_id: int | None
 
 
 class ContractRagSearchService:
@@ -83,12 +85,21 @@ class ContractRagSearchService:
         self,
         query: str,
         *,
+        kind: str = "ALL",
         contract_id: int | None = None,
         supplier_id: int | None = None,
         material_id: int | None = None,
+        product_id: int | None = None,
+        customer_id: int | None = None,
         top_k: int = 5,
     ) -> list[ContractChunkHit]:
-        """필터 없이도 검색한다. 필터를 주면 그만큼 좁힌다."""
+        """필터 없이도 검색한다. 필터를 주면 그만큼 좁힌다.
+
+        `kind`가 INBOUND/OUTBOUND면 매입/납품 청크로 범위를 좁힌다. 인바운드 청크에는
+        supplier_id, 아웃바운드 청크에는 product_id만 저장돼 있고(값 없는 optional 필드는
+        아예 넣지 않는다) Chroma는 비교 연산자를 건 키가 없는 문서를 제외하므로,
+        `{"supplier_id": {"$gte": 0}}` 하나로 "매입 계약만"을 골라낼 수 있다.
+        """
         if not query.strip():
             raise VectorStoreFailed("검색어는 비어 있을 수 없습니다.")
 
@@ -99,6 +110,16 @@ class ContractRagSearchService:
             conditions.append({"supplier_id": supplier_id})
         if material_id is not None:
             conditions.append({"material_id": material_id})
+        if product_id is not None:
+            conditions.append({"product_id": product_id})
+        if customer_id is not None:
+            conditions.append({"customer_id": customer_id})
+        # 특정 id 조건이 없을 때만 kind로 매입/납품 전체를 가른다 — id를 이미 주면
+        # 그 계약이 어느 쪽인지 자명하므로 존재필터를 겹칠 필요가 없다.
+        if kind == "INBOUND" and supplier_id is None and material_id is None:
+            conditions.append({"supplier_id": {"$gte": 0}})
+        elif kind == "OUTBOUND" and product_id is None and customer_id is None:
+            conditions.append({"product_id": {"$gte": 0}})
         # 조건이 없으면 where 자체를 넘기지 않는다 — 컬렉션 전체가 검색 대상이 된다.
         where = None
         if len(conditions) == 1:
@@ -133,6 +154,8 @@ class ContractRagSearchService:
                 similarity_score=_cosine_similarity(distance),
                 supplier_id=_optional_int(metadata, "supplier_id"),
                 material_id=_optional_int(metadata, "material_id"),
+                product_id=_optional_int(metadata, "product_id"),
+                customer_id=_optional_int(metadata, "customer_id"),
             )
             for content, metadata, distance in zip(
                 documents, metadatas, distances, strict=True
