@@ -173,7 +173,7 @@ class ContractRagServiceTest {
     @Test
     void 검색어가_비면_FastAPI를_부르기_전에_막는다() {
         assertThatThrownBy(() -> service.search(
-                new ContractRagDto.SearchRequest("   ", null, null, null, 5)))
+                new ContractRagDto.SearchRequest("   ", null, null, null, null, null, null, 5)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_REQUEST);
@@ -185,7 +185,8 @@ class ContractRagServiceTest {
                 11L, "CTR-010", "Cobalt Sulfate Supply Agreement 1", "ACTIVE",
                 LocalDate.of(2025, 7, 7), LocalDate.of(2027, 7, 2), "USD",
                 3L, erpSupplierId, "Katanga Cobalt Mining", "CD",
-                5L, erpMaterialId, "황산코발트", materialCategory, 1, 20);
+                5L, erpMaterialId, "황산코발트", materialCategory, 1, 20,
+                "INBOUND", null, null, null, null, null, null);
     }
 
     private static ContractRagDto.SourceNews news() {

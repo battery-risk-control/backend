@@ -99,6 +99,19 @@ public class ContractRagController {
     }
 
     @Operation(
+            summary = "아웃바운드(제품 납품) 계약 문서 상세 (구매팀 계약·RAG)",
+            description = "제품 납품 계약(CTR-OUT-XXX)의 메타(제품·고객사)와 적재된 문서 목록을 반환한다. "
+                    + "인바운드 상세({contractId})와 계약 PK 번호가 겹치므로 경로를 분리했다. "
+                    + "납품계약은 AI 브리핑 대상이 아니라 briefing_available은 항상 false다.")
+    @PreAuthorize("permitAll()")
+    @GetMapping("/outbound-contracts/{outboundContractId}")
+    public ApiResponse<ContractRagDto.ContractDetail> outboundContract(
+            @Parameter(description = "내부 아웃바운드 계약 PK", example = "2")
+            @PathVariable long outboundContractId) {
+        return ApiResponse.ok(contractRagService.outboundContract(outboundContractId));
+    }
+
+    @Operation(
             summary = "계약서 추가 업로드 (구매팀 계약·RAG)",
             description = "PDF/TXT 계약 문서를 이 계약에 붙여 청킹·임베딩한 뒤 ChromaDB에 적재한다. "
                     + "공급사·자재 ID는 계약에서 자동으로 채우므로 화면은 파일만 보내면 된다. "

@@ -81,6 +81,33 @@ def test_search_with_multiple_filters_uses_and(stub_service) -> None:
     assert collection.last_where == {"$and": [{"contract_id": 11}, {"material_id": 5}]}
 
 
+def test_kind_inbound_filters_to_chunks_that_have_supplier_id(stub_service) -> None:
+    # 인바운드 청크에만 supplier_id 키가 있으므로, 존재필터 하나로 매입 계약만 골라낸다.
+    service, collection = stub_service
+    service.search("납기", kind="INBOUND")
+    assert collection.last_where == {"supplier_id": {"$gte": 0}}
+
+
+def test_kind_outbound_filters_to_chunks_that_have_product_id(stub_service) -> None:
+    service, collection = stub_service
+    service.search("배상책임", kind="OUTBOUND")
+    assert collection.last_where == {"product_id": {"$gte": 0}}
+
+
+def test_kind_all_does_not_add_existence_filter(stub_service) -> None:
+    service, collection = stub_service
+    service.search("납기", kind="ALL")
+    assert collection.last_where is None
+
+
+def test_specific_outbound_contract_uses_product_and_customer(stub_service) -> None:
+    # 특정 납품계약은 product_id+customer_id로 콕 집는다(contract_id는 인바운드와 번호가 겹침).
+    # id를 이미 줬으면 kind 존재필터는 겹치지 않는다.
+    service, collection = stub_service
+    service.search("배상책임", kind="OUTBOUND", product_id=4, customer_id=1)
+    assert collection.last_where == {"$and": [{"product_id": 4}, {"customer_id": 1}]}
+
+
 def test_blank_query_is_rejected(stub_service) -> None:
     service, _collection = stub_service
     with pytest.raises(Exception):
@@ -100,11 +127,13 @@ class _StubSearchService:
     mock_embedding = False
     collection_name = "contract_documents_openai_v1"
 
-    def search(self, query, *, contract_id=None, supplier_id=None, material_id=None, top_k=5):
+    def search(self, query, *, kind="ALL", contract_id=None, supplier_id=None,
+               material_id=None, product_id=None, customer_id=None, top_k=5):
         return [ContractChunkHit(
             document_id="con_abc", contract_id=11, document_type="CONTRACT",
             chunk_index=7, page_number=1, content="Article 4\nDELIVERY AND PENALTY",
             content_hash="b" * 64, similarity_score=0.61, supplier_id=3, material_id=5,
+            product_id=None, customer_id=None,
         )]
 
 

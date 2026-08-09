@@ -54,10 +54,17 @@ public class ContractRagRepository {
         this.jdbc = jdbc;
     }
 
-    /** 적재된 문서가 있는 계약을 먼저, 그다음 ERP 계약번호 순으로 반환한다. */
+    /**
+     * 적재된 문서가 있는 계약을 먼저, 그다음 ERP 계약번호 순으로 반환한다.
+     *
+     * <p><b>ERP 계약번호가 없는 항목은 제외한다.</b> 실제 ERP 계약은 모두 CTR-XXX 번호를 갖고,
+     * 번호가 없는 건 C1 문서-업로드 기능용 참조 시드 픽스처(R__insert_c1_reference_seed.sql)뿐이다 —
+     * 실제 계약이 아니고 문서도 없어 검색에 걸릴 수 없으므로, RAG 선택 목록에 노출하지 않는다.
+     */
     public List<ContractRagDto.ContractSummary> findContracts(boolean indexedOnly) {
         String sql = CONTRACT_SELECT
-                + (indexedOnly ? " WHERE COALESCE(d.document_count, 0) > 0 " : "")
+                + " WHERE c.erp_contract_id IS NOT NULL AND c.erp_contract_id <> '' "
+                + (indexedOnly ? " AND COALESCE(d.document_count, 0) > 0 " : "")
                 + " ORDER BY COALESCE(d.document_count, 0) DESC, c.erp_contract_id NULLS LAST, c.contract_id";
         return jdbc.query(sql, CONTRACT_MAPPER);
     }
@@ -66,6 +73,51 @@ public class ContractRagRepository {
         List<ContractRagDto.ContractSummary> rows = jdbc.query(
                 CONTRACT_SELECT + " WHERE c.contract_id = ?", CONTRACT_MAPPER, contractId);
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
+    /** 적재된 문서가 있는 아웃바운드 계약을 먼저, 그다음 CTR-OUT 번호 순으로 반환한다. */
+    public List<ContractRagDto.ContractSummary> findOutboundContracts(boolean indexedOnly) {
+        String sql = OUTBOUND_CONTRACT_SELECT
+                + (indexedOnly ? " WHERE COALESCE(d.document_count, 0) > 0 " : "")
+                + " ORDER BY COALESCE(d.document_count, 0) DESC, oc.erp_outbound_contract_id";
+        return jdbc.query(sql, OUTBOUND_CONTRACT_MAPPER);
+    }
+
+    /** 아웃바운드 계약 1건 요약(우측 문서 패널 상세용). */
+    public Optional<ContractRagDto.ContractSummary> findOutboundContract(long outboundContractId) {
+        List<ContractRagDto.ContractSummary> rows = jdbc.query(
+                OUTBOUND_CONTRACT_SELECT + " WHERE oc.outbound_contract_id = ?",
+                OUTBOUND_CONTRACT_MAPPER, outboundContractId);
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
+    /** 아웃바운드 계약에 달린 문서 목록. 컬럼이 인바운드와 같아 DOCUMENT_MAPPER를 재사용한다. */
+    public List<ContractRagDto.DocumentItem> findOutboundDocuments(long outboundContractId) {
+        return jdbc.query("""
+                SELECT document_id, original_file_name, document_type, mime_type, file_size_bytes,
+                       processing_status, chunk_count, embedding_type, embedding_version,
+                       error_code, error_message, created_at, processed_at
+                  FROM outbound_contract_documents
+                 WHERE outbound_contract_id = ?
+                 ORDER BY created_at DESC
+                """, DOCUMENT_MAPPER, outboundContractId);
+    }
+
+    /** 아웃바운드 검색 결과에 계약 메타를 붙이기 위한 일괄 조회(outbound_contract_id 기준). */
+    public Map<Long, ContractRagDto.ContractSummary> findOutboundContractsByIds(Collection<Long> outboundContractIds) {
+        if (outboundContractIds == null || outboundContractIds.isEmpty()) {
+            return Map.of();
+        }
+        String placeholders = String.join(",", outboundContractIds.stream().map(id -> "?").toList());
+        List<ContractRagDto.ContractSummary> rows = jdbc.query(
+                OUTBOUND_CONTRACT_SELECT + " WHERE oc.outbound_contract_id IN (" + placeholders + ")",
+                OUTBOUND_CONTRACT_MAPPER,
+                outboundContractIds.toArray());
+        Map<Long, ContractRagDto.ContractSummary> byId = new LinkedHashMap<>();
+        for (ContractRagDto.ContractSummary row : rows) {
+            byId.put(row.contractId(), row);
+        }
+        return byId;
     }
 
     /** 검색 결과에 계약 메타를 붙이기 위한 일괄 조회. 검색 1회당 쿼리 1번으로 끝낸다. */
@@ -156,7 +208,66 @@ public class ContractRagRepository {
                     rs.getString("material_name"),
                     rs.getString("material_category"),
                     rs.getInt("document_count"),
-                    rs.getInt("indexed_chunk_count"));
+                    rs.getInt("indexed_chunk_count"),
+                    "INBOUND",
+                    null, null, null, null, null, null);
+
+    /**
+     * 아웃바운드(제품 납품) 계약 요약. outbound_contracts에는 contract_name·기간·통화 개념이
+     * 없어(대신 물량·단가·위약금) 화면 표시용 이름을 제품·고객사로 합성한다. 문서 수·청크 수는
+     * COMPLETED 문서만 센다(인바운드와 동일).
+     */
+    private static final String OUTBOUND_CONTRACT_SELECT = """
+            SELECT oc.outbound_contract_id, oc.erp_outbound_contract_id,
+                   oc.product_id, p.erp_product_id, COALESCE(p.name_kr, p.name_en) AS product_name,
+                   oc.customer_id, c.erp_customer_id, COALESCE(c.name_kr, c.name_en) AS customer_name,
+                   oc.contract_language,
+                   COALESCE(d.document_count, 0) AS document_count,
+                   COALESCE(d.chunk_count, 0)    AS indexed_chunk_count
+              FROM outbound_contracts oc
+              LEFT JOIN products p  ON p.product_id = oc.product_id
+              LEFT JOIN customers c ON c.customer_id = oc.customer_id
+              LEFT JOIN (
+                    SELECT outbound_contract_id,
+                           COUNT(*)         AS document_count,
+                           SUM(chunk_count) AS chunk_count
+                      FROM outbound_contract_documents
+                     WHERE processing_status = 'COMPLETED'
+                     GROUP BY outbound_contract_id
+              ) d ON d.outbound_contract_id = oc.outbound_contract_id
+            """;
+
+    private static final RowMapper<ContractRagDto.ContractSummary> OUTBOUND_CONTRACT_MAPPER = (rs, rowNum) -> {
+        String productName = rs.getString("product_name");
+        String customerName = rs.getString("customer_name");
+        // "4680 원통형 → Tesla" 형태. 이름을 못 찾으면 있는 쪽만, 둘 다 없으면 계약번호로 대체한다.
+        String display;
+        if (productName != null && customerName != null) {
+            display = productName + " → " + customerName;
+        } else if (productName != null || customerName != null) {
+            display = productName != null ? productName : customerName;
+        } else {
+            display = rs.getString("erp_outbound_contract_id");
+        }
+        return new ContractRagDto.ContractSummary(
+                rs.getLong("outbound_contract_id"),
+                rs.getString("erp_outbound_contract_id"),
+                display,
+                "ACTIVE",
+                null, null,
+                "USD",
+                null, null, null, null,
+                null, null, null, null,
+                rs.getInt("document_count"),
+                rs.getInt("indexed_chunk_count"),
+                "OUTBOUND",
+                nullableLong(rs, "product_id"),
+                rs.getString("erp_product_id"),
+                productName,
+                nullableLong(rs, "customer_id"),
+                rs.getString("erp_customer_id"),
+                customerName);
+    };
 
     private static final RowMapper<ContractRagDto.DocumentItem> DOCUMENT_MAPPER = (rs, rowNum) ->
             new ContractRagDto.DocumentItem(

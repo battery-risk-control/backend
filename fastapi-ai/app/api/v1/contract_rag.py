@@ -32,10 +32,18 @@ def search_clauses(
     """
     hits = service.search(
         request.query,
+        kind=request.kind,
         contract_id=request.contract_id,
         supplier_id=request.supplier_id,
         material_id=request.material_id,
+        product_id=request.product_id,
+        customer_id=request.customer_id,
         top_k=request.top_k,
+    )
+    narrowed = (
+        request.kind != "ALL"
+        or request.contract_id is not None
+        or request.product_id is not None
     )
     return ApiResponse(data=ContractRagSearchResult(
         results=[
@@ -53,10 +61,12 @@ def search_clauses(
                 mock_embedding=service.mock_embedding,
                 supplier_id=hit.supplier_id,
                 material_id=hit.material_id,
+                product_id=hit.product_id,
+                customer_id=hit.customer_id,
             )
             for hit in hits
         ],
-        scope="filtered" if request.contract_id is not None else "all",
+        scope="filtered" if narrowed else "all",
         mock=service.mock_embedding,
         embedding_type=service.embedding_type,
         embedding_version=service.embedding_version,
