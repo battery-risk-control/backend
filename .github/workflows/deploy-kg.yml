@@ -36,7 +36,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-            - name: Show safe OIDC claims
+      - name: Show safe OIDC claims
         shell: bash
         run: |
           python3 - <<'PY'
