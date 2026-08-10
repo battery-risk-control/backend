@@ -16,7 +16,14 @@ public record LoginRequest(
         @Schema(example = "test", description = "기존 방식 로그인 식별자. email이 없을 때 사용")
         String username,
 
-        @NotBlank(message = "비밀번호를 입력해 주세요.") String password
+        @NotBlank(message = "비밀번호를 입력해 주세요.") String password,
+
+        // 로그인 실패가 누적된 계정에서만 요구된다(CAPTCHA_REQUIRED). 평소에는 비워 보낸다.
+        @Schema(description = "자동입력 방지 문자 발급 ID(GET /auth/captcha)")
+        String captchaId,
+
+        @Schema(description = "사용자가 입력한 자동입력 방지 문자")
+        String captchaAnswer
 ) {
     /** email을 우선 사용하고, 없으면 username을 쓴다. */
     public String loginId() {

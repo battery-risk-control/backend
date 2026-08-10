@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -46,6 +47,18 @@ public class User {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    /** 연속 로그인 실패 횟수. 성공 또는 비밀번호 재설정 시 0으로 리셋한다. */
+    @Column(name = "failed_login_count", nullable = false)
+    private int failedLoginCount = 0;
+
+    /** 이 시각까지 로그인을 차단한다. NULL이거나 과거면 잠금 아님. */
+    @Column(name = "locked_until")
+    private OffsetDateTime lockedUntil;
+
+    /** 비밀번호 최종 변경 시각. +90일 경과 시 재설정을 요구한다. */
+    @Column(name = "password_changed_at", nullable = false)
+    private OffsetDateTime passwordChangedAt;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -77,6 +90,9 @@ public class User {
         OffsetDateTime now = OffsetDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
+        if (this.passwordChangedAt == null) {
+            this.passwordChangedAt = now;
+        }
     }
 
     @jakarta.persistence.PreUpdate
@@ -136,11 +152,57 @@ public class User {
         this.approvalStatus = ApprovalStatus.APPROVED;
     }
 
+    /** 관리자 거부 — 로그인 불가 상태로 표시한다. */
+    public void reject() {
+        this.approvalStatus = ApprovalStatus.REJECTED;
+    }
+
+    /** 거부 해제 — 다시 승인 대기 상태로 되돌린다. */
+    public void markPending() {
+        this.approvalStatus = ApprovalStatus.PENDING;
+    }
+
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+        this.passwordChangedAt = OffsetDateTime.now();
+        resetLoginFailures();
     }
 
     public void disable() {
         this.enabled = false;
+    }
+
+    public int getFailedLoginCount() {
+        return failedLoginCount;
+    }
+
+    public OffsetDateTime getLockedUntil() {
+        return lockedUntil;
+    }
+
+    public OffsetDateTime getPasswordChangedAt() {
+        return passwordChangedAt;
+    }
+
+    /** 로그인 실패를 1회 기록하고, 상한(maxFailures)에 도달하면 lockDuration만큼 잠근다. */
+    public void registerLoginFailure(int maxFailures, Duration lockDuration) {
+        this.failedLoginCount += 1;
+        if (this.failedLoginCount >= maxFailures) {
+            this.lockedUntil = OffsetDateTime.now().plus(lockDuration);
+        }
+    }
+
+    /** 로그인 성공/재설정 시 실패 카운트와 잠금을 모두 해제한다. */
+    public void resetLoginFailures() {
+        this.failedLoginCount = 0;
+        this.lockedUntil = null;
+    }
+
+    public boolean isLocked(OffsetDateTime now) {
+        return lockedUntil != null && lockedUntil.isAfter(now);
+    }
+
+    public boolean isPasswordExpired(OffsetDateTime now, long maxAgeDays) {
+        return passwordChangedAt != null && passwordChangedAt.plusDays(maxAgeDays).isBefore(now);
     }
 }

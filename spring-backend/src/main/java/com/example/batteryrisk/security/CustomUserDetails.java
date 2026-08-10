@@ -5,6 +5,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public class CustomUserDetails implements UserDetails {
@@ -53,7 +54,9 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        // 계정 잠금 심층 방어. AuthService.login이 앞단에서 이미 검사하지만,
+        // DaoAuthenticationProvider 레벨에서도 잠긴 계정의 비밀번호 검증을 막는다.
+        return !user.isLocked(OffsetDateTime.now());
     }
 
     @Override

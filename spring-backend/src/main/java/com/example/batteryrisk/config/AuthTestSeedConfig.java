@@ -74,6 +74,10 @@ public class AuthTestSeedConfig {
                             "경영기획팀 테스트", Role.STRATEGY, ApprovalStatus.APPROVED),
                     new SeedAccount("executive@test.local", emailWithTagOr("executive", "executive@test.local"), approvedHash,
                             "임원 테스트", Role.EXECUTIVE, ApprovalStatus.APPROVED),
+                    // 관리자 승인 화면(가입 승인/거부) e2e·수동 검증용 ADMIN 계정. 알림 대상이 아니므로
+                    // recipient-email 오버라이드를 적용하지 않고 고정 주소를 써서 유니크 제약 충돌을 피한다.
+                    new SeedAccount("admin@test.local", "admin@test.local", approvedHash,
+                            "관리자 테스트", Role.ADMIN, ApprovalStatus.APPROVED),
                     // pending-approval.spec가 승인 대기 락 화면을 검증하는 계정. email은 NULL로 둔다 —
                     // 로그인은 username 기반이라 영향이 없고, 이렇게 해야 알림 수신 대상(email IS NOT NULL)에서
                     // 빠져 가짜 주소로 발송/바운스되지 않는다. 비밀번호는 'anything'으로 맞춰야
