@@ -1,5 +1,6 @@
 package com.example.batteryrisk;
 
+import com.example.batteryrisk.domain.ApprovalStatus;
 import com.example.batteryrisk.domain.NotificationLog;
 import com.example.batteryrisk.domain.Role;
 import com.example.batteryrisk.domain.User;
@@ -63,7 +64,8 @@ class NotificationServiceTest {
 
         User buyer = mock(User.class);
         when(buyer.getEmail()).thenReturn("buyer@corp.com");
-        when(userRepository.findByRoleInAndEnabledTrueAndEmailIsNotNull(anyList()))
+        when(userRepository.findByRoleInAndEnabledTrueAndApprovalStatusAndEmailIsNotNull(
+                anyList(), eq(ApprovalStatus.APPROVED)))
                 .thenReturn(List.of(buyer));
     }
 
@@ -97,7 +99,8 @@ class NotificationServiceTest {
         User executive = mock(User.class);
         when(executive.getEmail()).thenReturn("e@corp.com");
         when(executive.getRole()).thenReturn(Role.EXECUTIVE);
-        when(userRepository.findByRoleInAndEnabledTrueAndEmailIsNotNull(anyList()))
+        when(userRepository.findByRoleInAndEnabledTrueAndApprovalStatusAndEmailIsNotNull(
+                anyList(), eq(ApprovalStatus.APPROVED)))
                 .thenReturn(List.of(purchasing, strategy, executive));
         when(notificationLogRepository.existsByAssessmentIdAndChannelAndRecipient(any(), any(), any()))
                 .thenReturn(false);
