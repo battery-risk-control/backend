@@ -208,17 +208,19 @@ public class PlanningDashboardService {
 
     public PlanningDashboardDto.AiBriefingSummaryDashboard aiBriefing(int page, int size) {
         List<PlanningDashboardDto.RankedBarItem> byUnit = repository.loadBriefingCountByUnit();
-        String materialKeywordPattern = RiskEventService.materialKeywordPattern();
-        List<PlanningDashboardDto.BriefingSummaryItem> recent =
-                repository.findRecentBriefings(size, page * size, materialKeywordPattern);
-        long recentTotalCount = repository.countRecentBriefings(materialKeywordPattern);
+        List<PlanningDashboardDto.BriefingSummaryItem> recent = repository.findRecentBriefings(size, page * size);
+        long recentTotalCount = repository.countRecentBriefings();
+        // KPI1·2(브리핑 건수·CRITICAL 비중)는 실제 생성 브리핑(ai_briefings) 기준.
+        PlanningDashboardRepository.AiBriefingKpi briefingKpi = repository.aiBriefingKpi();
+        // KPI3·4(평균 대응 소요·임원 보고 지정)는 "대응·에스컬레이션 추적" 지표라 acknowledgement 기반을 유지한다
+        // (ai_briefings엔 승인 시각 개념이 없어 계산 불가). quarterKpi는 전략 탭과 공유되며 여기선 대응소요만 쓴다.
         PlanningDashboardRepository.QuarterKpi quarter = repository.quarterKpi();
         long executiveFlagged = repository.loadExecutiveFlaggedCount();
 
         List<PlanningDashboardDto.KpiSummaryItem> kpiSummary = List.of(
                 new PlanningDashboardDto.KpiSummaryItem(
-                        "이번 분기 브리핑", BigDecimal.valueOf(quarter.detectedCount()), "건"),
-                new PlanningDashboardDto.KpiSummaryItem("CRITICAL 비중", nullSafe(quarter.criticalRatio()), "%"),
+                        "이번 분기 브리핑", BigDecimal.valueOf(briefingKpi.briefingCount()), "건"),
+                new PlanningDashboardDto.KpiSummaryItem("CRITICAL 비중", nullSafe(briefingKpi.criticalRatio()), "%"),
                 new PlanningDashboardDto.KpiSummaryItem("평균 대응 소요", nullSafe(quarter.avgResponseDays()), "일"),
                 new PlanningDashboardDto.KpiSummaryItem(
                         "임원 보고 지정", BigDecimal.valueOf(executiveFlagged), "건"));
