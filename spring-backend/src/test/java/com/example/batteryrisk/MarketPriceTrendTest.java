@@ -66,7 +66,7 @@ class MarketPriceTrendTest {
     }
 
     @Test
-    void narrowWindowStartsAtHundredAgainInsteadOfInheritingTheOldBase() {
+    void narrowWindowKeepsTheFixedRefreshWindowBase() {
         stubPoints(
                 point("COBALT", 10, 100.0),
                 point("COBALT", 5, 105.0),
@@ -81,9 +81,9 @@ class MarketPriceTrendTest {
         MarketPriceDto.PriceSeries narrow = service.priceTrends(7).get(0);
 
         // 기준일이 옮겨가 105가 100이 되고, 110은 104.8이 된다(110/105 = 1.0476).
-        assertThat(narrow.baseDate()).isEqualTo(LocalDate.now(KST).minusDays(5).toString());
+        assertThat(narrow.baseDate()).isEqualTo(LocalDate.now(KST).minusDays(10).toString());
         assertThat(narrow.points()).extracting(MarketPriceDto.PricePoint::priceIndex)
-                .containsExactly(100.0, 104.8);
+                .containsExactly(105.0, 110.0);
     }
 
     /**
@@ -126,7 +126,7 @@ class MarketPriceTrendTest {
 
     /** 요청 구간이 실제 조회 경계로 전달되는지 — 여기가 어긋나면 재산정이 조용히 무력화된다. */
     @Test
-    void passesTheRequestedWindowToTheRepository() {
+    void loadsTheFixedRefreshWindowForAStableBase() {
         stubPoints(point("COBALT", 0, 100.0));
 
         service.priceTrends(7);
@@ -134,7 +134,7 @@ class MarketPriceTrendTest {
         ArgumentCaptor<LocalDate> captor = ArgumentCaptor.forClass(LocalDate.class);
         verify(priceRepository)
                 .findByPriceDateGreaterThanEqualOrderByMaterialCategoryAscPriceDateAsc(captor.capture());
-        assertThat(captor.getValue()).isEqualTo(LocalDate.now(KST).minusDays(7));
+        assertThat(captor.getValue()).isEqualTo(LocalDate.now(KST).minusDays(180));
     }
 
     /**
@@ -142,7 +142,7 @@ class MarketPriceTrendTest {
      * 패널이 통째로 비면 안 된다(뉴스 속보 limit과 같은 방침).
      */
     @Test
-    void clampsOutOfRangeWindowsInsteadOfFailing() {
+    void usesTheFixedRefreshWindowForOutOfRangeRequests() {
         stubPoints(point("COBALT", 0, 100.0));
 
         service.priceTrends(0);
@@ -152,8 +152,8 @@ class MarketPriceTrendTest {
         verify(priceRepository, org.mockito.Mockito.times(2))
                 .findByPriceDateGreaterThanEqualOrderByMaterialCategoryAscPriceDateAsc(captor.capture());
         LocalDate today = LocalDate.now(KST);
-        assertThat(captor.getAllValues().get(0)).isEqualTo(today.minusDays(1));   // 하한 1일
-        assertThat(captor.getAllValues().get(1)).isEqualTo(today.minusDays(180)); // 상한 = 수집 구간
+        assertThat(captor.getAllValues().get(0)).isEqualTo(today.minusDays(180));
+        assertThat(captor.getAllValues().get(1)).isEqualTo(today.minusDays(180));
     }
 
     /** 요약 카드도 같은 구간을 받아야 차트와 어긋나지 않는다. */
