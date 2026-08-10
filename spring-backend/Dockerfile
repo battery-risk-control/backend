@@ -23,5 +23,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/build/libs/*.jar app.jar
+COPY --from=erpseed . /app/erp-seed
+COPY --from=ragseed . /app/rag-seed
+
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
