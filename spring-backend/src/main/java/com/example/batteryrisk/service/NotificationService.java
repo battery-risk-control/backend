@@ -1,5 +1,6 @@
 package com.example.batteryrisk.service;
 
+import com.example.batteryrisk.domain.ApprovalStatus;
 import com.example.batteryrisk.domain.NotificationLog;
 import com.example.batteryrisk.domain.Role;
 import com.example.batteryrisk.domain.User;
@@ -96,7 +97,8 @@ public class NotificationService {
                 + (news.title() != null ? " — " + news.title() : "");
         String body = buildBody(assessment, news, briefing);
 
-        List<User> recipients = userRepository.findByRoleInAndEnabledTrueAndEmailIsNotNull(NOTIFY_ROLES);
+        List<User> recipients = userRepository.findByRoleInAndEnabledTrueAndApprovalStatusAndEmailIsNotNull(
+                NOTIFY_ROLES, ApprovalStatus.APPROVED);
         sendPerRecipient(assessment, EMAIL_CHANNEL, recipients, baseSubject, body);
     }
 
@@ -149,7 +151,8 @@ public class NotificationService {
         NotificationChannel email = channelsByName.get(EMAIL_CHANNEL);
         if (email == null) return;
 
-        List<User> recipients = userRepository.findByRoleInAndEnabledTrueAndEmailIsNotNull(NOTIFY_ROLES);
+        List<User> recipients = userRepository.findByRoleInAndEnabledTrueAndApprovalStatusAndEmailIsNotNull(
+                NOTIFY_ROLES, ApprovalStatus.APPROVED);
 
         Set<String> seenEmails = new LinkedHashSet<>();
         for (User user : recipients) {
