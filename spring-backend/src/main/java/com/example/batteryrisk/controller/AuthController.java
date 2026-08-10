@@ -1,9 +1,13 @@
 package com.example.batteryrisk.controller;
 
+import com.example.batteryrisk.domain.ApprovalStatus;
 import com.example.batteryrisk.domain.User;
 import com.example.batteryrisk.dto.ApiResponse;
+import com.example.batteryrisk.dto.auth.AdminUserSummary;
+import com.example.batteryrisk.dto.auth.CaptchaResponse;
 import com.example.batteryrisk.dto.auth.LoginRequest;
 import com.example.batteryrisk.dto.auth.LoginResponse;
+import com.example.batteryrisk.dto.auth.PasswordChangeRequest;
 import com.example.batteryrisk.dto.auth.RefreshResponse;
 import com.example.batteryrisk.dto.auth.SignupRequest;
 import com.example.batteryrisk.dto.auth.UserSummary;
@@ -11,6 +15,7 @@ import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.security.CustomUserDetails;
 import com.example.batteryrisk.service.AuthService;
+import com.example.batteryrisk.service.CaptchaService;
 import com.example.batteryrisk.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -21,14 +26,19 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -42,6 +52,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserService userService;
+    private final CaptchaService captchaService;
 
     // 쿠키 속성. dev(http localhost)는 SameSite=Lax·Secure off로 동작하고, 운영(https)에서는
     // env로 SameSite=None·Secure=true로 올린다. Max-Age는 refresh 토큰 유효기간과 맞춘다.
@@ -54,9 +65,10 @@ public class AuthController {
     @Value("${app.jwt.refresh-token-validity-seconds:1209600}")
     private long refreshTokenValiditySeconds;
 
-    public AuthController(AuthService authService, UserService userService) {
+    public AuthController(AuthService authService, UserService userService, CaptchaService captchaService) {
         this.authService = authService;
         this.userService = userService;
+        this.captchaService = captchaService;
     }
 
     /** refresh 토큰을 담은 HttpOnly 쿠키를 만든다. maxAgeSeconds=0이면 삭제용 쿠키다. */
@@ -118,10 +130,64 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(authService.me(userDetails)));
     }
 
+    @GetMapping("/captcha")
+    @Operation(summary = "자동입력 방지 문자 발급", description = "로그인 실패가 누적된 계정에서 요구되는 캡챠 이미지를 발급합니다.")
+    public ResponseEntity<ApiResponse<CaptchaResponse>> captcha() {
+        return ResponseEntity.ok(ApiResponse.ok(captchaService.issue()));
+    }
+
+    @PostMapping("/password/reset-expired")
+    @Operation(summary = "만료 비밀번호 재설정",
+            description = "유효기간이 만료돼 로그인할 수 없는 계정을 현재 비밀번호 확인 후 재설정합니다.")
+    public ResponseEntity<ApiResponse<UserSummary>> resetExpiredPassword(
+            @Valid @RequestBody PasswordChangeRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.resetExpiredPassword(request)));
+    }
+
+    @PutMapping("/password")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "비밀번호 변경", description = "로그인 상태에서 본인 비밀번호를 변경합니다.")
+    public ResponseEntity<ApiResponse<UserSummary>> changePassword(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody PasswordChangeRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                authService.changeMyPassword(userDetails.getId(), request)));
+    }
+
+    @GetMapping("/users")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "가입 계정 목록(관리자)",
+            description = "지정 상태(기본 PENDING)의 가입 계정을 조회합니다. 관리자 전용(관리자 계정은 제외).")
+    public ResponseEntity<ApiResponse<List<AdminUserSummary>>> listUsers(
+            @RequestParam(name = "status", defaultValue = "PENDING") ApprovalStatus status) {
+        List<AdminUserSummary> users = userService.findByApprovalStatus(status).stream()
+                .map(AdminUserSummary::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.ok(users));
+    }
+
     @PostMapping("/users/{userId}/approve")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "가입 승인", description = "승인 대기(PENDING) 계정을 로그인 가능 상태로 전환합니다.")
-    public ResponseEntity<ApiResponse<UserSummary>> approve(@PathVariable Long userId) {
-        return ResponseEntity.ok(ApiResponse.ok(UserSummary.from(userService.approve(userId))));
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "가입 승인(관리자)", description = "계정을 승인(APPROVED) 상태로 전환합니다. 관리자 전용.")
+    public ResponseEntity<ApiResponse<AdminUserSummary>> approve(@PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.ok(AdminUserSummary.from(userService.approve(userId))));
+    }
+
+    @PostMapping("/users/{userId}/reject")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "가입 거부(관리자)", description = "계정을 거부(REJECTED) 상태로 전환합니다(대기·승인 모두 가능). 관리자 전용.")
+    public ResponseEntity<ApiResponse<AdminUserSummary>> reject(@PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.ok(AdminUserSummary.from(userService.reject(userId))));
+    }
+
+    @PostMapping("/users/{userId}/reopen")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "거부 해제(관리자)", description = "거부(REJECTED) 계정을 다시 승인 대기(PENDING)로 되돌립니다. 관리자 전용.")
+    public ResponseEntity<ApiResponse<AdminUserSummary>> reopen(@PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.ok(AdminUserSummary.from(userService.reopen(userId))));
     }
 }
