@@ -208,17 +208,18 @@ public class PlanningDashboardService {
 
     public PlanningDashboardDto.AiBriefingSummaryDashboard aiBriefing(int page, int size) {
         List<PlanningDashboardDto.RankedBarItem> byUnit = repository.loadBriefingCountByUnit();
-        String materialKeywordPattern = RiskEventService.materialKeywordPattern();
         List<PlanningDashboardDto.BriefingSummaryItem> recent =
-                repository.findRecentBriefings(size, page * size, materialKeywordPattern);
-        long recentTotalCount = repository.countRecentBriefings(materialKeywordPattern);
+                repository.findRecentBriefings(size, page * size);
+        long recentTotalCount = repository.countRecentBriefings();
+        PlanningDashboardRepository.BriefingKpi briefingKpi = repository.loadBriefingKpi();
         PlanningDashboardRepository.QuarterKpi quarter = repository.quarterKpi();
         long executiveFlagged = repository.loadExecutiveFlaggedCount();
 
         List<PlanningDashboardDto.KpiSummaryItem> kpiSummary = List.of(
                 new PlanningDashboardDto.KpiSummaryItem(
-                        "이번 분기 브리핑", BigDecimal.valueOf(quarter.detectedCount()), "건"),
-                new PlanningDashboardDto.KpiSummaryItem("CRITICAL 비중", nullSafe(quarter.criticalRatio()), "%"),
+                        "이번 분기 브리핑", BigDecimal.valueOf(briefingKpi.quarterCount()), "건"),
+                new PlanningDashboardDto.KpiSummaryItem(
+                        "심각 브리핑 비중", nullSafe(briefingKpi.quarterCriticalRatio()), "%"),
                 new PlanningDashboardDto.KpiSummaryItem("평균 대응 소요", nullSafe(quarter.avgResponseDays()), "일"),
                 new PlanningDashboardDto.KpiSummaryItem(
                         "임원 보고 지정", BigDecimal.valueOf(executiveFlagged), "건"));

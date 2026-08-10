@@ -187,6 +187,11 @@ public class PlanningDashboardRepository {
                 WHERE p.erp_exposure_score IS NOT NULL
                   AND p.erp_material_id IS NOT NULL
                   AND NOT p.mock
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM procurement_risk_acknowledgements ack
+                      WHERE ack.assessment_id = p.assessment_id
+                  )
                 ORDER BY p.erp_material_id, p.created_at DESC
             ),
             material_inventory AS (
@@ -489,92 +494,103 @@ public class PlanningDashboardRepository {
 
     // ===== AI 브리핑 =====
 
-    public List<PlanningDashboardDto.RankedBarItem> loadBriefingCountByUnit() {
-        return jdbc.query("""
-                SELECT bu.name, COUNT(*) AS briefing_count
-                FROM analyses a
-                JOIN material_category_business_units cb ON cb.material_category = a.material_category
-                JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
-                WHERE a.status = 'COMPLETED' AND a.created_at >= date_trunc('quarter', now())
-                GROUP BY bu.name
-                ORDER BY bu.name
-                """, new MapSqlParameterSource(), (rs, rowNum) -> new PlanningDashboardDto.RankedBarItem(
-                rs.getString("name"), rs.getBigDecimal("briefing_count"), "건", "neutral"));
+    public record BriefingKpi(long quarterCount, BigDecimal quarterCriticalRatio) {}
+
+    /** 실제 생성·저장된 완성 브리핑만 이번 분기 KPI로 집계한다. */
+    public BriefingKpi loadBriefingKpi() {
+        return jdbc.queryForObject("""
+                SELECT
+                    COUNT(*) AS briefing_count,
+                    COALESCE(
+                        ROUND(
+                            100.0 * COUNT(*) FILTER (
+                                WHERE procurement_risk_level = 'CRITICAL'
+                            ) / NULLIF(COUNT(*), 0),
+                            1
+                        ),
+                        0
+                    ) AS critical_ratio
+                FROM ai_briefings
+                WHERE composite = TRUE
+                  AND briefing_text IS NOT NULL
+                  AND analysis_id IS NOT NULL
+                  AND created_at >= date_trunc('quarter', now())
+                """, new MapSqlParameterSource(), (rs, rowNum) -> new BriefingKpi(
+                rs.getLong("briefing_count"), rs.getBigDecimal("critical_ratio")));
     }
 
-    public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(
-            int limit,
-            int offset,
-            String materialKeywordPattern
-    ) {
+    public List<PlanningDashboardDto.RankedBarItem> loadBriefingCountByUnit() {
+        return jdbc.query("""
+                SELECT COALESCE(bu.name, '미분류') AS business_unit_name,
+                       COUNT(*) AS briefing_count
+                FROM ai_briefings b
+                LEFT JOIN material_category_business_units cb
+                       ON cb.material_category = b.material_category
+                LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
+                WHERE b.composite = TRUE
+                  AND b.briefing_text IS NOT NULL
+                  AND b.analysis_id IS NOT NULL
+                GROUP BY COALESCE(bu.name, '미분류')
+                ORDER BY business_unit_name
+                """, new MapSqlParameterSource(), (rs, rowNum) -> new PlanningDashboardDto.RankedBarItem(
+                rs.getString("business_unit_name"), rs.getBigDecimal("briefing_count"), "건", "neutral"));
+    }
+
+    public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(int limit, int offset) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("limit", limit)
-                .addValue("offset", offset)
-                .addValue("materialKeywordPattern", materialKeywordPattern);
+                .addValue("offset", offset);
         return jdbc.query("""
                 SELECT
-                    a.analysis_id,
-                    a.material_category,
-                    a.severity,
-                    (SELECT p.procurement_risk_level
-                       FROM procurement_risk_assessments p
-                      WHERE p.analysis_id = a.analysis_id
-                      ORDER BY p.created_at DESC
-                      LIMIT 1) AS risk_level,
-                    COALESCE(NULLIF(BTRIM(e.title_ko), ''), a.event_title) AS headline,
-                    bu.name AS business_unit_name
-                FROM analyses a
-                JOIN LATERAL (
+                    b.analysis_id,
+                    b.material_category,
+                    b.material_name,
+                    b.procurement_risk_level AS risk_level,
+                    COALESCE(
+                        NULLIF(BTRIM(e.title_ko), ''),
+                        NULLIF(BTRIM(b.subject_title), ''),
+                        NULLIF(BTRIM(b.source_headline), ''),
+                        '제목 없음'
+                    ) AS headline,
+                    COALESCE(bu.name, '미분류') AS business_unit_name
+                FROM ai_briefings b
+                LEFT JOIN LATERAL (
                     SELECT re.title_ko
                     FROM raw_events re
-                    WHERE re.triggered_analysis_id = a.analysis_id
+                    WHERE re.triggered_analysis_id = b.analysis_id
                       AND re.data_type = 'NEWS'
-                      AND (
-                          COALESCE(re.title, '') || ' ' || COALESCE(re.content, '')
-                      ) ~* :materialKeywordPattern
                     ORDER BY re.collected_at DESC
                     LIMIT 1
                 ) e ON TRUE
-                LEFT JOIN material_category_business_units cb ON cb.material_category = a.material_category
+                LEFT JOIN material_category_business_units cb ON cb.material_category = b.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
-                WHERE a.status = 'COMPLETED' AND a.severity IS NOT NULL
-                ORDER BY a.created_at DESC
+                WHERE b.composite = TRUE
+                  AND b.briefing_text IS NOT NULL
+                  AND b.analysis_id IS NOT NULL
+                ORDER BY b.created_at DESC
                 LIMIT :limit OFFSET :offset
                 """, params, (rs, rowNum) -> {
-            // 뱃지 등급은 종합 위험등급(procurement_risk_level)에서 온다. analyses.severity(외부신호 축)를
-            // 쓰면 같은 이벤트가 1계층·브리핑 본문과 다른 색으로 찍힌다(RiskEventService의 규칙과 동일).
-            // 종합등급이 아직 없는 건만 외부신호로 폴백한다.
             String grade = gradeKo(rs.getString("risk_level"));
-            if (grade == null) {
-                grade = gradeKo(rs.getString("severity"));
-            }
             String category = rs.getString("material_category");
+            String material = rs.getString("material_name");
             return new PlanningDashboardDto.BriefingSummaryItem(
                     rs.getString("analysis_id"),
-                    materialNameKo(category),
+                    material == null || material.isBlank() ? materialNameKo(category) : material,
                     grade == null ? "주의" : grade,
                     rs.getString("headline"),
                     rs.getString("business_unit_name"));
         });
     }
 
-    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
-    public long countRecentBriefings(String materialKeywordPattern) {
+    /** {@link #findRecentBriefings}과 같은 저장 브리핑 모집단의 전체 건수. */
+    public long countRecentBriefings() {
         Long count = jdbc.queryForObject("""
                 SELECT COUNT(*)
-                FROM analyses a
-                WHERE a.status = 'COMPLETED'
-                  AND a.severity IS NOT NULL
-                  AND EXISTS (
-                      SELECT 1
-                      FROM raw_events re
-                      WHERE re.triggered_analysis_id = a.analysis_id
-                        AND re.data_type = 'NEWS'
-                        AND (
-                            COALESCE(re.title, '') || ' ' || COALESCE(re.content, '')
-                        ) ~* :materialKeywordPattern
-                  )
-                """, new MapSqlParameterSource("materialKeywordPattern", materialKeywordPattern), Long.class);
+                FROM ai_briefings
+                WHERE composite = TRUE
+                  AND briefing_text IS NOT NULL
+                  AND analysis_id IS NOT NULL
+                """, new MapSqlParameterSource(), Long.class);
         return count == null ? 0L : count;
     }
 
