@@ -55,6 +55,7 @@ class PlanningDashboardDetailSqlTest {
                 CREATE TABLE IF NOT EXISTS ai_briefings (
                     analysis_id            UUID,
                     material_category      VARCHAR(50),
+                    material_name          VARCHAR(200),
                     procurement_risk_level VARCHAR(20),
                     composite              BOOLEAN,
                     source_headline        VARCHAR(500),

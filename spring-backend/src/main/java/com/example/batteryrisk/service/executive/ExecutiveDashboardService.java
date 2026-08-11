@@ -69,7 +69,7 @@ public class ExecutiveDashboardService {
                         riskSummary.criticalCount(),
                         riskSummary.warningCount(),
                         averageRiskScore(materialRisk),
-                        riskSummary.verifiedBriefingCount(),
+                        verificationSummary.passedCount(),
                         verificationSummary.reviewRequiredCount(),
                         riskSummary.latestAssessedAt()
                 );

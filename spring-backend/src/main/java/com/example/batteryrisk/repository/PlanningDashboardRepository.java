@@ -189,6 +189,11 @@ public class PlanningDashboardRepository {
                 WHERE p.erp_exposure_score IS NOT NULL
                   AND p.erp_material_id IS NOT NULL
                   AND NOT p.mock
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM procurement_risk_acknowledgements ack
+                      WHERE ack.assessment_id = p.assessment_id
+                  )
                 ORDER BY p.erp_material_id, p.created_at DESC
             ),
             material_inventory AS (
@@ -518,13 +523,22 @@ public class PlanningDashboardRepository {
                 SELECT
                     b.analysis_id,
                     b.material_category,
+                    b.material_name,
                     b.procurement_risk_level AS risk_level,
-                    -- 한국어 번역 제목(raw_events.title_ko)을 최우선으로 쓴다. 번역이 없을 때만
-                    -- 영문 원문(source_headline·subject_title)으로 폴백한다. re는 analysis당 1건이라
-                    -- 조인해도 행이 늘지 않는다.
-                    COALESCE(NULLIF(BTRIM(re.title_ko), ''),
-                             NULLIF(BTRIM(b.source_headline), ''), b.subject_title) AS headline,
-                    bu.name AS business_unit_name
+                    COALESCE(
+                        NULLIF(BTRIM((
+                            SELECT re.title_ko
+                            FROM raw_events re
+                            WHERE re.triggered_analysis_id = b.analysis_id
+                              AND re.data_type = 'NEWS'
+                            ORDER BY re.collected_at DESC
+                            LIMIT 1
+                        )), ''),
+                        NULLIF(BTRIM(b.subject_title), ''),
+                        NULLIF(BTRIM(b.source_headline), ''),
+                        '제목 없음'
+                    ) AS headline,
+                    COALESCE(bu.name, '미분류') AS business_unit_name
                 FROM ai_briefings b
                 LEFT JOIN raw_events re ON re.triggered_analysis_id = b.analysis_id
                 LEFT JOIN material_category_business_units cb ON cb.material_category = b.material_category
@@ -537,9 +551,10 @@ public class PlanningDashboardRepository {
             // → 정상/주의/심각. gradeKo가 못 맞추면 '주의'로 폴백.
             String grade = gradeKo(rs.getString("risk_level"));
             String category = rs.getString("material_category");
+            String material = rs.getString("material_name");
             return new PlanningDashboardDto.BriefingSummaryItem(
                     rs.getString("analysis_id"),
-                    materialNameKo(category),
+                    material == null || material.isBlank() ? materialNameKo(category) : material,
                     grade == null ? "주의" : grade,
                     rs.getString("headline"),
                     rs.getString("business_unit_name"));
