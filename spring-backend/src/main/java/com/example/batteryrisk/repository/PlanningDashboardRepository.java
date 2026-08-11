@@ -540,7 +540,6 @@ public class PlanningDashboardRepository {
                     ) AS headline,
                     COALESCE(bu.name, '미분류') AS business_unit_name
                 FROM ai_briefings b
-                LEFT JOIN raw_events re ON re.triggered_analysis_id = b.analysis_id
                 LEFT JOIN material_category_business_units cb ON cb.material_category = b.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
                 WHERE b.analysis_id IS NOT NULL
