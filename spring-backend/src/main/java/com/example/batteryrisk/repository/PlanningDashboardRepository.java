@@ -494,48 +494,25 @@ public class PlanningDashboardRepository {
 
     // ===== AI 브리핑 =====
 
-    public record BriefingKpi(long quarterCount, BigDecimal quarterCriticalRatio) {}
-
-    /** 실제 생성·저장된 완성 브리핑만 이번 분기 KPI로 집계한다. */
-    public BriefingKpi loadBriefingKpi() {
-        return jdbc.queryForObject("""
-                SELECT
-                    COUNT(*) AS briefing_count,
-                    COALESCE(
-                        ROUND(
-                            100.0 * COUNT(*) FILTER (
-                                WHERE procurement_risk_level = 'CRITICAL'
-                            ) / NULLIF(COUNT(*), 0),
-                            1
-                        ),
-                        0
-                    ) AS critical_ratio
-                FROM ai_briefings
-                WHERE composite = TRUE
-                  AND briefing_text IS NOT NULL
-                  AND analysis_id IS NOT NULL
-                  AND created_at >= date_trunc('quarter', now())
-                """, new MapSqlParameterSource(), (rs, rowNum) -> new BriefingKpi(
-                rs.getLong("briefing_count"), rs.getBigDecimal("critical_ratio")));
-    }
-
+    // "AI 브리핑 취합"은 1계층과 동일하게 실제 생성 브리핑(ai_briefings)만 센다 — analyses(브리핑 전
+    // 단계)를 세면 멀티에이전트가 아직 안 돈 정상건까지 잡혀 라벨('브리핑')과 데이터('분석')가 어긋난다.
+    // ai_briefings.material_category가 직접 있어(V28) analyses 조인 없이 같은 뷰로 사업부 매핑이 된다.
     public List<PlanningDashboardDto.RankedBarItem> loadBriefingCountByUnit() {
         return jdbc.query("""
-                SELECT COALESCE(bu.name, '미분류') AS business_unit_name,
-                       COUNT(*) AS briefing_count
+                SELECT bu.name, COUNT(*) AS briefing_count
                 FROM ai_briefings b
-                LEFT JOIN material_category_business_units cb
-                       ON cb.material_category = b.material_category
-                LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
-                WHERE b.composite = TRUE
-                  AND b.briefing_text IS NOT NULL
+                JOIN material_category_business_units cb ON cb.material_category = b.material_category
+                JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
+                WHERE b.created_at >= date_trunc('quarter', now())
                   AND b.analysis_id IS NOT NULL
-                GROUP BY COALESCE(bu.name, '미분류')
-                ORDER BY business_unit_name
+                GROUP BY bu.name
+                ORDER BY bu.name
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new PlanningDashboardDto.RankedBarItem(
-                rs.getString("business_unit_name"), rs.getBigDecimal("briefing_count"), "건", "neutral"));
+                rs.getString("name"), rs.getBigDecimal("briefing_count"), "건", "neutral"));
     }
 
+    // 최근 브리핑 목록도 ai_briefings 단독으로 뽑는다(analysis_id 있는 것 = 뉴스 기반 브리핑).
+    // 드릴다운 키는 analysis_id 그대로 — 상세(findBriefingDetail)가 이미 ai_briefings 조인이라 그대로 작동.
     public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(int limit, int offset) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("limit", limit)
@@ -547,29 +524,28 @@ public class PlanningDashboardRepository {
                     b.material_name,
                     b.procurement_risk_level AS risk_level,
                     COALESCE(
-                        NULLIF(BTRIM(e.title_ko), ''),
+                        NULLIF(BTRIM((
+                            SELECT re.title_ko
+                            FROM raw_events re
+                            WHERE re.triggered_analysis_id = b.analysis_id
+                              AND re.data_type = 'NEWS'
+                            ORDER BY re.collected_at DESC
+                            LIMIT 1
+                        )), ''),
                         NULLIF(BTRIM(b.subject_title), ''),
                         NULLIF(BTRIM(b.source_headline), ''),
                         '제목 없음'
                     ) AS headline,
                     COALESCE(bu.name, '미분류') AS business_unit_name
                 FROM ai_briefings b
-                LEFT JOIN LATERAL (
-                    SELECT re.title_ko
-                    FROM raw_events re
-                    WHERE re.triggered_analysis_id = b.analysis_id
-                      AND re.data_type = 'NEWS'
-                    ORDER BY re.collected_at DESC
-                    LIMIT 1
-                ) e ON TRUE
                 LEFT JOIN material_category_business_units cb ON cb.material_category = b.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
-                WHERE b.composite = TRUE
-                  AND b.briefing_text IS NOT NULL
-                  AND b.analysis_id IS NOT NULL
+                WHERE b.analysis_id IS NOT NULL
                 ORDER BY b.created_at DESC
                 LIMIT :limit OFFSET :offset
                 """, params, (rs, rowNum) -> {
+            // 뱃지 등급은 종합 위험등급(procurement_risk_level, ai_briefings에 NOT NULL). NORMAL/WARNING/CRITICAL
+            // → 정상/주의/심각. gradeKo가 못 맞추면 '주의'로 폴백.
             String grade = gradeKo(rs.getString("risk_level"));
             String category = rs.getString("material_category");
             String material = rs.getString("material_name");
@@ -582,16 +558,35 @@ public class PlanningDashboardRepository {
         });
     }
 
-    /** {@link #findRecentBriefings}과 같은 저장 브리핑 모집단의 전체 건수. */
+    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
     public long countRecentBriefings() {
-        Long count = jdbc.queryForObject("""
-                SELECT COUNT(*)
-                FROM ai_briefings
-                WHERE composite = TRUE
-                  AND briefing_text IS NOT NULL
-                  AND analysis_id IS NOT NULL
-                """, new MapSqlParameterSource(), Long.class);
+        Long count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ai_briefings b WHERE b.analysis_id IS NOT NULL",
+                new MapSqlParameterSource(), Long.class);
         return count == null ? 0L : count;
+    }
+
+    /** AI 브리핑 탭 전용 KPI(이번 분기 실제 생성 브리핑 건수 / CRITICAL 비중). 전략 탭 {@link #quarterKpi}와 분리한다. */
+    public record AiBriefingKpi(long briefingCount, BigDecimal criticalRatio) {}
+
+    /** 이번 분기 ai_briefings 건수와 그중 CRITICAL(등급 유효=composite) 비중. */
+    public AiBriefingKpi aiBriefingKpi() {
+        return jdbc.queryForObject("""
+                WITH quarter AS (
+                    SELECT * FROM ai_briefings
+                    WHERE created_at >= date_trunc('quarter', now())
+                      AND analysis_id IS NOT NULL
+                )
+                SELECT
+                    (SELECT COUNT(*) FROM quarter) AS briefing_count,
+                    CASE WHEN (SELECT COUNT(*) FROM quarter) = 0 THEN NULL
+                         ELSE (SELECT COUNT(*) FROM quarter
+                                WHERE procurement_risk_level = 'CRITICAL' AND composite = TRUE)::numeric
+                              / (SELECT COUNT(*) FROM quarter) * 100
+                    END AS critical_ratio
+                """, new MapSqlParameterSource(), (rs, rowNum) -> new AiBriefingKpi(
+                rs.getLong("briefing_count"),
+                rs.getBigDecimal("critical_ratio")));
     }
 
     /** CRITICAL이면서 이미 처리(acknowledge)된 평가 건수 — "임원 보고 지정" 기본 정의. */

@@ -102,7 +102,14 @@ public class SecurityConfig {
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers(
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/signup",
+                                "/api/v1/auth/refresh",
+                                // 캡챠 발급·만료 비밀번호 재설정은 로그인 전(비인증) 화면에서 호출한다.
+                                "/api/v1/auth/captcha",
+                                "/api/v1/auth/password/reset-expired"
+                        ).permitAll()
                         // 대시보드 집계는 재고일수·공급사 의존도 등 ERP 내부 값을 포함하므로 인증을 요구한다.
                         // 비로그인 공개 화면(뉴스·가격 추이 등)이 생기면 별도 경로에 permitAll을 둔다.
                         .requestMatchers(

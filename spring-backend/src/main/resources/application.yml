@@ -180,6 +180,22 @@ app:
     refresh-cookie:
       secure: ${REFRESH_COOKIE_SECURE:false}
       same-site: ${REFRESH_COOKIE_SAME_SITE:Lax}
+    # 접근통제(규제 가이드 제4조). 연속 실패 max-failures회 도달 시 lock-minutes분 잠근다.
+    lockout:
+      max-failures: ${AUTH_LOCKOUT_MAX_FAILURES:5}
+      lock-minutes: ${AUTH_LOCKOUT_LOCK_MINUTES:5}
+    # 로그인 실패가 이 횟수 이상 누적되면 캡챠를 요구한다(계정 잠금 전 단계).
+    captcha-threshold: ${AUTH_CAPTCHA_THRESHOLD:3}
+    # 비밀번호 유효기간(일). 초과 시 로그인에서 재설정을 요구한다.
+    password:
+      max-age-days: ${AUTH_PASSWORD_MAX_AGE_DAYS:90}
+    # 운영용 관리자(ADMIN) 시드. 자격증명은 env로만 주입하고, 미설정이면 계정을 만들지 않는다.
+    admin-seed:
+      enabled: ${AUTH_ADMIN_SEED_ENABLED:false}
+      username: ${AUTH_ADMIN_USERNAME:}
+      password: ${AUTH_ADMIN_PASSWORD:}
+      name: ${AUTH_ADMIN_NAME:시스템 관리자}
+      email: ${AUTH_ADMIN_EMAIL:}
     # 프론트 e2e용 고정 테스트 계정 시드. 운영에는 끄고, CI/로컬 e2e에서만 true로 켠다.
     test-seed:
       enabled: ${AUTH_TEST_SEED_ENABLED:false}

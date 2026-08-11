@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.time.LocalDate;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 /**
  * 2계층 드릴다운 2종({@code findBriefingDetail}·{@code findContractDetail})의 원시 SQL 스모크.
@@ -51,12 +53,18 @@ class PlanningDashboardDetailSqlTest {
                     business_unit_id  BIGINT NOT NULL)""");
         jdbc.getJdbcTemplate().execute("""
                 CREATE TABLE IF NOT EXISTS ai_briefings (
-                    analysis_id         UUID,
-                    briefing_text       TEXT,
-                    recommended_actions TEXT,
-                    contract_findings   TEXT,
-                    warnings            TEXT,
-                    created_at          TIMESTAMP WITH TIME ZONE NOT NULL)""");
+                    analysis_id            UUID,
+                    material_category      VARCHAR(50),
+                    material_name          VARCHAR(200),
+                    procurement_risk_level VARCHAR(20),
+                    composite              BOOLEAN,
+                    source_headline        VARCHAR(500),
+                    subject_title          VARCHAR(500),
+                    briefing_text          TEXT,
+                    recommended_actions    TEXT,
+                    contract_findings      TEXT,
+                    warnings               TEXT,
+                    created_at             TIMESTAMP WITH TIME ZONE NOT NULL)""");
         jdbc.getJdbcTemplate().execute("""
                 CREATE TABLE IF NOT EXISTS procurement_risk_assessments (
                     analysis_id            UUID,
@@ -165,6 +173,60 @@ class PlanningDashboardDetailSqlTest {
     void briefingDetailReturnsNullForUnknownOrMalformedId() {
         assertThat(repository.findBriefingDetail(UUID.randomUUID().toString())).isNull();
         assertThat(repository.findBriefingDetail("not-a-uuid")).isNull();
+    }
+
+    /**
+     * "AI 브리핑 취합"의 분포·목록·총계·KPI가 이제 analyses가 아니라 ai_briefings(실제 생성 브리핑)에서
+     * 나오는지 검증한다. analyses 조인 없이 ai_briefings 단독 + 뷰로 사업부·등급·드릴다운 키가 나와야 한다.
+     */
+    @Test
+    void aiBriefingListDistributionAndKpiReadFromAiBriefings() {
+        // 상세 픽스처의 ai_briefings 2건은 material_category가 없어 분포에서 빠지므로, 직접 통제한다.
+        jdbc.getJdbcTemplate().execute("DELETE FROM ai_briefings");
+        UUID a = ANALYSIS_ID;
+        UUID b = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID c = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        insertBriefing(a, "코발트", "CRITICAL", true, "콩고 코발트 수출 중단");   // 배터리셀 · CRITICAL 완주
+        insertBriefing(b, "코발트", "WARNING", true, "코발트 가격 급등");         // 배터리셀 · WARNING
+        insertBriefing(c, null, "NORMAL", false, "일반 뉴스");                    // 자재 미상 → 분포 제외, 목록/KPI 포함
+
+        // 분포: 코발트 2건이 배터리셀사업부로, 자재 NULL은 뷰 INNER JOIN에서 제외
+        var byUnit = repository.loadBriefingCountByUnit();
+        assertThat(byUnit).hasSize(1);
+        assertThat(byUnit.get(0).name()).isEqualTo("배터리셀사업부");
+        assertThat(byUnit.get(0).value()).isEqualByComparingTo("2");
+
+        // 목록: analysis_id 있는 3건 전부. 등급은 종합 위험등급(procurement_risk_level)에서.
+        var recent = repository.findRecentBriefings(10, 0);
+        assertThat(recent).hasSize(3);
+        assertThat(recent).extracting(PlanningDashboardDto.BriefingSummaryItem::grade)
+                .containsExactlyInAnyOrder("심각", "주의", "정상");
+        var cobalt = recent.stream().filter(i -> "코발트".equals(i.material())).findFirst().orElseThrow();
+        assertThat(cobalt.businessUnit()).isEqualTo("배터리셀사업부");
+        assertThat(cobalt.riskEventId()).isNotBlank();  // 드릴다운 키 = analysis_id
+
+        // 총계
+        assertThat(repository.countRecentBriefings()).isEqualTo(3);
+
+        // KPI: 이번 분기 3건, CRITICAL(composite=TRUE) 비중 = 1/3 ≈ 33.3%
+        var kpi = repository.aiBriefingKpi();
+        assertThat(kpi.briefingCount()).isEqualTo(3);
+        assertThat(kpi.criticalRatio().doubleValue()).isCloseTo(100.0 / 3, within(0.1));
+    }
+
+    private void insertBriefing(UUID id, String category, String level, boolean composite, String headline) {
+        jdbc.update("""
+                INSERT INTO ai_briefings (analysis_id, material_category, procurement_risk_level, composite,
+                                          source_headline, subject_title, briefing_text, recommended_actions,
+                                          contract_findings, warnings, created_at)
+                VALUES (:id, :cat, :level, :composite, :headline, :headline, '본문', '[]', '[]', '[]', :now)""",
+                new MapSqlParameterSource()
+                        .addValue("id", id)
+                        .addValue("cat", category)
+                        .addValue("level", level)
+                        .addValue("composite", composite)
+                        .addValue("headline", headline)
+                        .addValue("now", OffsetDateTime.now()));
     }
 
     @Test
