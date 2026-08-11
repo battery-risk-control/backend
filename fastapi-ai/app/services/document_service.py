@@ -97,6 +97,14 @@ class InMemoryDocumentStore:
             reverse=True,
         )
 
+    def delete(self, document_id: str) -> bool:
+        with self._lock:
+            document = self._documents.pop(document_id, None)
+            if document is None:
+                return False
+            self._hash_index.pop((document.contract_id, document.content_hash), None)
+            return True
+
     def clear(self) -> None:
         with self._lock:
             self._documents.clear()
@@ -207,6 +215,18 @@ class DocumentService:
             mock_embedding=mock_embedding,
         )
         return self.store.save(document), False
+
+    def delete(self, document_id: str) -> int:
+        """document_id의 모든 청크를 ChromaDB와 임시 저장소에서 지운다.
+
+        멱등이다 — 없는 document_id면 0을 돌려준다. Spring이 계약서 교체 시 계약에 남은
+        형제 문서들의 임베딩을 정리하는 데 쓴다.
+        """
+        deleted = 0
+        if self.vector_store is not None:
+            deleted = self.vector_store.delete_document(document_id)
+        self.store.delete(document_id)
+        return deleted
 
     def extract_text(self, content: bytes, file_name: str) -> str:
         """청킹/임베딩 없이 원문 텍스트만 뽑는다.

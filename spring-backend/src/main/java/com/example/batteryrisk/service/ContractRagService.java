@@ -2,6 +2,7 @@ package com.example.batteryrisk.service;
 
 import com.example.batteryrisk.dto.ContractRagDto;
 import com.example.batteryrisk.dto.DocumentDto;
+import com.example.batteryrisk.dto.OutboundDocumentDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.exception.GlobalExceptionHandler.RagSearchException;
@@ -106,14 +107,17 @@ public class ContractRagService {
 
     private final ContractRagRepository repository;
     private final DocumentService documentService;
+    private final OutboundDocumentService outboundDocumentService;
     private final RestClient fastApiRestClient;
 
     public ContractRagService(
             ContractRagRepository repository,
             DocumentService documentService,
+            OutboundDocumentService outboundDocumentService,
             RestClient fastApiRestClient) {
         this.repository = repository;
         this.documentService = documentService;
+        this.outboundDocumentService = outboundDocumentService;
         this.fastApiRestClient = fastApiRestClient;
     }
 
@@ -310,10 +314,75 @@ public class ContractRagService {
                 contractId, documents.size(), success, documents.size() - success, items);
     }
 
+    /**
+     * 아웃바운드(제품 납품) 계약서 추가 업로드. {@link #upload}의 아웃바운드판 — 공급사·자재 대신
+     * 제품·고객사를 계약에서 채운다. 인바운드와 동일하게 같은 내용이면 duplicate, 기존 문서가 있으면
+     * document_id를 재사용해 교체한다({@link OutboundDocumentService#upload}).
+     */
+    public ContractRagDto.UploadResponse uploadOutbound(long outboundContractId, MultipartFile file) {
+        ContractRagDto.ContractSummary contract = findOutboundContract(outboundContractId);
+        if (contract.productId() == null || contract.customerId() == null) {
+            throw new BusinessException(
+                    ErrorCode.ERP_CONTRACT_NOT_FOUND,
+                    "이 납품계약에는 제품·고객사가 연결돼 있지 않아 문서를 적재할 수 없습니다.");
+        }
+
+        OutboundDocumentDto.UploadResponse uploaded = outboundDocumentService.upload(
+                file, outboundContractId, contract.productId(), contract.customerId(), UPLOAD_DOCUMENT_TYPE);
+        log.info("납품계약 문서 업로드: outboundContractId={}, documentId={}, chunks={}, duplicate={}",
+                outboundContractId, uploaded.documentId(), uploaded.chunkCount(), uploaded.duplicate());
+
+        return new ContractRagDto.UploadResponse(
+                uploaded.documentId(),
+                uploaded.outboundContractId(),
+                uploaded.fileName(),
+                uploaded.processingStatus(),
+                uploaded.chunkCount(),
+                uploaded.embeddingType(),
+                uploaded.embeddingVersion(),
+                uploaded.duplicate(),
+                uploaded.mock(),
+                uploaded.processedAt());
+    }
+
+    /**
+     * 아웃바운드 "문서 재처리". {@link #reprocess}의 아웃바운드판 — 이 계약에 달린 납품계약 문서를
+     * 전부 다시 임베딩한다. 한 문서가 실패해도 나머지는 계속 처리하고 문서별 결과를 돌려준다.
+     */
+    public ContractRagDto.ReprocessResponse reprocessOutbound(long outboundContractId) {
+        findOutboundContract(outboundContractId);
+        List<ContractRagDto.DocumentItem> documents = repository.findOutboundDocuments(outboundContractId);
+
+        List<ContractRagDto.ReprocessItem> items = new ArrayList<>();
+        int success = 0;
+        for (ContractRagDto.DocumentItem document : documents) {
+            try {
+                OutboundDocumentDto.UploadResponse result = outboundDocumentService.reprocess(document.documentId());
+                items.add(new ContractRagDto.ReprocessItem(
+                        document.documentId(), document.originalFileName(),
+                        true, result.chunkCount(), null, null));
+                success++;
+            } catch (RuntimeException exception) {
+                log.warn("납품계약 문서 재처리 실패: outboundContractId={}, documentId={}",
+                        outboundContractId, document.documentId(), exception);
+                items.add(new ContractRagDto.ReprocessItem(
+                        document.documentId(), document.originalFileName(), false, 0,
+                        "DOCUMENT_REPROCESS_FAILED", exception.getMessage()));
+            }
+        }
+        return new ContractRagDto.ReprocessResponse(
+                outboundContractId, documents.size(), success, documents.size() - success, items);
+    }
+
     // ---------------------------------------------------------------- 내부 helper
 
     private ContractRagDto.ContractSummary findContract(long contractId) {
         return repository.findContract(contractId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ERP_CONTRACT_NOT_FOUND));
+    }
+
+    private ContractRagDto.ContractSummary findOutboundContract(long outboundContractId) {
+        return repository.findOutboundContract(outboundContractId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ERP_CONTRACT_NOT_FOUND));
     }
 

@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -44,14 +45,17 @@ public class PlanningDashboardService {
     private final PlanningDashboardRepository repository;
     private final SupplierQualificationService supplierQualificationService;
     private final RestClient fastApiRestClient;
+    private final SummaryClient summaryClient;
 
     public PlanningDashboardService(
             PlanningDashboardRepository repository,
             SupplierQualificationService supplierQualificationService,
-            RestClient fastApiRestClient) {
+            RestClient fastApiRestClient,
+            SummaryClient summaryClient) {
         this.repository = repository;
         this.supplierQualificationService = supplierQualificationService;
         this.fastApiRestClient = fastApiRestClient;
+        this.summaryClient = summaryClient;
     }
 
     // ===== 전략 대시보드 =====
@@ -318,12 +322,39 @@ public class PlanningDashboardService {
 
     // ===== 드릴다운 상세 =====
 
+    // 클래스 기본 readOnly 트랜잭션을 쓰지 않는다 — (1) 아래 요약 저장이 read-only에서 막히고,
+    // (2) 수 초 걸리는 LLM 호출 동안 DB 커넥션을 붙잡지 않기 위해서다. 저장은 repository의
+    // REQUIRES_NEW 트랜잭션이 담당한다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public PlanningDashboardDto.AiBriefingDetail aiBriefingDetail(String analysisId) {
         PlanningDashboardDto.AiBriefingDetail detail = repository.findBriefingDetail(analysisId);
         if (detail == null) {
             throw new BusinessException(ErrorCode.ANALYSIS_BRIEFING_NOT_FOUND);
         }
+        // 상세 화면용 자세한 요약이 아직 없으면 FastAPI로 생성해 캐시한다(브리핑당 최초 1회 LLM 호출,
+        // 이후 조회는 저장분 재사용). 원문이 없거나 생성 실패면 그대로 두고 화면이 짧은
+        // summary_kr로 폴백한다.
+        if (isBlank(detail.briefingSummaryKr()) && !isBlank(detail.eventContent())) {
+            String generated = summaryClient.summarize(detail.headline(), detail.eventContent());
+            if (!isBlank(generated)) {
+                repository.saveBriefingSummary(analysisId, generated);
+                detail = withBriefingSummary(detail, generated);
+            }
+        }
         return detail;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    /** 요약만 바꾼 사본을 만든다(record는 불변이라 새로 조립한다). */
+    private static PlanningDashboardDto.AiBriefingDetail withBriefingSummary(
+            PlanningDashboardDto.AiBriefingDetail d, String summary) {
+        return new PlanningDashboardDto.AiBriefingDetail(
+                d.analysisId(), d.material(), d.businessUnit(), d.grade(), d.headline(),
+                d.eventContent(), d.summaryKr(), summary, d.sourceUrl(), d.briefing(),
+                d.recommendedActions(), d.contractFindings(), d.warnings(), d.assessedAt());
     }
 
     public PlanningDashboardDto.ContractDetail contractDetail(String contractNumber) {

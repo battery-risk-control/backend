@@ -42,6 +42,21 @@ def get_extraction_service() -> ExtractionService:
 
 
 @lru_cache
+def get_summary_service():
+    """경영기획 상세용 '자세한 요약' 생성기. OPENAI_API_KEY가 있으면 실제 LLM, 없으면 mock."""
+    import os
+    from app.services.summary_service import SummaryService
+    use_openai = bool(os.environ.get("OPENAI_API_KEY"))
+    try:
+        service = SummaryService(use_openai=use_openai)
+        logger.warning("[SUMMARY MODE] %s", "gpt-4o-mini 요약기" if use_openai else "mock 요약기")
+        return service
+    except Exception as exception:  # noqa: BLE001 - 초기화 실패 시 mock으로 폴백
+        logger.warning("[SUMMARY MODE] OpenAI 요약기 초기화 실패, mock으로 폴백: %s", exception)
+        return SummaryService(use_openai=False)
+
+
+@lru_cache
 def get_feature_service() -> FeatureService: return FeatureService()
 
 
@@ -117,7 +132,7 @@ def get_orchestration_service():
 
 def reset_dependencies() -> None:
     for dependency in (
-        get_extraction_service, get_feature_service,
+        get_extraction_service, get_summary_service, get_feature_service,
         get_severity_service, get_erp_context_service, get_briefing_service,
         get_risk_repository, get_embedding_service, get_vector_store,
         get_rag_service, get_document_service, get_multi_agent_graph,

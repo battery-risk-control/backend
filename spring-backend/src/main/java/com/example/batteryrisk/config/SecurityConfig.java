@@ -79,6 +79,10 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        // 다운로드 파일명은 Content-Disposition에 실려 온다. 교차 출처(프론트 5173 → API 8080)에서는
+        // 이 헤더가 기본적으로 JS에 노출되지 않아, 브라우저가 원 파일명을 못 읽고 폴백명
+        // ('contract-document')으로 저장한다. 명시적으로 노출해 원본 파일명으로 저장되게 한다.
+        configuration.setExposedHeaders(List.of("Content-Disposition"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -517,9 +519,14 @@ public class PlanningDashboardRepository {
                     b.analysis_id,
                     b.material_category,
                     b.procurement_risk_level AS risk_level,
-                    COALESCE(NULLIF(BTRIM(b.source_headline), ''), b.subject_title) AS headline,
+                    -- 한국어 번역 제목(raw_events.title_ko)을 최우선으로 쓴다. 번역이 없을 때만
+                    -- 영문 원문(source_headline·subject_title)으로 폴백한다. re는 analysis당 1건이라
+                    -- 조인해도 행이 늘지 않는다.
+                    COALESCE(NULLIF(BTRIM(re.title_ko), ''),
+                             NULLIF(BTRIM(b.source_headline), ''), b.subject_title) AS headline,
                     bu.name AS business_unit_name
                 FROM ai_briefings b
+                LEFT JOIN raw_events re ON re.triggered_analysis_id = b.analysis_id
                 LEFT JOIN material_category_business_units cb ON cb.material_category = b.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
                 WHERE b.analysis_id IS NOT NULL
@@ -620,7 +627,7 @@ public class PlanningDashboardRepository {
 
     private record BriefingDetailRow(
             String analysisId, String material, String businessUnitName, String severity, String riskLevel,
-            String eventTitle, String eventContent,
+            String eventTitle, String eventContent, String summaryKr, String briefingSummaryKr, String sourceUrl,
             String briefing, String recommendedActionsJson, String contractFindingsJson,
             String warningsJson, OffsetDateTime assessedAt) {}
 
@@ -641,11 +648,17 @@ public class PlanningDashboardRepository {
         // p는 assessed_at 하나 때문에 유지한다. 두 LEFT JOIN이 겹치면 행이 곱해지므로
         // 정렬을 b 최신 → p 최신 순으로 두어 rows.get(0)이 최신 쌍을 집게 한다.
         List<BriefingDetailRow> rows = jdbc.query("""
-                SELECT a.analysis_id, a.material_category, a.severity, a.event_title, a.event_content,
+                SELECT a.analysis_id, a.material_category, a.severity,
+                       -- 화면 제목은 한국어 번역(raw_events.title_ko) 우선, 없으면 영문 원문.
+                       COALESCE(NULLIF(BTRIM(re.title_ko), ''), a.event_title) AS event_title,
+                       a.event_content, a.summary_kr, b.briefing_summary_kr,
+                       -- 원문 링크는 분석(analyses)에 없으면 수집 원본(raw_events)에서 보완한다.
+                       COALESCE(a.source_url, re.source_url) AS source_url,
                        bu.name AS business_unit_name,
                        b.briefing_text AS briefing, b.recommended_actions, b.contract_findings,
                        b.warnings, p.assessed_at, p.procurement_risk_level AS risk_level
                 FROM analyses a
+                LEFT JOIN raw_events re ON re.triggered_analysis_id = a.analysis_id
                 LEFT JOIN material_category_business_units cb ON cb.material_category = a.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
                 LEFT JOIN ai_briefings b ON b.analysis_id = a.analysis_id
@@ -660,6 +673,9 @@ public class PlanningDashboardRepository {
                 rs.getString("risk_level"),
                 rs.getString("event_title"),
                 rs.getString("event_content"),
+                rs.getString("summary_kr"),
+                rs.getString("briefing_summary_kr"),
+                rs.getString("source_url"),
                 rs.getString("briefing"),
                 rs.getString("recommended_actions"),
                 rs.getString("contract_findings"),
@@ -682,11 +698,39 @@ public class PlanningDashboardRepository {
                 grade,
                 row.eventTitle(),
                 row.eventContent(),
+                row.summaryKr(),
+                row.briefingSummaryKr(),
+                row.sourceUrl(),
                 row.briefing(),
                 fromJson(row.recommendedActionsJson(), STRING_LIST),
                 fromJson(row.contractFindingsJson(), OBJECT_MAP_LIST),
                 fromJson(row.warningsJson(), STRING_LIST),
                 row.assessedAt());
+    }
+
+    /**
+     * 상세 화면용 자세한 요약을 최신 ai_briefings 행에 캐시한다. analysisId가 UUID가 아니거나
+     * 대상 브리핑이 없으면 아무것도 하지 않는다(브리핑이 없는 분석은 상세 요약을 붙일 곳이 없다).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveBriefingSummary(String analysisId, String summaryKr) {
+        UUID parsed;
+        try {
+            parsed = UUID.fromString(analysisId);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+        jdbc.update("""
+                UPDATE ai_briefings SET briefing_summary_kr = :summary
+                WHERE briefing_id = (
+                    SELECT briefing_id FROM ai_briefings
+                    WHERE analysis_id = :analysisId
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                )
+                """, new MapSqlParameterSource()
+                .addValue("summary", summaryKr)
+                .addValue("analysisId", parsed));
     }
 
     // ===== 계약 상세(드릴다운) =====
