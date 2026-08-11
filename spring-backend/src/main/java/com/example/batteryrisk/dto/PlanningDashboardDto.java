@@ -137,6 +137,12 @@ public final class PlanningDashboardDto {
             String grade,
             String headline,
             String eventContent,
+            /** analyses.summary_kr — 추출 단계의 짧은(2문장) 한국어 요약. 상세 요약 폴백용. */
+            String summaryKr,
+            /** ai_briefings.briefing_summary_kr — 상세 화면용 LLM 자세한 요약. 없으면 null(summary_kr로 폴백). */
+            String briefingSummaryKr,
+            /** analyses.source_url — 뉴스 원문 링크. 화면의 "뉴스 원문 보기" 버튼이 연다. */
+            String sourceUrl,
             String briefing,
             List<String> recommendedActions,
             List<Map<String, Object>> contractFindings,

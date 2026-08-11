@@ -22,14 +22,21 @@ logger = logging.getLogger(__name__)
 # 같은 자재 집합을 보여주도록(2026-08-06). RARE_EARTH는 희토류 전업 상장사가 시장별로 제각각이라
 # 단일 대표 종목이 없어, 희토류·전략금속 ETF인 REMX(VanEck)를 프록시로 쓴다 — 다른 항목도 채굴/생산
 # 기업 주가를 대리 지표로 쓰는 것과 같은 성격이다.
+#
+# 전 종목을 미국 거래소로 통일했다(2026-08-11). 예전엔 망간·흑연을 호주 ASX 본류 상장(S32.AX·SYR.AX)
+# 으로 뒀는데, yfinance가 거래소 현지 tz로 봉을 찍어 이 둘만 KST 09:00~15:00에, 나머지는 밤~새벽에
+# 들어와 시간축이 갈렸다. 망간은 South32의 미국 ADR(SOUHY)로 바꿔 같은 회사를 그대로 유지했고,
+# 흑연은 Syrah ADR(SYAAF)이 OTC라 장중 봉이 거의 없어, 대신 미국 NYSE 상장 흑연 종목
+# Nouveau Monde Graphite(NMG)로 대표 종목을 교체했다. 이제 전 종목이 America/New_York 기준이라
+# KST 밤~새벽에 함께 갱신된다.
 MATERIAL_TICKERS: dict[str, str] = {
     "LITHIUM": "ALB",       # Albemarle (NYSE)
     "NICKEL": "BHP",        # BHP Group (ADR)
     "COBALT": "GLNCY",      # Glencore (ADR)
-    "MANGANESE": "S32.AX",  # South32 (ASX) — 문서상 'S32'는 미조회, .AX 접미사 필요
+    "MANGANESE": "SOUHY",   # South32 미국 ADR — S32.AX(ASX)와 같은 회사, 타임존만 미국으로 통일
     "ALUMINUM": "AA",       # Alcoa (NYSE)
     "COPPER": "FCX",        # Freeport-McMoRan (NYSE)
-    "GRAPHITE": "SYR.AX",   # Syrah Resources (ASX) — 마찬가지로 .AX 필요
+    "GRAPHITE": "NMG",      # Nouveau Monde Graphite (NYSE) — Syrah(ASX) 대신 미국 상장 흑연 대표 종목
     "RARE_EARTH": "REMX",   # VanEck Rare Earth/Strategic Metals ETF — 희토류 프록시(단일 상장사 부재)
 }
 
@@ -86,8 +93,9 @@ def fetch_intraday() -> MarketPriceResult:
     일봉(fetch_prices)과 달리 저장하지 않고 조회 때마다 받는다 — 시간별 데이터는 "1일" 탭에서만
     쓰고 양도 적어, DB 스키마(자재·거래일 복합키)를 시간 단위로 넓히는 대신 실시간 조회로 둔다.
 
-    price_date에는 날짜가 아니라 tz-aware ISO 타임스탬프(예: 2026-08-07T09:00:00-04:00)를 담는다.
-    거래소가 미국·호주로 섞여 있어 Spring이 KST로 환산해 한 축에 정렬한다. 20일 변동성은 시간
+    price_date에는 날짜가 아니라 tz-aware ISO 타임스탬프(예: 2026-08-07T09:30:00-04:00)를 담는다.
+    전 종목이 미국 거래소(America/New_York)라 Spring이 이 tz-aware 시각을 KST로 환산해 한 축에
+    정렬한다 — 미국 정규장은 KST로 대략 밤 22:30~새벽 05:00 구간이다. 20일 변동성은 시간
     단위로 정의가 없어 항상 None으로 두고, 리스크 지수는 Spring이 저장된 일간 변동성으로 채운다.
     """
     import yfinance as yf

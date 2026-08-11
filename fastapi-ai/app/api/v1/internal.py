@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import (
     get_briefing_service, get_extraction_service, get_severity_service,
+    get_summary_service,
 )
 from app.schemas.analyze import EventInput
 from app.schemas.briefing import (
@@ -16,9 +17,11 @@ from app.schemas.common import ApiErrorResponse, ApiResponse
 from app.schemas.extraction import ExtractionRequest, ExtractionResult
 from app.schemas.internal import SeverityScoreRequest
 from app.schemas.severity import SeverityResult
+from app.schemas.summary import SummaryRequest, SummaryResult
 from app.services.briefing_service import BriefingService
 from app.services.extraction_service import ExtractionService
 from app.services.severity_service import SeverityService
+from app.services.summary_service import SummaryService
 
 router = APIRouter(prefix="/api/v1/internal", tags=["internal"])
 ERRORS = {422: {"model": ApiErrorResponse}, 500: {"model": ApiErrorResponse}}
@@ -31,6 +34,15 @@ def extract(request: ExtractionRequest, service: ExtractionService = Depends(get
         source_name="INTERNAL", published_at=datetime.now(timezone.utc), country_code=request.country_code,
     )
     return ApiResponse(data=service.extract(event))
+
+
+@router.post("/llm/summarize", response_model=ApiResponse[SummaryResult], responses=ERRORS)
+def summarize(
+    request: SummaryRequest,
+    service: SummaryService = Depends(get_summary_service),
+) -> ApiResponse[SummaryResult]:
+    """경영기획 AI 브리핑 상세 전용 '자세한 한국어 요약' 생성(추출 summary_kr보다 길다)."""
+    return ApiResponse(data=service.summarize(request.title, request.content))
 
 
 @router.post("/severity/score", response_model=ApiResponse[SeverityResult], responses=ERRORS)

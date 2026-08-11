@@ -6,7 +6,11 @@ from pydantic import BaseModel
 from app.api.dependencies import get_document_service
 from app.core.exceptions import DocumentIdentifierRequired
 from app.schemas.common import ApiErrorResponse, ApiResponse
-from app.schemas.document import DocumentChunkResult, DocumentProcessResult
+from app.schemas.document import (
+    DocumentChunkResult,
+    DocumentDeleteResult,
+    DocumentProcessResult,
+)
 from app.services.document_service import DocumentService
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
@@ -93,3 +97,21 @@ async def process_document(
         mock_embedding=document.mock_embedding,
         duplicate=duplicate,
     ))
+
+
+@router.delete(
+    "/{document_id}",
+    response_model=ApiResponse[DocumentDeleteResult],
+    responses=ERRORS,
+)
+async def delete_document(
+    document_id: str,
+    service: DocumentService = Depends(get_document_service),
+) -> ApiResponse[DocumentDeleteResult]:
+    """document_id의 모든 청크를 ChromaDB에서 삭제한다. 멱등 — 없으면 0건.
+
+    Spring이 계약서를 교체할 때, 같은 계약에 남아 있던 옛 문서들의 임베딩을 정리하는 데 쓴다.
+    """
+    deleted = service.delete(document_id)
+    return ApiResponse(data=DocumentDeleteResult(
+        document_id=document_id, deleted_chunks=deleted))

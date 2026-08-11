@@ -17,6 +17,11 @@ class DocumentChunkResult(ApiModel):
     customer_id: int | None = None
 
 
+class DocumentDeleteResult(ApiModel):
+    document_id: str
+    deleted_chunks: int
+
+
 class DocumentProcessResult(ApiModel):
     document_id: str
     contract_id: int
