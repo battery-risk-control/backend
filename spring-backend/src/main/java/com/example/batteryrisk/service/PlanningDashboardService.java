@@ -4,7 +4,6 @@ import com.example.batteryrisk.dto.PlanningDashboardDto;
 import com.example.batteryrisk.dto.SupplierDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
-import com.example.batteryrisk.repository.DashboardRepository;
 import com.example.batteryrisk.repository.PlanningDashboardRepository;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
@@ -45,19 +44,19 @@ public class PlanningDashboardService {
             "LITHIUM", "COBALT", "NICKEL", "GRAPHITE", "MANGANESE", "COPPER", "ALUMINUM", "RARE_EARTH");
 
     private final PlanningDashboardRepository repository;
-    private final DashboardRepository dashboardRepository;
+    private final RiskEventService riskEventService;
     private final SupplierQualificationService supplierQualificationService;
     private final RestClient fastApiRestClient;
     private final SummaryClient summaryClient;
 
     public PlanningDashboardService(
             PlanningDashboardRepository repository,
-            DashboardRepository dashboardRepository,
+            RiskEventService riskEventService,
             SupplierQualificationService supplierQualificationService,
             RestClient fastApiRestClient,
             SummaryClient summaryClient) {
         this.repository = repository;
-        this.dashboardRepository = dashboardRepository;
+        this.riskEventService = riskEventService;
         this.supplierQualificationService = supplierQualificationService;
         this.fastApiRestClient = fastApiRestClient;
         this.summaryClient = summaryClient;
@@ -79,8 +78,8 @@ public class PlanningDashboardService {
                 new PlanningDashboardDto.KpiSummaryItem(
                         "평균 대응 소요", nullSafe(quarter.avgResponseDays()), "일"));
 
-        // 경영진 대시보드의 latest_assessed_at과 동일 소스(같은 latest CTE)를 재사용해 두 화면의 기준 시각을 일치시킨다.
-        OffsetDateTime asOf = dashboardRepository.loadLatestAssessedAt();
+        // 기준 시각 = 최신 공급망 뉴스 수집 시각(실시간 뉴스 유입). 경영진 대시보드와 같은 소스를 써 두 화면을 일치시킨다.
+        OffsetDateTime asOf = riskEventService.latestSupplyChainNewsCollectedAt();
 
         return new PlanningDashboardDto.StrategyDashboard(
                 "전체", currentQuarterLabel(), kpiSummary, exposureByUnit, vendorHistory, asOf);

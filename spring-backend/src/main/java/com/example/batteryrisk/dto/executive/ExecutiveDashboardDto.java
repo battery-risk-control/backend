@@ -50,6 +50,7 @@ public final class ExecutiveDashboardDto {
             List<PlanningDashboardDto.SupplierRiskRankItem> supplierRisks,
             List<PlanningDashboardDto.EntityBadgeItem> alternativeSuppliers,
             List<PlanningDashboardDto.BriefingSummaryItem> recentBriefings,
-            VerificationSummary verificationSummary
+            VerificationSummary verificationSummary,
+            OffsetDateTime asOf
     ) {}
 }
