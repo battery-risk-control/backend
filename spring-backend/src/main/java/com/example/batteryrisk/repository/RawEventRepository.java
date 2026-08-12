@@ -166,6 +166,23 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
     long countSupplyChainNews(String keywordPattern, String countryCode);
 
     /**
+     * 최신 공급망 뉴스의 수집 시각(대시보드 "기준 시각"). {@link #findSupplyChainNews}가 보여주는
+     * 목록 최상단 기사의 {@code collected_at}과 같은 값이다 — 그 목록은 {@code collected_at DESC}
+     * 정렬이라 최댓값이 곧 맨 위 항목이다. 만료 규칙(심각 10일·주의 5일·그 외 3일)은 오래된 항목만
+     * 걷어내고 최신 항목은 항상 창 안에 있으므로 MAX에 영향을 주지 않아 생략한다. 없으면 {@code null}.
+     */
+    @Query(nativeQuery = true, value = """
+            SELECT MAX(e.collected_at)
+            FROM raw_events e
+            LEFT JOIN analyses an ON an.analysis_id = e.triggered_analysis_id
+            WHERE e.data_type = 'NEWS'
+              AND e.title IS NOT NULL
+              AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
+                   OR an.material_category IS NOT NULL)
+            """)
+    Instant findLatestSupplyChainCollectedAt(String keywordPattern);
+
+    /**
      * 분석에 대응하는 수집 원본. 지도 마커의 제목을 한국어로 보여주기 위해 쓴다 —
      * {@code analyses.event_title}은 GDELT 원문(영문)이고 번역본은 {@code raw_events.title_ko}에만
      * 있어서, 이 조인이 없으면 지도만 영문 제목이 뜬다(뉴스 속보는 이미 번역본을 쓴다).

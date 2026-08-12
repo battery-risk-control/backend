@@ -22,7 +22,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -584,6 +586,18 @@ public class RiskEventService {
                 .map(RiskEventService::toNewsFeedItem)
                 .limit(cappedLimit)
                 .toList();
+    }
+
+    /**
+     * 최신 공급망 뉴스 수집 시각(2·3계층 대시보드 "기준 시각"). 뉴스 속보 목록 최상단 기사의
+     * {@code collected_at}과 같다 — 새 기사가 수집될 때마다 갱신되는 "실시간 뉴스 유입" 시각이다.
+     * 수집된 공급망 뉴스가 없으면 {@code null}(프론트에서 칩 숨김).
+     */
+    public OffsetDateTime latestSupplyChainNewsCollectedAt() {
+        Instant collectedAt = rawEventRepository.findLatestSupplyChainCollectedAt(materialKeywordPattern());
+        // collected_at은 엔티티가 Instant로 매핑한다. as_of DTO는 OffsetDateTime이므로 UTC 오프셋으로 변환한다
+        // (프론트가 표시 때 Asia/Seoul로 재환산하므로 오프셋 값 자체는 표기에 영향 없다).
+        return collectedAt == null ? null : OffsetDateTime.ofInstant(collectedAt, ZoneId.of("UTC"));
     }
 
     /** {@link #newsFeed}·{@link #countNewsFeed} 조건에 맞는 전체 건수. 화면이 마지막 페이지를 안다. */
