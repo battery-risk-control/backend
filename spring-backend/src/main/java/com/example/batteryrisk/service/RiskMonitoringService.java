@@ -106,25 +106,27 @@ public class RiskMonitoringService {
      * 공급망과 무관한 기사(정치·사건사고 등)가 상당수 섞이는데, 구매팀 리스크 목록에 그런 기사가
      * 올라오면 화면이 쓸모없어진다 — 실측에서도 최근 수집분 대부분이 그런 기사였다.
      *
-     * @param grade    "심각/주의/정상". null/공백이면 전체
-     * @param country  ISO 3166-1 alpha-2. null/공백이면 전체
-     * @param material 자재 표기명("리튬") 또는 대분류("LITHIUM"). null/공백이면 전체
-     * @param days     최근 N일. 1..{@value #MAX_DAYS}로 잘린다
-     * @param limit    노출 건수. 1..{@value #MAX_LIMIT}로 잘린다
+     * @param grade      "심각/주의/정상". null/공백이면 전체
+     * @param confidence "확정/경고/참고"(신뢰도). null/공백이면 전체
+     * @param country    ISO 3166-1 alpha-2. null/공백이면 전체
+     * @param material   자재 표기명("리튬") 또는 대분류("LITHIUM"). null/공백이면 전체
+     * @param days       최근 N일. 1..{@value #MAX_DAYS}로 잘린다
+     * @param limit      노출 건수. 1..{@value #MAX_LIMIT}로 잘린다
      */
-    public List<EventItem> list(String grade, String country, String material, int days, int limit) {
+    public List<EventItem> list(String grade, String confidence, String country, String material, int days, int limit) {
         int cappedLimit = clamp(limit, MAX_LIMIT);
         Instant since = Instant.now().minus(clamp(days, MAX_DAYS), ChronoUnit.DAYS);
         String countryFilter = upperOrNull(country);
         String gradeFilter = trimToNull(grade);
+        String confidenceFilter = trimToNull(confidence);
         String materialFilter = trimToNull(material);
 
         // 날짜·국가·자재 필터와 제목 중복 제거를 SQL에서 끝낸다. 예전에는 최신 400건을 먼저
         // 가져와 Java에서 걸렀는데, 그러면 관련 뉴스가 그 창 밖으로 밀려나 조회조차 되지
         // 않았다(실측 최근 7일: 자재가 분류된 고유 뉴스 14건 중 최신 400건 안에는 4건뿐).
         //
-        // 등급 필터만 Java에 남는다 — 등급은 브리핑 조회 결과에서 나오므로 이 쿼리 안에서
-        // 계산할 수 없다. 그래서 SQL은 MAX_LIMIT까지 가져오고 등급을 거른 뒤 최종 limit을
+        // 등급·신뢰도 필터만 Java에 남는다 — 둘 다 브리핑 조회 결과에서 나오므로 이 쿼리 안에서
+        // 계산할 수 없다. 그래서 SQL은 MAX_LIMIT까지 가져오고 등급·신뢰도를 거른 뒤 최종 limit을
         // 적용한다. 자르는 시점이 "전체 뉴스"가 아니라 "이미 걸러진 관련 뉴스"라는 게 차이다.
         List<RawEvent> events = rawEventRepository.findRiskMonitoringCandidates(
                 since, countryFilter, toMaterialCategory(materialFilter), MAX_LIMIT);
@@ -147,6 +149,7 @@ public class RiskMonitoringService {
 
         return items.stream()
                 .filter(item -> gradeFilter == null || gradeFilter.equals(item.grade()))
+                .filter(item -> confidenceFilter == null || confidenceFilter.equals(item.confidenceLabel()))
                 .limit(cappedLimit)
                 .toList();
     }
