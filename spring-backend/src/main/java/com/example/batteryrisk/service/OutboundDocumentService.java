@@ -3,7 +3,9 @@ package com.example.batteryrisk.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.batteryrisk.domain.OutboundDocument;
+import com.example.batteryrisk.dto.DocumentDto;
 import com.example.batteryrisk.dto.OutboundDocumentDto;
+import com.example.batteryrisk.exception.GlobalExceptionHandler.DocumentNotFoundException;
 import com.example.batteryrisk.exception.GlobalExceptionHandler.DocumentUploadException;
 import com.example.batteryrisk.repository.OutboundDocumentRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +32,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -78,6 +81,28 @@ public class OutboundDocumentService {
         this.uploadRoot = Path.of(uploadRoot).toAbsolutePath().normalize();
     }
 
+    /**
+     * 저장된 납품(outbound) 계약서 원본 파일을 바이트로 읽어 다운로드용으로 반환한다.
+     * 매입(inbound) 쪽 {@link DocumentService#download(String)}과 같은 패턴이며, 컨트롤러가
+     * document_id 접두({@code outcon_})로 이 경로를 고른다.
+     */
+    public DocumentDto.DownloadFile download(String documentId) {
+        OutboundDocument document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
+        Path storedFile = resolveStoredFile(Path.of(document.getFilePath()));
+        byte[] content;
+        try {
+            content = Files.readAllBytes(storedFile);
+        } catch (IOException exception) {
+            throw new DocumentUploadException(
+                    "ORIGINAL_FILE_NOT_FOUND",
+                    "저장된 원본 문서를 읽을 수 없습니다.",
+                    HttpStatus.NOT_FOUND);
+        }
+        return new DocumentDto.DownloadFile(
+                content, document.getOriginalFileName(), document.getMimeType());
+    }
+
     public OutboundDocumentDto.UploadResponse upload(
             MultipartFile file, Long outboundContractId, Long productId,
             Long customerId, String requestedDocumentType) {
@@ -85,11 +110,22 @@ public class OutboundDocumentService {
         byte[] content = read(file);
         String contentHash = sha256(content);
 
-        OutboundDocument existing = documentRepository
+        // 같은 계약에 바이트까지 동일한 파일이 이미 있으면 아무 것도 하지 않는다(멱등).
+        OutboundDocument sameContent = documentRepository
                 .findByOutboundContractIdAndContentHash(outboundContractId, contentHash)
                 .orElse(null);
-        if (existing != null) {
-            return toUploadResponse(existing, true, true);
+        if (sameContent != null) {
+            return toUploadResponse(sameContent, true, true);
+        }
+
+        // 같은 계약에 이전 문서가 있으면, 그 document_id를 재사용해 내용을 통째로 교체한다.
+        // FastAPI는 같은 document_id에 대해 옛 청크를 지우고 새 청크를 upsert하므로,
+        // 임베딩이 아래에 쌓이지 않고 새 것으로 대체된다.
+        OutboundDocument previous = documentRepository
+                .findFirstByOutboundContractIdOrderByCreatedAtDesc(outboundContractId)
+                .orElse(null);
+        if (previous != null) {
+            return replaceDocument(previous, metadata, content, contentHash, productId, customerId);
         }
 
         String documentId = generateDocumentId(metadata.documentType());
@@ -121,7 +157,7 @@ public class OutboundDocumentService {
         documentRepository.saveAndFlush(document);
 
         try {
-            OutboundDocumentDto.FastApiData data = processWithFastApi(document, content);
+            OutboundDocumentDto.FastApiData data = processWithFastApi(document, content, false);
             document.markCompleted(
                     data.chunkCount(), data.embeddingType(), data.embeddingVersion());
             documentRepository.saveAndFlush(document);
@@ -143,7 +179,127 @@ public class OutboundDocumentService {
         }
     }
 
-    private OutboundDocumentDto.FastApiData processWithFastApi(OutboundDocument document, byte[] content) {
+    /**
+     * 아웃바운드 계약의 기존 문서를 새 파일로 교체한다. document_id를 재사용하고 원본 파일과
+     * Metadata를 덮어쓴 뒤, force_reprocess로 FastAPI를 다시 불러 옛 임베딩을 새 것으로 바꾼다.
+     * (인바운드 {@code DocumentService.replaceDocument}의 아웃바운드판.)
+     */
+    private OutboundDocumentDto.UploadResponse replaceDocument(
+            OutboundDocument existing, FileMetadata metadata, byte[] content,
+            String contentHash, Long productId, Long customerId) {
+        String documentId = existing.getDocumentId();
+        Path relativePath = Path.of("outbound-contracts", documentId, "original." + metadata.extension());
+        Path storedFile = resolveStoredFile(relativePath);
+        Path previousFile = resolveStoredFile(Path.of(existing.getFilePath()));
+        overwriteOriginal(storedFile, content);
+        if (!storedFile.equals(previousFile)) {
+            deleteStoredFileQuietly(previousFile);
+        }
+
+        existing.replaceContent(
+                metadata.documentType(), metadata.fileName(), metadata.mimeType(),
+                content.length, contentHash,
+                relativePath.toString().replace('\\', '/'), productId, customerId);
+        documentRepository.saveAndFlush(existing);
+
+        try {
+            OutboundDocumentDto.FastApiData data = processWithFastApi(existing, content, true);
+            existing.markCompleted(
+                    data.chunkCount(), data.embeddingType(), data.embeddingVersion());
+            documentRepository.saveAndFlush(existing);
+            deleteSiblingDocuments(existing.getOutboundContractId(), existing.getDocumentId());
+            return toUploadResponse(existing, data.duplicate(), data.mock());
+        } catch (DocumentUploadException exception) {
+            existing.markFailed(exception.getCode(), exception.getMessage());
+            documentRepository.saveAndFlush(existing);
+            throw exception;
+        } catch (RuntimeException exception) {
+            log.error("Unexpected error while replacing outbound document {}", existing.getDocumentId(), exception);
+            existing.markFailed("DOCUMENT_PROCESSING_UNEXPECTED", "문서 교체 결과 저장에 실패했습니다.");
+            try {
+                documentRepository.saveAndFlush(existing);
+            } catch (RuntimeException saveException) {
+                log.error("Failed to persist FAILED status for outbound document {}",
+                        existing.getDocumentId(), saveException);
+            }
+            throw exception;
+        }
+    }
+
+    /**
+     * "문서 재처리". 저장된 원본을 디스크에서 다시 읽어 force_reprocess=true로 재적재한다 —
+     * ChromaDB의 이 document_id 청크를 지우고 새로 임베딩한다. (인바운드 {@code DocumentService.reprocess} 판박이.)
+     */
+    public OutboundDocumentDto.UploadResponse reprocess(String documentId) {
+        OutboundDocument document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
+        Path storedFile = resolveStoredFile(Path.of(document.getFilePath()));
+        byte[] content;
+        try {
+            content = Files.readAllBytes(storedFile);
+        } catch (IOException exception) {
+            document.markFailed("ORIGINAL_FILE_NOT_FOUND", "저장된 원본 문서를 읽을 수 없습니다.");
+            documentRepository.saveAndFlush(document);
+            throw new DocumentUploadException(
+                    "ORIGINAL_FILE_NOT_FOUND",
+                    "저장된 원본 문서를 읽을 수 없습니다.",
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        document.markProcessing();
+        documentRepository.saveAndFlush(document);
+        try {
+            OutboundDocumentDto.FastApiData data = processWithFastApi(document, content, true);
+            document.markCompleted(
+                    data.chunkCount(), data.embeddingType(), data.embeddingVersion());
+            documentRepository.saveAndFlush(document);
+            return toUploadResponse(document, false, data.mock());
+        } catch (DocumentUploadException exception) {
+            document.markFailed(exception.getCode(), exception.getMessage());
+            documentRepository.saveAndFlush(document);
+            throw exception;
+        } catch (RuntimeException exception) {
+            log.error("Unexpected error while reprocessing outbound document {}", document.getDocumentId(), exception);
+            document.markFailed("DOCUMENT_PROCESSING_UNEXPECTED", "문서 재처리에 실패했습니다.");
+            try {
+                documentRepository.saveAndFlush(document);
+            } catch (RuntimeException saveException) {
+                log.error("Failed to persist FAILED status for outbound document {}",
+                        document.getDocumentId(), saveException);
+            }
+            throw exception;
+        }
+    }
+
+    /** 교체로 살아남은 문서를 뺀 나머지 옛 문서들을 정리한다(FastAPI 임베딩 → 원본 파일 → DB 행). best-effort. */
+    private void deleteSiblingDocuments(Long outboundContractId, String survivingDocumentId) {
+        for (OutboundDocument sibling : documentRepository.findByOutboundContractId(outboundContractId)) {
+            if (sibling.getDocumentId().equals(survivingDocumentId)) {
+                continue;
+            }
+            deleteFastApiEmbeddings(sibling.getDocumentId());
+            cleanupStoredFile(resolveStoredFile(Path.of(sibling.getFilePath())));
+            try {
+                documentRepository.delete(sibling);
+            } catch (RuntimeException exception) {
+                log.warn("Failed to delete sibling outbound document row {}", sibling.getDocumentId(), exception);
+            }
+        }
+    }
+
+    private void deleteFastApiEmbeddings(String documentId) {
+        try {
+            fastApiRestClient.delete()
+                    .uri("/api/v1/documents/{documentId}", documentId)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception exception) {
+            log.warn("Failed to delete FastAPI embeddings for sibling outbound document {}", documentId, exception);
+        }
+    }
+
+    private OutboundDocumentDto.FastApiData processWithFastApi(
+            OutboundDocument document, byte[] content, boolean forceReprocess) {
         MultiValueMap<String, HttpEntity<?>> parts = new LinkedMultiValueMap<>();
         HttpHeaders fileHeaders = new HttpHeaders();
         fileHeaders.setContentType(MediaType.parseMediaType(document.getMimeType()));
@@ -158,7 +314,7 @@ public class OutboundDocumentService {
         parts.add("product_id", new HttpEntity<>(document.getProductId().toString()));
         parts.add("customer_id", new HttpEntity<>(document.getCustomerId().toString()));
         parts.add("document_type", new HttpEntity<>(document.getDocumentType()));
-        parts.add("force_reprocess", new HttpEntity<>("false"));
+        parts.add("force_reprocess", new HttpEntity<>(Boolean.toString(forceReprocess)));
 
         OutboundDocumentDto.FastApiResponse response;
         try {
@@ -298,6 +454,24 @@ public class OutboundDocumentService {
             Files.deleteIfExists(storedFile.getParent());
         } catch (IOException ignored) {
             // 원래 저장 오류를 보존하며, 남은 파일은 운영 정리 작업에서 처리합니다.
+        }
+    }
+
+    private void overwriteOriginal(Path storedFile, byte[] content) {
+        try {
+            Files.createDirectories(storedFile.getParent());
+            Files.write(storedFile, content,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException exception) {
+            throw new DocumentUploadException("FILE_STORAGE_FAILED", "원본 파일 저장에 실패했습니다.");
+        }
+    }
+
+    private void deleteStoredFileQuietly(Path storedFile) {
+        try {
+            Files.deleteIfExists(storedFile);
+        } catch (IOException ignored) {
+            // 옛 원본 정리는 실패해도 교체 자체엔 영향이 없다. 남은 파일은 운영 정리에서 처리한다.
         }
     }
 

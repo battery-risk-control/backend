@@ -97,6 +97,32 @@ public class Document {
         errorMessage = null;
     }
 
+    /**
+     * 같은 계약의 기존 문서를 새 파일로 통째로 교체한다. document_id·contract_id·created_at은
+     * 유지하고 원본 파일 Metadata와 처리 상태만 초기화한다 — 이 document_id로 FastAPI를
+     * 다시 부르면 ChromaDB의 옛 청크가 지워지고 새 청크로 대체되므로, 임베딩도 함께 교체된다.
+     */
+    public void replaceContent(
+            String documentType, String originalFileName, String mimeType,
+            long fileSizeBytes, String contentHash, String filePath,
+            Long supplierId, Long materialId) {
+        this.documentType = documentType;
+        this.originalFileName = originalFileName;
+        this.mimeType = mimeType;
+        this.fileSizeBytes = fileSizeBytes;
+        this.contentHash = contentHash;
+        this.filePath = filePath;
+        this.supplierId = supplierId;
+        this.materialId = materialId;
+        this.processingStatus = "PROCESSING";
+        this.chunkCount = 0;
+        this.embeddingType = null;
+        this.embeddingVersion = null;
+        this.errorCode = null;
+        this.errorMessage = null;
+        this.processedAt = null;
+    }
+
     public void markCompleted(int chunkCount, String embeddingType, String embeddingVersion) {
         processingStatus = "COMPLETED";
         this.chunkCount = chunkCount;

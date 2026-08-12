@@ -2,12 +2,17 @@ package com.example.batteryrisk.controller;
 
 import com.example.batteryrisk.dto.ApiResponse;
 import com.example.batteryrisk.dto.ContractRagDto;
+import com.example.batteryrisk.dto.DocumentDto;
 import com.example.batteryrisk.service.ContractRagService;
+import com.example.batteryrisk.service.DocumentService;
+import com.example.batteryrisk.service.OutboundDocumentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +25,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -50,9 +56,15 @@ import java.util.List;
 @PreAuthorize("hasAnyRole('PURCHASING','STRATEGY')")
 public class ContractRagController {
     private final ContractRagService contractRagService;
+    private final DocumentService documentService;
+    private final OutboundDocumentService outboundDocumentService;
 
-    public ContractRagController(ContractRagService contractRagService) {
+    public ContractRagController(
+            ContractRagService contractRagService, DocumentService documentService,
+            OutboundDocumentService outboundDocumentService) {
+        this.outboundDocumentService = outboundDocumentService;
         this.contractRagService = contractRagService;
+        this.documentService = documentService;
     }
 
     @Operation(
@@ -136,6 +148,63 @@ public class ContractRagController {
             @Parameter(description = "내부 계약 PK", example = "11")
             @PathVariable long contractId) {
         return ApiResponse.ok(contractRagService.reprocess(contractId));
+    }
+
+    @Operation(
+            summary = "납품계약서 추가 업로드 (구매팀 계약·RAG)",
+            description = "PDF/TXT 납품(아웃바운드) 계약 문서를 이 계약에 붙여 청킹·임베딩한 뒤 ChromaDB에 적재한다. "
+                    + "제품·고객사 ID는 계약에서 자동으로 채우므로 화면은 파일만 보내면 된다. 인바운드 업로드와 "
+                    + "동일하게 같은 내용이면 duplicate=true, 기존 문서가 있으면 그 자리를 교체한다.")
+    @PreAuthorize("hasRole('PURCHASING')")
+    @PostMapping(value = "/outbound-contracts/{outboundContractId}/documents",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<ContractRagDto.UploadResponse> uploadOutbound(
+            @Parameter(description = "내부 아웃바운드 계약 PK", example = "2")
+            @PathVariable long outboundContractId,
+            @RequestPart("file") MultipartFile file) {
+        return ApiResponse.ok(contractRagService.uploadOutbound(outboundContractId, file));
+    }
+
+    @Operation(
+            summary = "납품계약 문서 재처리 (구매팀 계약·RAG)",
+            description = "이 납품(아웃바운드) 계약에 달린 문서를 전부 다시 임베딩해 ChromaDB에 올린다. "
+                    + "일부 문서가 실패해도 나머지는 계속 처리하고 문서별 성공/실패를 함께 반환한다.")
+    @PreAuthorize("hasRole('PURCHASING')")
+    @PostMapping("/outbound-contracts/{outboundContractId}/reprocess")
+    public ApiResponse<ContractRagDto.ReprocessResponse> reprocessOutbound(
+            @Parameter(description = "내부 아웃바운드 계약 PK", example = "2")
+            @PathVariable long outboundContractId) {
+        return ApiResponse.ok(contractRagService.reprocessOutbound(outboundContractId));
+    }
+
+    @Operation(
+            summary = "계약서 원본 다운로드 (구매팀 계약·RAG)",
+            description = "document_id로 저장된 계약서 원본 파일(PDF/TXT)을 그대로 내려준다. AI 브리핑의 "
+                    + "'계약서에서 확인된 근거'가 참조하는 계약서를 확인용으로 받는 경로다. 계약 원문을 "
+                    + "노출하므로 조회지만 인증(Bearer)을 유지한다.")
+    @GetMapping("/documents/{documentId}/download")
+    public ResponseEntity<byte[]> download(
+            @Parameter(description = "계약서 문서 ID", example = "con_2cebc9cba32446c9a8dbed9f8368b82e")
+            @PathVariable String documentId) {
+        // 납품(outbound) 계약 문서는 별도 테이블/서비스라 접두(outcon_)로 갈라 보낸다.
+        // 그 외(con_/po_/…)는 기존 매입(inbound) 다운로드 경로.
+        DocumentDto.DownloadFile file = documentId.startsWith("outcon_")
+                ? outboundDocumentService.download(documentId)
+                : documentService.download(documentId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, attachment(file.fileName()))
+                .contentLength(file.content().length)
+                .body(file.content());
+    }
+
+    /**
+     * ASCII 파일명과 함께 규격대로 {@code filename*}(UTF-8)을 낸다 — 계약서 파일명에 한글이 섞여도
+     * 브라우저가 올바로 저장하도록. AiBriefingController.attachment와 같은 방식이다.
+     */
+    private static String attachment(String fileName) {
+        String encoded = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+        return "attachment; filename=\"" + fileName + "\"; filename*=UTF-8''" + encoded;
     }
 
 }

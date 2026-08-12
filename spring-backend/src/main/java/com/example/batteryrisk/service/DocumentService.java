@@ -79,10 +79,20 @@ public class DocumentService {
         byte[] content = read(file);
         String contentHash = sha256(content);
 
-        Document existing = documentRepository.findByContractIdAndContentHash(contractId, contentHash)
+        // 같은 계약에 바이트까지 동일한 파일이 이미 있으면 아무 것도 하지 않는다(멱등).
+        Document sameContent = documentRepository.findByContractIdAndContentHash(contractId, contentHash)
                 .orElse(null);
-        if (existing != null) {
-            return toUploadResponse(existing, true, true);
+        if (sameContent != null) {
+            return toUploadResponse(sameContent, true, true);
+        }
+
+        // 같은 계약에 이전 문서가 있으면, 그 document_id를 재사용해 내용을 통째로 교체한다.
+        // FastAPI는 같은 document_id에 대해 옛 청크를 지우고 새 청크를 upsert하므로,
+        // 임베딩이 아래에 쌓이지 않고 새 것으로 대체된다.
+        Document previous = documentRepository.findFirstByContractIdOrderByCreatedAtDesc(contractId)
+                .orElse(null);
+        if (previous != null) {
+            return replaceDocument(previous, metadata, content, contentHash, supplierId, materialId);
         }
 
         String documentId = generateDocumentId(metadata.documentType());
@@ -134,10 +144,110 @@ public class DocumentService {
         }
     }
 
+    /**
+     * 계약의 기존 문서를 새 파일로 교체한다. document_id를 그대로 재사용하고 원본 파일과
+     * Metadata를 덮어쓴 뒤, force_reprocess로 FastAPI를 다시 불러 옛 임베딩을 새 것으로 바꾼다.
+     */
+    private DocumentDto.UploadResponse replaceDocument(
+            Document existing, FileMetadata metadata, byte[] content,
+            String contentHash, Long supplierId, Long materialId) {
+        String documentId = existing.getDocumentId();
+        Path relativePath = Path.of("contracts", documentId, "original." + metadata.extension());
+        Path storedFile = resolveStoredFile(relativePath);
+        Path previousFile = resolveStoredFile(Path.of(existing.getFilePath()));
+        overwriteOriginal(storedFile, content);
+        if (!storedFile.equals(previousFile)) {
+            // 확장자가 바뀌어 파일명이 달라진 경우 옛 원본을 정리한다.
+            deleteStoredFileQuietly(previousFile);
+        }
+
+        existing.replaceContent(
+                metadata.documentType(), metadata.fileName(), metadata.mimeType(),
+                content.length, contentHash,
+                relativePath.toString().replace('\\', '/'), supplierId, materialId);
+        documentRepository.saveAndFlush(existing);
+
+        try {
+            DocumentDto.FastApiData data = processWithFastApi(existing, content, true);
+            existing.markCompleted(
+                    data.chunkCount(), data.embeddingType(), data.embeddingVersion());
+            documentRepository.saveAndFlush(existing);
+            // 교체가 끝난 뒤 같은 계약에 남아 있던 옛 문서들을 정리한다 — 계약당 문서 1개로 수렴시키고
+            // ChromaDB에 고아 임베딩이 남지 않게 한다. 정리는 best-effort라 실패해도 업로드는 성공이다.
+            deleteSiblingDocuments(existing.getContractId(), existing.getDocumentId());
+            return toUploadResponse(existing, data.duplicate(), data.mock());
+        } catch (DocumentUploadException exception) {
+            existing.markFailed(exception.getCode(), exception.getMessage());
+            documentRepository.saveAndFlush(existing);
+            throw exception;
+        } catch (RuntimeException exception) {
+            log.error("Unexpected error while replacing document {}", existing.getDocumentId(), exception);
+            existing.markFailed("DOCUMENT_PROCESSING_UNEXPECTED", "문서 교체 결과 저장에 실패했습니다.");
+            try {
+                documentRepository.saveAndFlush(existing);
+            } catch (RuntimeException saveException) {
+                log.error("Failed to persist FAILED status for document {}", existing.getDocumentId(), saveException);
+            }
+            throw exception;
+        }
+    }
+
+    /**
+     * 교체로 살아남은 문서를 뺀 나머지 옛 문서들을 정리한다. 각 형제에 대해 FastAPI 임베딩 삭제 →
+     * 원본 파일 삭제 → DB 행 삭제 순으로 진행하며, 어느 단계가 실패해도 다음 형제로 넘어간다.
+     */
+    private void deleteSiblingDocuments(Long contractId, String survivingDocumentId) {
+        for (Document sibling : documentRepository.findByContractId(contractId)) {
+            if (sibling.getDocumentId().equals(survivingDocumentId)) {
+                continue;
+            }
+            deleteFastApiEmbeddings(sibling.getDocumentId());
+            cleanupStoredFile(resolveStoredFile(Path.of(sibling.getFilePath())));
+            try {
+                documentRepository.delete(sibling);
+            } catch (RuntimeException exception) {
+                log.warn("Failed to delete sibling document row {}", sibling.getDocumentId(), exception);
+            }
+        }
+    }
+
+    private void deleteFastApiEmbeddings(String documentId) {
+        try {
+            fastApiRestClient.delete()
+                    .uri("/api/v1/documents/{documentId}", documentId)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception exception) {
+            // 정리 실패는 업로드 결과에 영향을 주지 않는다. 남은 임베딩은 다음 교체나 운영 정리에서 처리한다.
+            log.warn("Failed to delete FastAPI embeddings for sibling document {}", documentId, exception);
+        }
+    }
+
     public DocumentDto.DocumentStatusResponse get(String documentId) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
         return toStatusResponse(document);
+    }
+
+    /**
+     * 저장된 계약서 원본 파일을 바이트로 읽어 다운로드용으로 반환한다. 브리핑 근거의 document_id로
+     * 원본 계약서를 내려받는 경로에서 쓴다. 파일 위치 해석·읽기는 {@link #reprocess}와 같은 패턴이다.
+     */
+    public DocumentDto.DownloadFile download(String documentId) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
+        Path storedFile = resolveStoredFile(Path.of(document.getFilePath()));
+        byte[] content;
+        try {
+            content = Files.readAllBytes(storedFile);
+        } catch (IOException exception) {
+            throw new DocumentUploadException(
+                    "ORIGINAL_FILE_NOT_FOUND",
+                    "저장된 원본 문서를 읽을 수 없습니다.",
+                    HttpStatus.NOT_FOUND);
+        }
+        return new DocumentDto.DownloadFile(
+                content, document.getOriginalFileName(), document.getMimeType());
     }
 
     public DocumentDto.UploadResponse reprocess(String documentId) {
@@ -326,6 +436,24 @@ public class DocumentService {
         } catch (IOException exception) {
             cleanupStoredFile(storedFile);
             throw new DocumentUploadException("FILE_STORAGE_FAILED", "원본 파일 저장에 실패했습니다.");
+        }
+    }
+
+    private void overwriteOriginal(Path storedFile, byte[] content) {
+        try {
+            Files.createDirectories(storedFile.getParent());
+            Files.write(storedFile, content,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException exception) {
+            throw new DocumentUploadException("FILE_STORAGE_FAILED", "원본 파일 저장에 실패했습니다.");
+        }
+    }
+
+    private void deleteStoredFileQuietly(Path storedFile) {
+        try {
+            Files.deleteIfExists(storedFile);
+        } catch (IOException ignored) {
+            // 옛 원본 정리는 실패해도 교체 자체엔 영향이 없다. 남은 파일은 운영 정리에서 처리한다.
         }
     }
 

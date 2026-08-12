@@ -110,6 +110,22 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
                   AND (:countryCode IS NULL OR e.country_code = :countryCode)
                   AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
                        OR an.material_category IS NOT NULL)
+                  -- 최신 뉴스 노출 만료: 등급별로 심각 10일 · 주의 5일 · 그 외(참고/미분석) 3일이
+                  -- 지나면 목록에서 제외한다. 등급은 뉴스 속보와 같은 출처(완결된 NEWS 브리핑의
+                  -- procurement_risk_level)에서 읽어 화면 배지와 어긋나지 않게 한다.
+                  AND e.collected_at >= now() - (
+                      CASE (
+                          SELECT b.procurement_risk_level FROM ai_briefings b
+                          WHERE b.analysis_id = an.analysis_id
+                            AND b.source_type = 'NEWS' AND b.composite = TRUE
+                            AND b.briefing_text IS NOT NULL AND b.review_passed = TRUE
+                          ORDER BY b.created_at DESC LIMIT 1
+                      )
+                      WHEN 'CRITICAL' THEN INTERVAL '10 days'
+                      WHEN 'WARNING'  THEN INTERVAL '5 days'
+                      ELSE INTERVAL '3 days'
+                      END
+                  )
                 ORDER BY lower(trim(e.title)), e.collected_at DESC
             ) deduped
             ORDER BY deduped.collected_at DESC
@@ -131,6 +147,21 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
               AND (:countryCode IS NULL OR e.country_code = :countryCode)
               AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
                    OR an.material_category IS NOT NULL)
+              -- findSupplyChainNews와 같은 만료 규칙(심각 10일·주의 5일·그 외 3일). 목록과 총건수가
+              -- 어긋나면 마지막 페이지 화살표 잠금이 틀어지므로 두 쿼리를 반드시 동일 조건으로 둔다.
+              AND e.collected_at >= now() - (
+                  CASE (
+                      SELECT b.procurement_risk_level FROM ai_briefings b
+                      WHERE b.analysis_id = an.analysis_id
+                        AND b.source_type = 'NEWS' AND b.composite = TRUE
+                        AND b.briefing_text IS NOT NULL AND b.review_passed = TRUE
+                      ORDER BY b.created_at DESC LIMIT 1
+                  )
+                  WHEN 'CRITICAL' THEN INTERVAL '10 days'
+                  WHEN 'WARNING'  THEN INTERVAL '5 days'
+                  ELSE INTERVAL '3 days'
+                  END
+              )
             """)
     long countSupplyChainNews(String keywordPattern, String countryCode);
 

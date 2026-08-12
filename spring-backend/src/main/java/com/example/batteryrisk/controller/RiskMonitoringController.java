@@ -63,6 +63,9 @@ public class RiskMonitoringController {
             @Parameter(description = "심각/주의/정상. 생략하면 전체", example = "심각")
             @RequestParam(required = false) String grade,
 
+            @Parameter(description = "확정/경고/참고(신뢰도). 생략하면 전체", example = "확정")
+            @RequestParam(required = false) String confidence,
+
             @Parameter(description = "ISO 3166-1 alpha-2 국가 코드. 생략하면 전체", example = "CL")
             @RequestParam(required = false) String country,
 
@@ -74,7 +77,7 @@ public class RiskMonitoringController {
 
             @Parameter(description = "노출 건수(1~200)", example = "50")
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit) {
-        return ApiResponse.ok(riskMonitoringService.list(grade, country, material, days, limit));
+        return ApiResponse.ok(riskMonitoringService.list(grade, confidence, country, material, days, limit));
     }
 
     @Operation(

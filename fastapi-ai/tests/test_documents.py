@@ -163,6 +163,34 @@ def test_force_reprocess_reuses_document_id_without_duplicate_chunks() -> None:
     assert second.json()["data"]["chunk_count"] == first.json()["data"]["chunk_count"]
 
 
+def test_delete_document_removes_chunks_and_is_idempotent() -> None:
+    created = client.post(
+        "/api/v1/documents/process",
+        files={"file": ("contract.txt", b"Article 1 Deletion clause\nLithium delete path", "text/plain")},
+        data={
+            "document_id": "55555555-5555-5555-5555-555555555555",
+            "contract_id": "1",
+            "supplier_id": "2",
+            "material_id": "3",
+            "document_type": "LTA",
+        },
+    )
+    assert created.status_code == 200
+    document_id = created.json()["data"]["document_id"]
+    chunk_count = created.json()["data"]["chunk_count"]
+    assert chunk_count >= 1
+
+    deleted = client.delete(f"/api/v1/documents/{document_id}")
+    assert deleted.status_code == 200
+    assert deleted.json()["data"]["document_id"] == document_id
+    assert deleted.json()["data"]["deleted_chunks"] == chunk_count
+
+    # 멱등 — 이미 지운 문서를 다시 지우면 0건이고 오류가 아니다.
+    again = client.delete(f"/api/v1/documents/{document_id}")
+    assert again.status_code == 200
+    assert again.json()["data"]["deleted_chunks"] == 0
+
+
 def test_valid_pdf_keeps_real_one_based_page_numbers() -> None:
     response = client.post(
         "/api/v1/documents/process",

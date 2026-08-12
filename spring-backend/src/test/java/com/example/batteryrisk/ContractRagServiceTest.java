@@ -6,6 +6,7 @@ import com.example.batteryrisk.exception.ErrorCode;
 import com.example.batteryrisk.repository.ContractRagRepository;
 import com.example.batteryrisk.service.ContractRagService;
 import com.example.batteryrisk.service.DocumentService;
+import com.example.batteryrisk.service.OutboundDocumentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
@@ -45,6 +46,7 @@ class ContractRagServiceTest {
         service = new ContractRagService(
                 repository,
                 mock(DocumentService.class),
+                mock(OutboundDocumentService.class),
                 mock(RestClient.class));
     }
 

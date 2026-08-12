@@ -65,4 +65,7 @@ public final class DocumentDto {
             @JsonProperty("processed_at") Instant processedAt
     ) {}
 
+    /** 계약서 원본 파일 다운로드용. JSON이 아니라 바이트 스트림으로 내려간다. */
+    public record DownloadFile(byte[] content, String fileName, String contentType) {}
+
 }

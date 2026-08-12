@@ -147,7 +147,15 @@ services:
     restart: unless-stopped
 
   spring:
-    build: ./spring-backend
+    # Dockerfile이 `COPY --from=erpseed`/`--from=ragseed`로 named build context를 요구하므로
+    # compose에서 그 경로를 넘겨준다. 이 선언이 없으면 docker가 erpseed를 이미지로 오해해
+    # `docker.io/library/erpseed`를 pull하려다 실패한다(README 참고). 경로는 compose 파일
+    # 기준 상대경로다.
+    build:
+      context: ./spring-backend
+      additional_contexts:
+        erpseed: ./data/ERP_data/spring-csv
+        ragseed: ./data/RAG_DATA/erp_aligned
     container_name: battery-risk-spring
     environment:
       # 서비스 이름(postgres/fastapi)이 곧 컨테이너 네트워크의 호스트명이 된다.

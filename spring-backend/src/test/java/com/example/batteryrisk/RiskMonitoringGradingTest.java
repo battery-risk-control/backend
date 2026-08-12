@@ -71,7 +71,7 @@ class RiskMonitoringGradingTest {
     void beforeMultiAgentShowsExternalGradeAsProvisional() {
         stubList(newsEvent(1L, "CL"), completed("CL", "NORMAL", 54.1));
 
-        EventItem item = service.list(null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
 
         assertThat(item.grade()).isEqualTo("정상");
         assertThat(item.confidenceLabel()).isEqualTo("참고");
@@ -83,7 +83,7 @@ class RiskMonitoringGradingTest {
     void strongExternalSignalIsMarkedWarningWhileStillProvisional() {
         stubList(newsEvent(1L, "CL"), completed("CL", "CRITICAL", 85.0));
 
-        EventItem item = service.list(null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
 
         assertThat(item.grade()).isEqualTo("심각");
         assertThat(item.confidenceLabel()).isEqualTo("경고");
@@ -102,7 +102,7 @@ class RiskMonitoringGradingTest {
         // 세어, 같은 기사가 화면마다 다른 배지를 단다.
         stubNewsBriefing(analysis, "CRITICAL");
 
-        EventItem item = service.list(null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
 
         assertThat(item.grade()).isEqualTo("심각");
         assertThat(item.confidenceLabel()).isEqualTo("확정");
@@ -116,7 +116,7 @@ class RiskMonitoringGradingTest {
         when(rawEventRepository.findRiskMonitoringCandidates(any(), any(), any(), anyInt()))
                 .thenReturn(List.of(event));
 
-        EventItem item = service.list(null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
 
         assertThat(item.grade()).isNull();
         assertThat(item.confidenceLabel()).isEqualTo("참고");
@@ -229,7 +229,7 @@ class RiskMonitoringGradingTest {
         when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any()))
                 .thenReturn(Map.of(analysis.getAnalysisId(), "CRITICAL"));
 
-        EventItem item = service.list(null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
         EventDetail detail = service.detail(1L);
 
         assertThat(item.grade()).isEqualTo(detail.grade());
@@ -269,7 +269,7 @@ class RiskMonitoringGradingTest {
     void delegatesFiltersToQueryInsteadOfPostFiltering() {
         stubList(newsEvent(1L, "CL"), completed("CL", "NORMAL", 54.1));
 
-        service.list(null, "cl", "리튬", 7, 50);
+        service.list(null, null, "cl", "리튬", 7, 50);
 
         // 자재 미분류 제외·날짜·국가·자재 필터와 중복 제거는 전부 SQL이 한다(2026-08-03).
         // 예전에는 최신 400건을 먼저 가져와 Java에서 걸렀는데, 관련 뉴스가 그 창 밖으로 밀려나
