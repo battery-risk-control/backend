@@ -61,6 +61,7 @@ class PlanningDashboardDetailSqlTest {
                     source_headline        VARCHAR(500),
                     subject_title          VARCHAR(500),
                     briefing_text          TEXT,
+                    briefing_summary_kr    TEXT,
                     recommended_actions    TEXT,
                     contract_findings      TEXT,
                     warnings               TEXT,
