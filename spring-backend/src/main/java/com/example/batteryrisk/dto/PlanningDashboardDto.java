@@ -38,7 +38,8 @@ public final class PlanningDashboardDto {
             String period,
             List<KpiSummaryItem> kpiSummary,
             List<RiskExposureByUnit> riskExposureByUnit,
-            List<VendorRiskHistoryItem> vendorRiskHistory
+            List<VendorRiskHistoryItem> vendorRiskHistory,
+            OffsetDateTime asOf
     ) {}
 
     /** RankedBarChart 공용 입력 항목(프론트 RankedBarItem과 1:1). */

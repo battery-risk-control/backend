@@ -138,6 +138,18 @@ public class DashboardRepository {
         this.jdbc = jdbc;
     }
 
+    /**
+     * 마지막 위험분석 실행 시각(경영진/경영기획 대시보드 "기준 시각" 공용 소스). {@code latest}
+     * CTE(자재 대분류당 최신 1건 · 완결 뉴스 원천 · 미확인)의 {@code MAX(assessed_at)}로,
+     * {@link #loadProcurementRiskSummary()}의 {@code latest_assessed_at}과 <b>같은 모집단</b>이라
+     * 두 대시보드의 기준 시각이 정확히 일치한다. 평가가 없으면 {@code null}.
+     */
+    public OffsetDateTime loadLatestAssessedAt() {
+        return jdbc.queryForObject(
+                LATEST_PROCUREMENT_ASSESSMENT_CTE + "SELECT MAX(assessed_at) AS latest_assessed_at FROM latest",
+                new MapSqlParameterSource(), (rs, rowNum) -> rs.getObject("latest_assessed_at", OffsetDateTime.class));
+    }
+
     public DashboardDto.Summary loadSummary() {
         return jdbc.queryForObject(LATEST_ASSESSMENT_CTE + """
                 SELECT

@@ -4,6 +4,7 @@ import com.example.batteryrisk.dto.PlanningDashboardDto;
 import com.example.batteryrisk.dto.SupplierDto;
 import com.example.batteryrisk.exception.BusinessException;
 import com.example.batteryrisk.exception.ErrorCode;
+import com.example.batteryrisk.repository.DashboardRepository;
 import com.example.batteryrisk.repository.PlanningDashboardRepository;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
@@ -16,6 +17,7 @@ import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -43,16 +45,19 @@ public class PlanningDashboardService {
             "LITHIUM", "COBALT", "NICKEL", "GRAPHITE", "MANGANESE", "COPPER", "ALUMINUM", "RARE_EARTH");
 
     private final PlanningDashboardRepository repository;
+    private final DashboardRepository dashboardRepository;
     private final SupplierQualificationService supplierQualificationService;
     private final RestClient fastApiRestClient;
     private final SummaryClient summaryClient;
 
     public PlanningDashboardService(
             PlanningDashboardRepository repository,
+            DashboardRepository dashboardRepository,
             SupplierQualificationService supplierQualificationService,
             RestClient fastApiRestClient,
             SummaryClient summaryClient) {
         this.repository = repository;
+        this.dashboardRepository = dashboardRepository;
         this.supplierQualificationService = supplierQualificationService;
         this.fastApiRestClient = fastApiRestClient;
         this.summaryClient = summaryClient;
@@ -74,8 +79,11 @@ public class PlanningDashboardService {
                 new PlanningDashboardDto.KpiSummaryItem(
                         "평균 대응 소요", nullSafe(quarter.avgResponseDays()), "일"));
 
+        // 경영진 대시보드의 latest_assessed_at과 동일 소스(같은 latest CTE)를 재사용해 두 화면의 기준 시각을 일치시킨다.
+        OffsetDateTime asOf = dashboardRepository.loadLatestAssessedAt();
+
         return new PlanningDashboardDto.StrategyDashboard(
-                "전체", currentQuarterLabel(), kpiSummary, exposureByUnit, vendorHistory);
+                "전체", currentQuarterLabel(), kpiSummary, exposureByUnit, vendorHistory, asOf);
     }
 
     // ===== 자재 위험 =====
