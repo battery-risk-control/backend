@@ -37,6 +37,24 @@ public class ExecutiveDashboardRepository {
     }
 
     /**
+     * 최근 24시간에 생성된 구매 리스크 평가의 건수와 최고 점수를 집계한다.
+     * 1계층 대시보드의 24h 보조 지표와 같은 취지로, 경영진 KPI 카드 하단 "24h" 줄에 쓴다.
+     * 평가가 0건이면 max_risk_score는 null이 되고 화면은 "—"로 표시한다.
+     */
+    public ExecutiveDashboardDto.Recent24hSummary loadRecent24hSummary() {
+        return jdbc.queryForObject("""
+                SELECT
+                    COUNT(*) AS collected_count,
+                    MAX(procurement_risk_score) AS max_risk_score
+                FROM procurement_risk_assessments
+                WHERE created_at >= now() - INTERVAL '24 hours'
+                """, new MapSqlParameterSource(), (rs, rowNum) ->
+                new ExecutiveDashboardDto.Recent24hSummary(
+                        rs.getLong("collected_count"),
+                        rs.getBigDecimal("max_risk_score")));
+    }
+
+    /**
      * AI 검증 화면에서 실제로 상세 조회할 수 있는 저장 브리핑과 같은 모집단을 집계한다.
      * 조기 종료(composite=false) 또는 본문이 없는 실행은 완성된 검증 대상이 아니므로 제외한다.
      */

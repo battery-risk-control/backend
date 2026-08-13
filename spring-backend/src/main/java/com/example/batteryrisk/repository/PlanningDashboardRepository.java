@@ -197,7 +197,9 @@ public class PlanningDashboardRepository {
                 ORDER BY p.erp_material_id, p.created_at DESC
             ),
             material_inventory AS (
-                SELECT material_id, SUM(on_hand_quantity) AS on_hand
+                SELECT material_id,
+                       SUM(on_hand_quantity) AS on_hand,
+                       SUM(safety_stock_quantity) AS safety_stock
                 FROM inventory_snapshots WHERE is_current GROUP BY material_id
             ),
             material_usage AS (
@@ -205,8 +207,11 @@ public class PlanningDashboardRepository {
                 FROM material_consumptions WHERE is_current GROUP BY material_id
             ),
             latest AS (
+                -- safety_stock_days: 현재고 커버리지 일수(on_hand/일사용량) — 화면 "평균 재고일수" 표시값.
+                -- safety_stock_target_days: 안전재고 목표 일수(안전재고수량/일사용량) — 색(tone) 판정용.
                 SELECT a.erp_material_id, a.severity, a.score,
-                       ROUND(inv.on_hand / NULLIF(usg.daily_usage, 0), 1) AS safety_stock_days
+                       ROUND(inv.on_hand / NULLIF(usg.daily_usage, 0), 1) AS safety_stock_days,
+                       ROUND(inv.safety_stock / NULLIF(usg.daily_usage, 0), 1) AS safety_stock_target_days
                 FROM assessed a
                 JOIN materials m ON m.erp_material_id = a.erp_material_id
                 LEFT JOIN material_inventory inv ON inv.material_id = m.material_id
@@ -263,19 +268,22 @@ public class PlanningDashboardRepository {
     }
 
     public record MaterialRiskKpi(
-            long assessedCount, long criticalCount, BigDecimal avgSafetyStockDays, BigDecimal maxScore) {}
+            long assessedCount, long criticalCount, BigDecimal avgSafetyStockDays,
+            BigDecimal avgSafetyStockTargetDays, BigDecimal maxScore) {}
 
     public MaterialRiskKpi loadMaterialRiskKpi() {
         return jdbc.queryForObject(LATEST_MATERIAL_SEVERITY_CTE + """
                 SELECT COUNT(*) AS assessed_count,
                        COUNT(*) FILTER (WHERE severity = 'CRITICAL') AS critical_count,
                        AVG(safety_stock_days) AS avg_safety_stock_days,
+                       AVG(safety_stock_target_days) AS avg_safety_stock_target_days,
                        MAX(score) AS max_score
                 FROM latest
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new MaterialRiskKpi(
                 rs.getLong("assessed_count"),
                 rs.getLong("critical_count"),
                 rs.getBigDecimal("avg_safety_stock_days"),
+                rs.getBigDecimal("avg_safety_stock_target_days"),
                 rs.getBigDecimal("max_score")));
     }
 

@@ -19,7 +19,17 @@ import java.util.Map;
 public final class PlanningDashboardDto {
     private PlanningDashboardDto() {}
 
-    public record KpiSummaryItem(String label, BigDecimal value, String unit) {}
+    /**
+     * KPI 요약 카드 한 칸. {@code tone}은 값 색상 힌트(위험 강조)로, 화면이 절대 기준을 지어내면
+     * 안 되는 지표(예: 재고일수는 재고÷안전재고 비율로 판정)를 백엔드가 계산해 내려줄 때 쓴다.
+     * 값 규약: "critical" | "warning" | "normal" | null(색 없음). 대부분의 칸은 tone 없이(3-인자)
+     * 만들고 화면 라벨 규칙으로 칠한다.
+     */
+    public record KpiSummaryItem(String label, BigDecimal value, String unit, String tone) {
+        public KpiSummaryItem(String label, BigDecimal value, String unit) {
+            this(label, value, unit, null);
+        }
+    }
 
     /** risk_event에는 없던 사업부 개념 — 이제 실제 material_category→business_unit 매핑(V27) 기반. */
     public record RiskExposureByUnit(String businessUnit, BigDecimal exposureScore) {}

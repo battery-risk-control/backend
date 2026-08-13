@@ -240,6 +240,15 @@ class ExecutiveDashboardServiceTest {
                 verification
         );
 
+        when(
+                repository.loadRecent24hSummary()
+        ).thenReturn(
+                new ExecutiveDashboardDto.Recent24hSummary(
+                        4,
+                        new BigDecimal("82.0")
+                )
+        );
+
         ExecutiveDashboardDto.Dashboard result =
                 service.dashboard();
 
@@ -254,6 +263,14 @@ class ExecutiveDashboardServiceTest {
         assertThat(
                 result.kpi().averageRiskScore()
         ).isEqualByComparingTo("70.0");
+
+        assertThat(
+                result.kpi().collectedCount24h()
+        ).isEqualTo(4);
+
+        assertThat(
+                result.kpi().maxRiskScore24h()
+        ).isEqualByComparingTo("82.0");
 
         assertThat(
                 result.riskMap()

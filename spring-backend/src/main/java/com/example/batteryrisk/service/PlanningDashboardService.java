@@ -93,10 +93,14 @@ public class PlanningDashboardService {
         PlanningDashboardRepository.MaterialRiskKpi kpi = repository.loadMaterialRiskKpi();
         BigDecimal[] comparison = repository.loadQuarterScoreComparison();
 
+        // 재고일수 색: 코드의 실제 재고 위험 기준(재고커버리지 ÷ 안전재고목표 비율, erp_rules safetyStockRisk)과
+        // 동일하게 판정한다. 단일 KPI라 "평균의 비율"로 단순화한다.
+        String inventoryTone = inventoryTone(kpi.avgSafetyStockDays(), kpi.avgSafetyStockTargetDays());
+
         List<PlanningDashboardDto.KpiSummaryItem> kpiSummary = List.of(
                 new PlanningDashboardDto.KpiSummaryItem("평가 자재", BigDecimal.valueOf(kpi.assessedCount()), "종"),
                 new PlanningDashboardDto.KpiSummaryItem("심각 자재", BigDecimal.valueOf(kpi.criticalCount()), "건"),
-                new PlanningDashboardDto.KpiSummaryItem("평균 재고일수", nullSafe(kpi.avgSafetyStockDays()), "일"),
+                new PlanningDashboardDto.KpiSummaryItem("평균 재고일수", nullSafe(kpi.avgSafetyStockDays()), "일", inventoryTone),
                 new PlanningDashboardDto.KpiSummaryItem("최고 위험 점수", nullSafe(kpi.maxScore()), "점"));
 
         return new PlanningDashboardDto.MaterialRiskDashboard(
@@ -319,6 +323,25 @@ public class PlanningDashboardService {
 
     private static BigDecimal nullSafe(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    /**
+     * 재고 커버리지 ÷ 안전재고 목표 비율로 KPI 색(tone)을 정한다 — erp_rules.yaml의 safetyStockRisk와
+     * 같은 컷: 비율 ≥ 1.0 정상(초록), 0.5 ~ 1.0 주의(주황), < 0.5 심각(빨강). 커버리지·목표 어느
+     * 하나라도 없거나 목표가 0이면 판정 불가 → null(색 없음).
+     */
+    private static String inventoryTone(BigDecimal coverageDays, BigDecimal targetDays) {
+        if (coverageDays == null || targetDays == null || targetDays.signum() == 0) {
+            return null;
+        }
+        double ratio = coverageDays.doubleValue() / targetDays.doubleValue();
+        if (ratio >= 1.0) {
+            return "normal";
+        }
+        if (ratio >= 0.5) {
+            return "warning";
+        }
+        return "critical";
     }
 
     private static String currentQuarterLabel() {
