@@ -136,6 +136,7 @@ public class MaterialRiskService {
     private final RagService ragService;
     private final AnalysisRepository analysisRepository;
     private final RestClient fastApiRestClient;
+    private final RiskEventService riskEventService;
 
     public MaterialRiskService(
             MaterialRiskRepository repository,
@@ -143,13 +144,15 @@ public class MaterialRiskService {
             ErpExposureContextFactory contextFactory,
             RagService ragService,
             AnalysisRepository analysisRepository,
-            RestClient fastApiRestClient) {
+            RestClient fastApiRestClient,
+            RiskEventService riskEventService) {
         this.repository = repository;
         this.erpService = erpService;
         this.contextFactory = contextFactory;
         this.ragService = ragService;
         this.analysisRepository = analysisRepository;
         this.fastApiRestClient = fastApiRestClient;
+        this.riskEventService = riskEventService;
     }
 
     /**
@@ -179,12 +182,14 @@ public class MaterialRiskService {
 
     private MaterialRiskDto.Overview computeOverview() {
         OffsetDateTime asOf = OffsetDateTime.now();
+        // 헤더 '기준' 칩은 계산 시각(asOf)이 아니라 최신 공급망 뉴스 수집 시각을 쓴다(2·3계층과 동일 소스).
+        OffsetDateTime newsAsOf = riskEventService.latestSupplyChainNewsCollectedAt();
         List<MaterialRiskDto.MaterialItem> items = repository.findAssessableMaterials().stream()
                 .map(material -> assess(material, asOf))
                 .map(assessment -> toItem(assessment, asOf))
                 .sorted(DISPLAY_ORDER)
                 .toList();
-        return new MaterialRiskDto.Overview(summarize(items, asOf), items);
+        return new MaterialRiskDto.Overview(summarize(items, asOf, newsAsOf), items);
     }
 
     /** 우측 상세 패널. 평가에 실패한 자재도 404가 아니라 사유를 담아 200으로 돌려준다. */
@@ -427,7 +432,7 @@ public class MaterialRiskService {
     }
 
     private static MaterialRiskDto.Summary summarize(
-            List<MaterialRiskDto.MaterialItem> items, OffsetDateTime asOf) {
+            List<MaterialRiskDto.MaterialItem> items, OffsetDateTime asOf, OffsetDateTime newsAsOf) {
         long unavailable = items.stream().filter(item -> item.score() == null).count();
         List<MaterialRiskDto.MaterialItem> assessed =
                 items.stream().filter(item -> item.score() != null).toList();
@@ -461,7 +466,8 @@ public class MaterialRiskService {
                 unavailable,
                 average,
                 dataQuality,
-                asOf);
+                asOf,
+                newsAsOf);
     }
 
     private static MaterialRiskDto.MaterialDetail unavailableDetail(

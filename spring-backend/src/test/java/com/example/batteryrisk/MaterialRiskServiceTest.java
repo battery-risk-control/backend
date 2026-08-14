@@ -116,7 +116,8 @@ class MaterialRiskServiceTest {
                 new ErpExposureContextFactory(erpRepository),
                 ragService,
                 analysisRepository,
-                builder.build());
+                builder.build(),
+                mock(com.example.batteryrisk.service.RiskEventService.class));
     }
 
     /**

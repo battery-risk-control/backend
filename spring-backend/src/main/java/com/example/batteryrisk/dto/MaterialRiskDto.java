@@ -64,8 +64,12 @@ public final class MaterialRiskDto {
                     + "평가 못한 자재는 unavailable_count와 자재별 unavailable_reason으로 본다.")
             String dataQualityStatus,
 
-            @Schema(description = "이 집계의 ERP 기준 시각")
-            OffsetDateTime asOf
+            @Schema(description = "이 집계의 ERP 기준 시각(계산 시점 now, 재고 신선도 판정에 쓰인다)")
+            OffsetDateTime asOf,
+
+            @Schema(description = "헤더 '기준' 칩용 — 최신 공급망 뉴스 수집 시각(MAX collected_at). "
+                    + "2·3계층 대시보드 as_of와 같은 소스라 네 화면의 기준 시각이 일치한다. 수집 뉴스가 없으면 null.")
+            OffsetDateTime newsAsOf
     ) {}
 
     /**

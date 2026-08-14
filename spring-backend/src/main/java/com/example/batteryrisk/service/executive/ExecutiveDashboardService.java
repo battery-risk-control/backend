@@ -64,6 +64,9 @@ public class ExecutiveDashboardService {
         ExecutiveDashboardDto.VerificationSummary verificationSummary =
                 repository.loadVerificationSummary();
 
+        ExecutiveDashboardDto.Recent24hSummary recent24h =
+                repository.loadRecent24hSummary();
+
         ExecutiveDashboardDto.ExecutiveKpi kpi =
                 new ExecutiveDashboardDto.ExecutiveKpi(
                         riskSummary.criticalCount(),
@@ -71,7 +74,9 @@ public class ExecutiveDashboardService {
                         averageRiskScore(materialRisk),
                         verificationSummary.passedCount(),
                         verificationSummary.reviewRequiredCount(),
-                        riskSummary.latestAssessedAt()
+                        riskSummary.latestAssessedAt(),
+                        recent24h.collectedCount(),
+                        recent24h.maxRiskScore()
                 );
 
         return new ExecutiveDashboardDto.Dashboard(
@@ -95,7 +100,9 @@ public class ExecutiveDashboardService {
                         .stream()
                         .limit(BRIEFING_LIMIT)
                         .toList(),
-                verificationSummary
+                verificationSummary,
+                // 기준 시각 = 최신 공급망 뉴스 수집 시각(실시간 뉴스 유입). 경영기획 대시보드와 같은 소스로 두 화면을 일치시킨다.
+                riskEventService.latestSupplyChainNewsCollectedAt()
         );
     }
 
