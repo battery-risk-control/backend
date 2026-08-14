@@ -515,6 +515,8 @@ public class PlanningDashboardRepository {
                 JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
                 WHERE b.created_at >= date_trunc('quarter', now())
                   AND b.analysis_id IS NOT NULL
+                  AND b.composite = TRUE
+                  AND b.review_passed = TRUE
                 GROUP BY bu.name
                 ORDER BY bu.name
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new PlanningDashboardDto.RankedBarItem(
@@ -550,7 +552,11 @@ public class PlanningDashboardRepository {
                 FROM ai_briefings b
                 LEFT JOIN material_category_business_units cb ON cb.material_category = b.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
+                -- 신뢰도 '확정'(멀티에이전트 종합 완료 composite + 검증 통과 review_passed)만 노출.
+                -- 3계층 최근 브리핑과 같은 기준 — 브리핑까지 다 생성돼 확정된 건만 목록에 올린다.
                 WHERE b.analysis_id IS NOT NULL
+                  AND b.composite = TRUE
+                  AND b.review_passed = TRUE
                 ORDER BY b.created_at DESC
                 LIMIT :limit OFFSET :offset
                 """, params, (rs, rowNum) -> {
@@ -568,35 +574,54 @@ public class PlanningDashboardRepository {
         });
     }
 
-    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
+    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건 = 확정 브리핑)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
     public long countRecentBriefings() {
-        Long count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM ai_briefings b WHERE b.analysis_id IS NOT NULL",
-                new MapSqlParameterSource(), Long.class);
+        Long count = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM ai_briefings b
+                WHERE b.analysis_id IS NOT NULL
+                  AND b.composite = TRUE
+                  AND b.review_passed = TRUE
+                """, new MapSqlParameterSource(), Long.class);
         return count == null ? 0L : count;
     }
 
-    /** AI 브리핑 탭 전용 KPI(이번 분기 실제 생성 브리핑 건수 / CRITICAL 비중). 전략 탭 {@link #quarterKpi}와 분리한다. */
-    public record AiBriefingKpi(long briefingCount, BigDecimal criticalRatio) {}
+    /**
+     * AI 브리핑 탭 전용 KPI(이번 분기 실제 생성 브리핑 건수 / 심각 비중 / 주의·심각 건수). 전략 탭
+     * {@link #quarterKpi}와 분리한다. 등급 건수는 등급이 유효한(composite=TRUE) 브리핑만 센다 —
+     * 심각 비중 분자와 같은 기준이라 비중과 건수가 어긋나지 않는다.
+     */
+    public record AiBriefingKpi(
+            long briefingCount, BigDecimal criticalRatio, long normalCount, long warningCount, long criticalCount) {}
 
-    /** 이번 분기 ai_briefings 건수와 그중 CRITICAL(등급 유효=composite) 비중. */
+    /**
+     * 이번 분기 '확정'(멀티에이전트 종합 완료 composite + 검증 통과 review_passed) 브리핑 건수와
+     * 그중 정상·주의·심각 비중·건수. 최근 브리핑 목록·사업부별 분포와 같은 확정 기준이라 화면의
+     * 모든 숫자가 일치한다(조기종료 등 확정 아닌 건은 어디에도 잡히지 않는다).
+     */
     public AiBriefingKpi aiBriefingKpi() {
         return jdbc.queryForObject("""
                 WITH quarter AS (
                     SELECT * FROM ai_briefings
                     WHERE created_at >= date_trunc('quarter', now())
                       AND analysis_id IS NOT NULL
+                      AND composite = TRUE
+                      AND review_passed = TRUE
                 )
                 SELECT
                     (SELECT COUNT(*) FROM quarter) AS briefing_count,
                     CASE WHEN (SELECT COUNT(*) FROM quarter) = 0 THEN NULL
-                         ELSE (SELECT COUNT(*) FROM quarter
-                                WHERE procurement_risk_level = 'CRITICAL' AND composite = TRUE)::numeric
+                         ELSE (SELECT COUNT(*) FROM quarter WHERE procurement_risk_level = 'CRITICAL')::numeric
                               / (SELECT COUNT(*) FROM quarter) * 100
-                    END AS critical_ratio
+                    END AS critical_ratio,
+                    (SELECT COUNT(*) FROM quarter WHERE procurement_risk_level = 'NORMAL') AS normal_count,
+                    (SELECT COUNT(*) FROM quarter WHERE procurement_risk_level = 'WARNING') AS warning_count,
+                    (SELECT COUNT(*) FROM quarter WHERE procurement_risk_level = 'CRITICAL') AS critical_count
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new AiBriefingKpi(
                 rs.getLong("briefing_count"),
-                rs.getBigDecimal("critical_ratio")));
+                rs.getBigDecimal("critical_ratio"),
+                rs.getLong("normal_count"),
+                rs.getLong("warning_count"),
+                rs.getLong("critical_count")));
     }
 
     /** CRITICAL이면서 이미 처리(acknowledge)된 평가 건수 — "임원 보고 지정" 기본 정의. */
