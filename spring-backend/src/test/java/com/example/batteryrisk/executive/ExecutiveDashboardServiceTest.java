@@ -244,7 +244,7 @@ class ExecutiveDashboardServiceTest {
                 repository.loadRecent24hSummary()
         ).thenReturn(
                 new ExecutiveDashboardDto.Recent24hSummary(
-                        4,
+                        4, 2, 3, 1,
                         new BigDecimal("82.0")
                 )
         );
@@ -265,7 +265,7 @@ class ExecutiveDashboardServiceTest {
         ).isEqualByComparingTo("70.0");
 
         assertThat(
-                result.kpi().collectedCount24h()
+                result.kpi().criticalCount24h()
         ).isEqualTo(4);
 
         assertThat(

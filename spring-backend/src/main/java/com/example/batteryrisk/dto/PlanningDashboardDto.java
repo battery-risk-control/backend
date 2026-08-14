@@ -103,7 +103,15 @@ public final class PlanningDashboardDto {
     public record ContractStatusDashboard(
             List<KpiSummaryItem> kpiSummary,
             List<ContractCoverageItem> coverageByUnit,
-            List<EntityBadgeItem> expiring
+            List<EntityBadgeItem> expiring,
+            List<ContractListItem> contracts
+    ) {}
+
+    public record ContractListItem(
+            String contractNumber, String contractName, String supplierName,
+            String businessUnit, String status, LocalDate endDate,
+            boolean documentLoaded, boolean ragReady,
+            List<ContractDocumentItem> documents
     ) {}
 
     /**

@@ -75,7 +75,10 @@ public class ExecutiveDashboardService {
                         verificationSummary.passedCount(),
                         verificationSummary.reviewRequiredCount(),
                         riskSummary.latestAssessedAt(),
-                        recent24h.collectedCount(),
+                        recent24h.criticalCount(),
+                        recent24h.warningCount(),
+                        recent24h.verifiedBriefingCount(),
+                        recent24h.reviewRequiredCount(),
                         recent24h.maxRiskScore()
                 );
 

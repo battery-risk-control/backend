@@ -208,6 +208,7 @@ public class PlanningDashboardService {
         List<PlanningDashboardDto.ContractCoverageItem> coverageByUnit = repository.loadContractCoverageByUnit();
         List<PlanningDashboardDto.EntityBadgeItem> expiring =
                 repository.findExpiringContracts(CONTRACT_EXPIRING_WITHIN_DAYS, 10);
+        List<PlanningDashboardDto.ContractListItem> contracts = repository.findAllContracts();
 
         List<PlanningDashboardDto.KpiSummaryItem> kpiSummary = List.of(
                 new PlanningDashboardDto.KpiSummaryItem("ACTIVE", BigDecimal.valueOf(kpi.activeCount()), "건"),
@@ -216,7 +217,7 @@ public class PlanningDashboardService {
                 new PlanningDashboardDto.KpiSummaryItem(
                         "RAG 검색 가능", BigDecimal.valueOf(kpi.ragReadyCount()), "건"));
 
-        return new PlanningDashboardDto.ContractStatusDashboard(kpiSummary, coverageByUnit, expiring);
+        return new PlanningDashboardDto.ContractStatusDashboard(kpiSummary, coverageByUnit, expiring, contracts);
     }
 
     // ===== AI 브리핑 =====
@@ -225,20 +226,15 @@ public class PlanningDashboardService {
         List<PlanningDashboardDto.RankedBarItem> byUnit = repository.loadBriefingCountByUnit();
         List<PlanningDashboardDto.BriefingSummaryItem> recent = repository.findRecentBriefings(size, page * size);
         long recentTotalCount = repository.countRecentBriefings();
-        // KPI1·2(브리핑 건수·CRITICAL 비중)는 실제 생성 브리핑(ai_briefings) 기준.
+        // 확정된 복합 브리핑만 목록과 동일한 모집단으로 집계한다.
         PlanningDashboardRepository.AiBriefingKpi briefingKpi = repository.aiBriefingKpi();
-        // KPI3·4(평균 대응 소요·임원 보고 지정)는 "대응·에스컬레이션 추적" 지표라 acknowledgement 기반을 유지한다
-        // (ai_briefings엔 승인 시각 개념이 없어 계산 불가). quarterKpi는 전략 탭과 공유되며 여기선 대응소요만 쓴다.
-        PlanningDashboardRepository.QuarterKpi quarter = repository.quarterKpi();
-        long executiveFlagged = repository.loadExecutiveFlaggedCount();
 
         List<PlanningDashboardDto.KpiSummaryItem> kpiSummary = List.of(
                 new PlanningDashboardDto.KpiSummaryItem(
                         "이번 분기 브리핑", BigDecimal.valueOf(briefingKpi.briefingCount()), "건"),
-                new PlanningDashboardDto.KpiSummaryItem("CRITICAL 비중", nullSafe(briefingKpi.criticalRatio()), "%"),
-                new PlanningDashboardDto.KpiSummaryItem("평균 대응 소요", nullSafe(quarter.avgResponseDays()), "일"),
-                new PlanningDashboardDto.KpiSummaryItem(
-                        "임원 보고 지정", BigDecimal.valueOf(executiveFlagged), "건"));
+                new PlanningDashboardDto.KpiSummaryItem("정상", BigDecimal.valueOf(briefingKpi.normalCount()), "건"),
+                new PlanningDashboardDto.KpiSummaryItem("주의", BigDecimal.valueOf(briefingKpi.warningCount()), "건"),
+                new PlanningDashboardDto.KpiSummaryItem("심각", BigDecimal.valueOf(briefingKpi.criticalCount()), "건"));
 
         return new PlanningDashboardDto.AiBriefingSummaryDashboard(kpiSummary, byUnit, recent, recentTotalCount);
     }

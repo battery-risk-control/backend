@@ -58,6 +58,7 @@ class PlanningDashboardDetailSqlTest {
                     material_name          VARCHAR(200),
                     procurement_risk_level VARCHAR(20),
                     composite              BOOLEAN,
+                    review_passed          BOOLEAN,
                     source_headline        VARCHAR(500),
                     subject_title          VARCHAR(500),
                     briefing_text          TEXT,
@@ -197,30 +198,32 @@ class PlanningDashboardDetailSqlTest {
         assertThat(byUnit.get(0).name()).isEqualTo("배터리셀사업부");
         assertThat(byUnit.get(0).value()).isEqualByComparingTo("2");
 
-        // 목록: analysis_id 있는 3건 전부. 등급은 종합 위험등급(procurement_risk_level)에서.
+        // 목록: 확정(review_passed)된 복합 브리핑만 노출한다.
         var recent = repository.findRecentBriefings(10, 0);
-        assertThat(recent).hasSize(3);
+        assertThat(recent).hasSize(2);
         assertThat(recent).extracting(PlanningDashboardDto.BriefingSummaryItem::grade)
-                .containsExactlyInAnyOrder("심각", "주의", "정상");
+                .containsExactlyInAnyOrder("심각", "주의");
         var cobalt = recent.stream().filter(i -> "코발트".equals(i.material())).findFirst().orElseThrow();
         assertThat(cobalt.businessUnit()).isEqualTo("배터리셀사업부");
         assertThat(cobalt.riskEventId()).isNotBlank();  // 드릴다운 키 = analysis_id
 
         // 총계
-        assertThat(repository.countRecentBriefings()).isEqualTo(3);
+        assertThat(repository.countRecentBriefings()).isEqualTo(2);
 
-        // KPI: 이번 분기 3건, CRITICAL(composite=TRUE) 비중 = 1/3 ≈ 33.3%
+        // KPI: 확정 복합 브리핑을 등급별로 재집계한다.
         var kpi = repository.aiBriefingKpi();
-        assertThat(kpi.briefingCount()).isEqualTo(3);
-        assertThat(kpi.criticalRatio().doubleValue()).isCloseTo(100.0 / 3, within(0.1));
+        assertThat(kpi.briefingCount()).isEqualTo(2);
+        assertThat(kpi.normalCount()).isZero();
+        assertThat(kpi.warningCount()).isEqualTo(1);
+        assertThat(kpi.criticalCount()).isEqualTo(1);
     }
 
     private void insertBriefing(UUID id, String category, String level, boolean composite, String headline) {
         jdbc.update("""
-                INSERT INTO ai_briefings (analysis_id, material_category, procurement_risk_level, composite,
+                INSERT INTO ai_briefings (analysis_id, material_category, procurement_risk_level, composite, review_passed,
                                           source_headline, subject_title, briefing_text, recommended_actions,
                                           contract_findings, warnings, created_at)
-                VALUES (:id, :cat, :level, :composite, :headline, :headline, '본문', '[]', '[]', '[]', :now)""",
+                VALUES (:id, :cat, :level, :composite, TRUE, :headline, :headline, '본문', '[]', '[]', '[]', :now)""",
                 new MapSqlParameterSource()
                         .addValue("id", id)
                         .addValue("cat", category)
