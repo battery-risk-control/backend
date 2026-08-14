@@ -58,6 +58,7 @@ class PlanningDashboardDetailSqlTest {
                     material_name          VARCHAR(200),
                     procurement_risk_level VARCHAR(20),
                     composite              BOOLEAN,
+                    review_passed          BOOLEAN,
                     source_headline        VARCHAR(500),
                     subject_title          VARCHAR(500),
                     briefing_text          TEXT,
@@ -187,17 +188,21 @@ class PlanningDashboardDetailSqlTest {
         UUID a = ANALYSIS_ID;
         UUID b = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID c = UUID.fromString("33333333-3333-3333-3333-333333333333");
-        insertBriefing(a, "코발트", "CRITICAL", true, "콩고 코발트 수출 중단");   // 배터리셀 · CRITICAL 완주
-        insertBriefing(b, "코발트", "WARNING", true, "코발트 가격 급등");         // 배터리셀 · WARNING
-        insertBriefing(c, null, "NORMAL", false, "일반 뉴스");                    // 자재 미상 → 분포 제외, 목록/KPI 포함
+        UUID d = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        // 확정(composite=TRUE + review_passed=TRUE) 3건 + 확정 아님(review_passed=FALSE) 1건.
+        insertBriefing(a, "코발트", "CRITICAL", true, true, "콩고 코발트 수출 중단");  // 확정 심각
+        insertBriefing(b, "코발트", "WARNING", true, true, "코발트 가격 급등");        // 확정 주의
+        insertBriefing(c, null, "NORMAL", true, true, "일반 뉴스");                    // 확정 정상, 자재 미상 → 분포 제외
+        insertBriefing(d, "코발트", "WARNING", true, false, "검토 대기 뉴스");         // 검토 필요 → 확정 아님(목록 제외)
 
-        // 분포: 코발트 2건이 배터리셀사업부로, 자재 NULL은 뷰 INNER JOIN에서 제외
+        // 분포: 확정 기준. 코발트 확정 2건(a·b)이 배터리셀사업부로, 자재 NULL(c)은 뷰 INNER JOIN에서
+        // 제외, d(확정 아님)도 제외 → 배터리셀 2건.
         var byUnit = repository.loadBriefingCountByUnit();
         assertThat(byUnit).hasSize(1);
         assertThat(byUnit.get(0).name()).isEqualTo("배터리셀사업부");
         assertThat(byUnit.get(0).value()).isEqualByComparingTo("2");
 
-        // 목록: analysis_id 있는 3건 전부. 등급은 종합 위험등급(procurement_risk_level)에서.
+        // 목록: 확정 3건(a·b·c)만. d(review_passed=false)는 제외 → 주의가 1건뿐이어야 한다.
         var recent = repository.findRecentBriefings(10, 0);
         assertThat(recent).hasSize(3);
         assertThat(recent).extracting(PlanningDashboardDto.BriefingSummaryItem::grade)
@@ -206,26 +211,32 @@ class PlanningDashboardDetailSqlTest {
         assertThat(cobalt.businessUnit()).isEqualTo("배터리셀사업부");
         assertThat(cobalt.riskEventId()).isNotBlank();  // 드릴다운 키 = analysis_id
 
-        // 총계
+        // 총계: 확정 3건(d 제외)
         assertThat(repository.countRecentBriefings()).isEqualTo(3);
 
-        // KPI: 이번 분기 3건, CRITICAL(composite=TRUE) 비중 = 1/3 ≈ 33.3%
+        // KPI: 모두 확정 기준. 이번 분기(확정) 3건, CRITICAL 비중 = 1/3 ≈ 33.3%, 정상 1·주의 1·심각 1
+        // (d는 확정이 아니라 이번 분기 건수·주의 건수 어디에도 안 잡힌다)
         var kpi = repository.aiBriefingKpi();
         assertThat(kpi.briefingCount()).isEqualTo(3);
         assertThat(kpi.criticalRatio().doubleValue()).isCloseTo(100.0 / 3, within(0.1));
+        assertThat(kpi.normalCount()).isEqualTo(1);
+        assertThat(kpi.warningCount()).isEqualTo(1);
+        assertThat(kpi.criticalCount()).isEqualTo(1);
     }
 
-    private void insertBriefing(UUID id, String category, String level, boolean composite, String headline) {
+    private void insertBriefing(
+            UUID id, String category, String level, boolean composite, boolean reviewPassed, String headline) {
         jdbc.update("""
-                INSERT INTO ai_briefings (analysis_id, material_category, procurement_risk_level, composite,
+                INSERT INTO ai_briefings (analysis_id, material_category, procurement_risk_level, composite, review_passed,
                                           source_headline, subject_title, briefing_text, recommended_actions,
                                           contract_findings, warnings, created_at)
-                VALUES (:id, :cat, :level, :composite, :headline, :headline, '본문', '[]', '[]', '[]', :now)""",
+                VALUES (:id, :cat, :level, :composite, :reviewPassed, :headline, :headline, '본문', '[]', '[]', '[]', :now)""",
                 new MapSqlParameterSource()
                         .addValue("id", id)
                         .addValue("cat", category)
                         .addValue("level", level)
                         .addValue("composite", composite)
+                        .addValue("reviewPassed", reviewPassed)
                         .addValue("headline", headline)
                         .addValue("now", OffsetDateTime.now()));
     }
