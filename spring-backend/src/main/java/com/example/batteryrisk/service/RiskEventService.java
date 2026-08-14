@@ -540,7 +540,7 @@ public class RiskEventService {
                 : countryCode.trim().toUpperCase(Locale.ROOT);
 
         List<RawEvent> events = rawEventRepository.findSupplyChainNews(
-                materialKeywordPattern(), country, cappedLimit, safeOffset);
+                country, cappedLimit, safeOffset);
         Map<UUID, Analysis> analysesById = loadAnalyses(events);
         // 멀티에이전트(ERP·계약)까지 통과해 종합 위험도가 나온 뉴스만 등급 배지를 받는다.
         Map<UUID, String> riskLevelsByAnalysisId =
@@ -594,7 +594,7 @@ public class RiskEventService {
      * 수집된 공급망 뉴스가 없으면 {@code null}(프론트에서 칩 숨김).
      */
     public OffsetDateTime latestSupplyChainNewsCollectedAt() {
-        Instant collectedAt = rawEventRepository.findLatestSupplyChainCollectedAt(materialKeywordPattern());
+        Instant collectedAt = rawEventRepository.findLatestSupplyChainCollectedAt();
         // collected_at은 엔티티가 Instant로 매핑한다. as_of DTO는 OffsetDateTime이므로 UTC 오프셋으로 변환한다
         // (프론트가 표시 때 Asia/Seoul로 재환산하므로 오프셋 값 자체는 표기에 영향 없다).
         return collectedAt == null ? null : OffsetDateTime.ofInstant(collectedAt, ZoneId.of("UTC"));
@@ -605,7 +605,7 @@ public class RiskEventService {
         String country = countryCode == null || countryCode.isBlank()
                 ? null
                 : countryCode.trim().toUpperCase(Locale.ROOT);
-        return rawEventRepository.countSupplyChainNews(materialKeywordPattern(), country);
+        return rawEventRepository.countSupplyChainNews(country);
     }
 
     /**
@@ -615,7 +615,14 @@ public class RiskEventService {
      * "the intense color of copper"(구릿빛 머리카락)를 구리 뉴스로 분류했다 — 경계가 없으면
      * 합성어·비유·인명 안에 든 글자열까지 다 걸린다. 경계만으로 비유까지 막지는 못하지만
      * 오탐의 상당수는 여기서 걸러진다.
+     *
+     * @deprecated 공급망 뉴스 조회 3종은 이제 V38 {@code raw_events.material_matched} 생성 컬럼으로
+     *     자재 매칭을 판정한다(요청당 정규식 전체 스캔 약 1.1초 → 인덱스 조회). 이 메서드는 두 가지
+     *     이유로 보존한다: ① {@code RiskEventServiceTest}의 동기화 가드 테스트가 이 정규식과 V38
+     *     컬럼 식의 키워드 집합이 같은지 검사한다. ② material_matched에 문제가 생겼을 때
+     *     {@code RawEventRepository}의 [ROLLBACK] 주석대로 정규식 쿼리로 되돌릴 때 다시 쓴다.
      */
+    @Deprecated
     static String materialKeywordPattern() {
         // \y는 PostgreSQL의 단어 경계다(\b가 아니다 — POSIX 정규식에서 \b는 백스페이스다).
         // 키워드에 정규식 메타문자가 없어(영문 소문자와 공백·하이픈뿐) 이스케이프는 하지 않는다.
