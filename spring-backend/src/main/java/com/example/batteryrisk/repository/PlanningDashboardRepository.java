@@ -502,6 +502,39 @@ public class PlanningDashboardRepository {
                 new PlanningDashboardDto.Badge("D-" + rs.getLong("days_left"), "warning")));
     }
 
+    public List<PlanningDashboardDto.ContractListItem> findAllContracts() {
+        return jdbc.query("""
+                SELECT c.contract_id, c.contract_number, c.contract_name, s.supplier_name,
+                       bu.name AS business_unit_name, c.status, c.end_date,
+                       COUNT(d.document_id) AS document_count,
+                       COUNT(d.document_id) FILTER (WHERE d.processing_status = 'COMPLETED') AS rag_ready_count
+                FROM contracts c
+                JOIN suppliers s ON s.supplier_id = c.supplier_id
+                LEFT JOIN materials m ON m.material_id = c.material_id
+                LEFT JOIN business_units bu ON bu.business_unit_id = m.business_unit_id
+                LEFT JOIN contract_documents d ON d.contract_id = c.contract_id
+                GROUP BY c.contract_id, c.contract_number, c.contract_name, s.supplier_name,
+                         bu.name, c.status, c.end_date
+                ORDER BY c.contract_number
+                """, new MapSqlParameterSource(), (rs, rowNum) -> {
+            long contractId = rs.getLong("contract_id");
+            List<PlanningDashboardDto.ContractDocumentItem> documents = jdbc.query("""
+                    SELECT document_id, original_file_name, processing_status, chunk_count
+                    FROM contract_documents WHERE contract_id = :contractId ORDER BY created_at DESC
+                    """, new MapSqlParameterSource("contractId", contractId), (drs, drow) ->
+                    new PlanningDashboardDto.ContractDocumentItem(
+                            drs.getString("document_id"), drs.getString("original_file_name"),
+                            drs.getString("processing_status"), drs.getInt("chunk_count")));
+            long documentCount = rs.getLong("document_count");
+            return new PlanningDashboardDto.ContractListItem(
+                    rs.getString("contract_number"), rs.getString("contract_name"),
+                    rs.getString("supplier_name"), rs.getString("business_unit_name"),
+                    rs.getString("status"), rs.getObject("end_date", LocalDate.class),
+                    documentCount > 0, documentCount > 0 && rs.getLong("rag_ready_count") == documentCount,
+                    documents);
+        });
+    }
+
     // ===== AI 브리핑 =====
 
     // "AI 브리핑 취합"은 1계층과 동일하게 실제 생성 브리핑(ai_briefings)만 센다 — analyses(브리핑 전
@@ -516,7 +549,8 @@ public class PlanningDashboardRepository {
                 WHERE b.created_at >= date_trunc('quarter', now())
                   AND b.analysis_id IS NOT NULL
                   AND b.composite = TRUE
-                  AND b.review_passed = TRUE
+                  AND b.briefing_text IS NOT NULL
+                  AND b.review_passed IS TRUE
                 GROUP BY bu.name
                 ORDER BY bu.name
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new PlanningDashboardDto.RankedBarItem(
@@ -556,7 +590,8 @@ public class PlanningDashboardRepository {
                 -- 3계층 최근 브리핑과 같은 기준 — 브리핑까지 다 생성돼 확정된 건만 목록에 올린다.
                 WHERE b.analysis_id IS NOT NULL
                   AND b.composite = TRUE
-                  AND b.review_passed = TRUE
+                  AND b.briefing_text IS NOT NULL
+                  AND b.review_passed IS TRUE
                 ORDER BY b.created_at DESC
                 LIMIT :limit OFFSET :offset
                 """, params, (rs, rowNum) -> {
@@ -576,22 +611,18 @@ public class PlanningDashboardRepository {
 
     /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건 = 확정 브리핑)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
     public long countRecentBriefings() {
-        Long count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM ai_briefings b
-                WHERE b.analysis_id IS NOT NULL
-                  AND b.composite = TRUE
-                  AND b.review_passed = TRUE
-                """, new MapSqlParameterSource(), Long.class);
+        Long count = jdbc.queryForObject(
+                """
+                    SELECT COUNT(*) FROM ai_briefings b
+                    WHERE b.analysis_id IS NOT NULL AND b.composite = TRUE
+                      AND b.briefing_text IS NOT NULL AND b.review_passed IS TRUE
+                    """,
+                new MapSqlParameterSource(), Long.class);
         return count == null ? 0L : count;
     }
 
-    /**
-     * AI 브리핑 탭 전용 KPI(이번 분기 실제 생성 브리핑 건수 / 심각 비중 / 주의·심각 건수). 전략 탭
-     * {@link #quarterKpi}와 분리한다. 등급 건수는 등급이 유효한(composite=TRUE) 브리핑만 센다 —
-     * 심각 비중 분자와 같은 기준이라 비중과 건수가 어긋나지 않는다.
-     */
-    public record AiBriefingKpi(
-            long briefingCount, BigDecimal criticalRatio, long normalCount, long warningCount, long criticalCount) {}
+    /** AI 브리핑 탭 전용 KPI(이번 분기 실제 생성 브리핑 건수 / CRITICAL 비중). 전략 탭 {@link #quarterKpi}와 분리한다. */
+    public record AiBriefingKpi(long briefingCount, long normalCount, long warningCount, long criticalCount) {}
 
     /**
      * 이번 분기 '확정'(멀티에이전트 종합 완료 composite + 검증 통과 review_passed) 브리핑 건수와
@@ -605,23 +636,18 @@ public class PlanningDashboardRepository {
                     WHERE created_at >= date_trunc('quarter', now())
                       AND analysis_id IS NOT NULL
                       AND composite = TRUE
-                      AND review_passed = TRUE
+                      AND briefing_text IS NOT NULL
+                      AND review_passed IS TRUE
                 )
                 SELECT
-                    (SELECT COUNT(*) FROM quarter) AS briefing_count,
-                    CASE WHEN (SELECT COUNT(*) FROM quarter) = 0 THEN NULL
-                         ELSE (SELECT COUNT(*) FROM quarter WHERE procurement_risk_level = 'CRITICAL')::numeric
-                              / (SELECT COUNT(*) FROM quarter) * 100
-                    END AS critical_ratio,
-                    (SELECT COUNT(*) FROM quarter WHERE procurement_risk_level = 'NORMAL') AS normal_count,
-                    (SELECT COUNT(*) FROM quarter WHERE procurement_risk_level = 'WARNING') AS warning_count,
-                    (SELECT COUNT(*) FROM quarter WHERE procurement_risk_level = 'CRITICAL') AS critical_count
+                    COUNT(*) AS briefing_count,
+                    COUNT(*) FILTER (WHERE procurement_risk_level = 'NORMAL') AS normal_count,
+                    COUNT(*) FILTER (WHERE procurement_risk_level = 'WARNING') AS warning_count,
+                    COUNT(*) FILTER (WHERE procurement_risk_level = 'CRITICAL') AS critical_count
+                FROM quarter
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new AiBriefingKpi(
                 rs.getLong("briefing_count"),
-                rs.getBigDecimal("critical_ratio"),
-                rs.getLong("normal_count"),
-                rs.getLong("warning_count"),
-                rs.getLong("critical_count")));
+                rs.getLong("normal_count"), rs.getLong("warning_count"), rs.getLong("critical_count")));
     }
 
     /** CRITICAL이면서 이미 처리(acknowledge)된 평가 건수 — "임원 보고 지정" 기본 정의. */

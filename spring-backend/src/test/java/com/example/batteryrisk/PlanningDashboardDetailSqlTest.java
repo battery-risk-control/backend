@@ -218,7 +218,6 @@ class PlanningDashboardDetailSqlTest {
         // (d는 확정이 아니라 이번 분기 건수·주의 건수 어디에도 안 잡힌다)
         var kpi = repository.aiBriefingKpi();
         assertThat(kpi.briefingCount()).isEqualTo(3);
-        assertThat(kpi.criticalRatio().doubleValue()).isCloseTo(100.0 / 3, within(0.1));
         assertThat(kpi.normalCount()).isEqualTo(1);
         assertThat(kpi.warningCount()).isEqualTo(1);
         assertThat(kpi.criticalCount()).isEqualTo(1);

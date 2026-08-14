@@ -26,14 +26,20 @@ public final class ExecutiveDashboardDto {
             //
             // @JsonProperty 명시 필요: 전역 SNAKE_CASE 전략이 문자→숫자 경계(...Count|24h)엔
             // 언더스코어를 안 넣어 "collected_count24h"로 잘못 직렬화된다(DashboardDto의 24h 필드와 동일 이유).
-            @JsonProperty("collected_count_24h") long collectedCount24h,
+            @JsonProperty("critical_count_24h") long criticalCount24h,
+            @JsonProperty("warning_count_24h") long warningCount24h,
+            @JsonProperty("verified_briefing_count_24h") long verifiedBriefingCount24h,
+            @JsonProperty("review_required_count_24h") long reviewRequiredCount24h,
             // 최근 24시간 구매 리스크 최고 점수(최종 합성 점수). 평가가 0건이면 null → 화면은 "—".
             @JsonProperty("max_risk_score_24h") BigDecimal maxRiskScore24h
     ) {}
 
     /** 최근 24시간 수집 건수·최고 위험 점수 집계(경영진 KPI 24h 보조 줄용). */
     public record Recent24hSummary(
-            long collectedCount,
+            long criticalCount,
+            long warningCount,
+            long verifiedBriefingCount,
+            long reviewRequiredCount,
             BigDecimal maxRiskScore
     ) {}
 

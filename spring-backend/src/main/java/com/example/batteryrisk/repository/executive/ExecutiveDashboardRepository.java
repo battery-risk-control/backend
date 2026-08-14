@@ -44,13 +44,28 @@ public class ExecutiveDashboardRepository {
     public ExecutiveDashboardDto.Recent24hSummary loadRecent24hSummary() {
         return jdbc.queryForObject("""
                 SELECT
-                    COUNT(*) AS collected_count,
-                    MAX(procurement_risk_score) AS max_risk_score
-                FROM procurement_risk_assessments
-                WHERE created_at >= now() - INTERVAL '24 hours'
+                    (SELECT COUNT(*) FROM procurement_risk_assessments
+                     WHERE created_at >= now() - INTERVAL '24 hours'
+                       AND procurement_risk_level = 'CRITICAL') AS critical_count,
+                    (SELECT COUNT(*) FROM procurement_risk_assessments
+                     WHERE created_at >= now() - INTERVAL '24 hours'
+                       AND procurement_risk_level = 'WARNING') AS warning_count,
+                    (SELECT COUNT(*) FROM ai_briefings
+                     WHERE created_at >= now() - INTERVAL '24 hours'
+                       AND composite = TRUE AND briefing_text IS NOT NULL
+                       AND review_passed IS TRUE) AS verified_briefing_count,
+                    (SELECT COUNT(*) FROM ai_briefings
+                     WHERE created_at >= now() - INTERVAL '24 hours'
+                       AND composite = TRUE AND briefing_text IS NOT NULL
+                       AND review_passed IS NOT TRUE) AS review_required_count,
+                    (SELECT MAX(procurement_risk_score) FROM procurement_risk_assessments
+                     WHERE created_at >= now() - INTERVAL '24 hours') AS max_risk_score
                 """, new MapSqlParameterSource(), (rs, rowNum) ->
                 new ExecutiveDashboardDto.Recent24hSummary(
-                        rs.getLong("collected_count"),
+                        rs.getLong("critical_count"),
+                        rs.getLong("warning_count"),
+                        rs.getLong("verified_briefing_count"),
+                        rs.getLong("review_required_count"),
                         rs.getBigDecimal("max_risk_score")));
     }
 
