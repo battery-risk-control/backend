@@ -586,6 +586,8 @@ public class PlanningDashboardRepository {
                 FROM ai_briefings b
                 LEFT JOIN material_category_business_units cb ON cb.material_category = b.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
+                -- 신뢰도 '확정'(멀티에이전트 종합 완료 composite + 검증 통과 review_passed)만 노출.
+                -- 3계층 최근 브리핑과 같은 기준 — 브리핑까지 다 생성돼 확정된 건만 목록에 올린다.
                 WHERE b.analysis_id IS NOT NULL
                   AND b.composite = TRUE
                   AND b.briefing_text IS NOT NULL
@@ -607,7 +609,7 @@ public class PlanningDashboardRepository {
         });
     }
 
-    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
+    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건 = 확정 브리핑)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
     public long countRecentBriefings() {
         Long count = jdbc.queryForObject(
                 """
@@ -622,7 +624,11 @@ public class PlanningDashboardRepository {
     /** AI 브리핑 탭 전용 KPI(이번 분기 실제 생성 브리핑 건수 / CRITICAL 비중). 전략 탭 {@link #quarterKpi}와 분리한다. */
     public record AiBriefingKpi(long briefingCount, long normalCount, long warningCount, long criticalCount) {}
 
-    /** 이번 분기 ai_briefings 건수와 그중 CRITICAL(등급 유효=composite) 비중. */
+    /**
+     * 이번 분기 '확정'(멀티에이전트 종합 완료 composite + 검증 통과 review_passed) 브리핑 건수와
+     * 그중 정상·주의·심각 비중·건수. 최근 브리핑 목록·사업부별 분포와 같은 확정 기준이라 화면의
+     * 모든 숫자가 일치한다(조기종료 등 확정 아닌 건은 어디에도 잡히지 않는다).
+     */
     public AiBriefingKpi aiBriefingKpi() {
         return jdbc.queryForObject("""
                 WITH quarter AS (
