@@ -202,7 +202,9 @@ public class AuthService {
         String newAccessToken = jwtTokenProvider.generateAccessToken(
                 userDetails.getId(), userDetails.getUsername(), userDetails.getRole(), sessionId);
 
-        return RefreshResponse.of(newAccessToken, jwtTokenProvider.getAccessTokenValiditySeconds());
+        // org_tier·username을 함께 내려 프론트 부트스트랩이 /auth/me 추가 왕복 없이 끝나게 한다.
+        return RefreshResponse.of(newAccessToken, jwtTokenProvider.getAccessTokenValiditySeconds(),
+                userDetails.getUser().getRole().getOrgTier(), userDetails.getUsername());
     }
 
     public void logout(String token) {
