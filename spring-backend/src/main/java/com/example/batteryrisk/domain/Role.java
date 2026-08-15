@@ -11,12 +11,17 @@ import java.util.Locale;
  *
  * <p>{@code ADMIN}은 가입 승인/거부 전용 관리자 역할이다. 회원가입 폼에는 노출하지 않으므로
  * 가입으로는 획득할 수 없고, 시드({@code AuthTestSeedConfig}/{@code AdminSeedConfig})로만 만든다.
+ *
+ * <p>{@code MASTER}는 시연 전용 역할이다. 한 계정으로 1·2·3계층 대시보드를 모두 열람하기 위한
+ * 것으로, {@link com.example.batteryrisk.security.CustomUserDetails}에서 세 계층 역할 권한을
+ * 모두 부여받는다. 오직 {@code AuthTestSeedConfig}(test-seed)에서만 생성되며 운영엔 올라가지 않는다.
  */
 public enum Role {
     PURCHASING("purchasing"),
     STRATEGY("planning"),
     EXECUTIVE("executive"),
-    ADMIN("admin");
+    ADMIN("admin"),
+    MASTER("master");
 
     private final String orgTier;
 

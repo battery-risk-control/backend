@@ -1,5 +1,14 @@
 server:
   port: 8080
+  # [성능] 응답 gzip 압축. 뉴스 목록·가격 시계열 등 JSON 응답이 수십 KB라 전송량이 크게 준다.
+  # mime-types를 JSON으로 한정해 파일 다운로드(PDF/CSV, ErpImportReport·Document)는 대상에서
+  # 제외한다 — 이미 압축된 바이너리를 다시 압축하는 낭비와 스트리밍 간섭을 피한다. 코드베이스에
+  # SSE(text/event-stream)는 없다(2026-08-14 확인). 1KB 미만은 압축 오버헤드가 더 커 건너뛴다.
+  # [ROLLBACK] 이 compression 블록만 지우면 무압축(기존 동작)으로 돌아간다.
+  compression:
+    enabled: true
+    mime-types: application/json
+    min-response-size: 1024
 
 spring:
   application:

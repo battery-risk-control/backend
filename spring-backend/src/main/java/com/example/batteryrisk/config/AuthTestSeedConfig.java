@@ -74,6 +74,11 @@ public class AuthTestSeedConfig {
                             "경영기획팀 테스트", Role.STRATEGY, ApprovalStatus.APPROVED),
                     new SeedAccount("executive@test.local", emailWithTagOr("executive", "executive@test.local"), approvedHash,
                             "임원 테스트", Role.EXECUTIVE, ApprovalStatus.APPROVED),
+                    // 시연 전용 마스터. 한 계정으로 1·2·3계층 대시보드를 모두 열람한다(CustomUserDetails가
+                    // 세 계층 역할 권한을 모두 부여). 다른 승인 계정과 같은 비밀번호(test1234!)를 쓰고,
+                    // 알림 대상이 아니므로 recipient-email 오버라이드 없이 고정 주소로 유니크 제약을 피한다.
+                    new SeedAccount("master@test.local", "master@test.local", approvedHash,
+                            "마스터 테스트", Role.MASTER, ApprovalStatus.APPROVED),
                     // 관리자 승인 화면(가입 승인/거부) e2e·수동 검증용 ADMIN 계정. 알림 대상이 아니므로
                     // recipient-email 오버라이드를 적용하지 않고 고정 주소를 써서 유니크 제약 충돌을 피한다.
                     new SeedAccount("admin@test.local", "admin@test.local", approvedHash,

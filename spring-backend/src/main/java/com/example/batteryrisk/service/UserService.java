@@ -124,9 +124,10 @@ public class UserService {
         return user;
     }
 
-    /** 관리자 승인 목록 조회 — 지정 상태의 계정을 최근 신청 순으로 반환한다. 관리자(ADMIN)는 제외한다. */
+    /** 관리자 승인 목록 조회 — 지정 상태의 계정을 최근 신청 순으로 반환한다. 권한 계정(ADMIN·MASTER)은 제외한다. */
     public List<User> findByApprovalStatus(ApprovalStatus status) {
-        return userRepository.findByApprovalStatusAndRoleNotOrderByCreatedAtDesc(status, Role.ADMIN);
+        return userRepository.findByApprovalStatusAndRoleNotInOrderByCreatedAtDesc(
+                status, List.of(Role.ADMIN, Role.MASTER));
     }
 
     /**

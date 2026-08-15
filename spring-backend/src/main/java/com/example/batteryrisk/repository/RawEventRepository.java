@@ -89,17 +89,22 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
      * 넘기려면 스캔 범위를 더 키워야 해서 그 비용이 페이지 수만큼 늘어난다. 여기서 거르면
      * 실제로 보여줄 행만 오간다.
      *
-     * <p>키워드는 {@code RiskEventService.MATERIAL_KEYWORDS}에서 만들어 넘긴다 — SQL에 목록을
-     * 박아 두면 자재를 추가할 때 두 곳을 고쳐야 하고, 한쪽을 잊으면 화면과 분류가 조용히
-     * 어긋난다.
+     * <p>자재 매칭은 {@code e.material_matched}(V38 생성 컬럼 + 부분 인덱스)로 판정한다. 예전에는
+     * 요청마다 {@code (title || content) ~* <키워드 정규식>}으로 테이블을 통째로 훑어 약 1.1초가
+     * 들었다(실측). 매칭 여부는 행이 만들어질 때 정해지므로 수집 시점에 굳혀 두고 인덱스로 읽는다.
+     * 키워드 집합은 그 컬럼 식(V38)과 {@code RiskEventService.MATERIAL_KEYWORDS}가 동기화되어야
+     * 하며, {@code RiskEventServiceTest}가 이를 검사한다.
      *
      * <p>{@code DISTINCT ON (lower(trim(title)))}으로 같은 기사가 GDELT GlobalEventID만 다른 채로
      * 여러 번 들어온 것을 접는다. 중복 제거를 Java에서 하면 OFFSET이 어긋난다 — 20건을 건너뛴
      * 뒤에 중복이 걸러지면 실제로는 20건보다 적게 넘어간 셈이 되어 페이지마다 항목이 겹친다.
-     *
-     * @param keywordPattern 대소문자 무시 정규식(예: {@code nickel|cobalt|lithium}).
-     *                       {@code ~*}로 매칭하므로 호출자가 소문자로 만들 필요는 없다.
      */
+    // [ROLLBACK] 2026-08-14 이전 정규식 버전. material_matched(V38)에 문제가 생기면 아래 WHERE의
+    //   AND (e.material_matched OR an.material_category IS NOT NULL)
+    // 를 다음으로 되돌리고, 시그니처에 String keywordPattern 을 다시 추가한 뒤
+    // RiskEventService.materialKeywordPattern() 을 넘기면 된다(그 메서드는 @Deprecated로 보존됨):
+    //   AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
+    //        OR an.material_category IS NOT NULL)
     @Query(nativeQuery = true, value = """
             SELECT * FROM (
                 SELECT DISTINCT ON (lower(trim(e.title))) e.*
@@ -108,8 +113,7 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
                 WHERE e.data_type = 'NEWS'
                   AND e.title IS NOT NULL
                   AND (:countryCode IS NULL OR e.country_code = :countryCode)
-                  AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
-                       OR an.material_category IS NOT NULL)
+                  AND (e.material_matched OR an.material_category IS NOT NULL)
                   -- 최신 뉴스 노출 만료: 등급별로 심각 10일 · 주의 5일 · 그 외(참고/미분석) 3일이
                   -- 지나면 목록에서 제외한다. 등급은 뉴스 속보와 같은 출처(완결된 NEWS 브리핑의
                   -- procurement_risk_level)에서 읽어 화면 배지와 어긋나지 않게 한다.
@@ -132,12 +136,17 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
             LIMIT :limit OFFSET :offset
             """)
     List<RawEvent> findSupplyChainNews(
-            String keywordPattern, String countryCode, int limit, int offset);
+            String countryCode, int limit, int offset);
 
     /**
      * {@link #findSupplyChainNews} 조건에 맞는 전체 건수. 화면이 "다음 페이지가 있는지"가 아니라
      * "전부 몇 건인지"를 알아야 마지막 페이지에서 화살표를 정확히 잠글 수 있다.
      */
+    // [ROLLBACK] findSupplyChainNews와 동일 — material_matched(V38) 문제 시 아래 WHERE의
+    //   AND (e.material_matched OR an.material_category IS NOT NULL)
+    // 를 정규식 버전으로 되돌리고 String keywordPattern 인자를 복원한다:
+    //   AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
+    //        OR an.material_category IS NOT NULL)
     @Query(nativeQuery = true, value = """
             SELECT COUNT(DISTINCT lower(trim(e.title)))
             FROM raw_events e
@@ -145,8 +154,7 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
             WHERE e.data_type = 'NEWS'
               AND e.title IS NOT NULL
               AND (:countryCode IS NULL OR e.country_code = :countryCode)
-              AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
-                   OR an.material_category IS NOT NULL)
+              AND (e.material_matched OR an.material_category IS NOT NULL)
               -- findSupplyChainNews와 같은 만료 규칙(심각 10일·주의 5일·그 외 3일). 목록과 총건수가
               -- 어긋나면 마지막 페이지 화살표 잠금이 틀어지므로 두 쿼리를 반드시 동일 조건으로 둔다.
               AND e.collected_at >= now() - (
@@ -163,7 +171,7 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
                   END
               )
             """)
-    long countSupplyChainNews(String keywordPattern, String countryCode);
+    long countSupplyChainNews(String countryCode);
 
     /**
      * 최신 공급망 뉴스의 수집 시각(대시보드 "기준 시각"). {@link #findSupplyChainNews}가 보여주는
@@ -171,16 +179,20 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
      * 정렬이라 최댓값이 곧 맨 위 항목이다. 만료 규칙(심각 10일·주의 5일·그 외 3일)은 오래된 항목만
      * 걷어내고 최신 항목은 항상 창 안에 있으므로 MAX에 영향을 주지 않아 생략한다. 없으면 {@code null}.
      */
+    // [ROLLBACK] material_matched(V38) 문제 시 아래 WHERE의
+    //   AND (e.material_matched OR an.material_category IS NOT NULL)
+    // 를 정규식 버전으로 되돌리고 String keywordPattern 인자를 복원한다:
+    //   AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
+    //        OR an.material_category IS NOT NULL)
     @Query(nativeQuery = true, value = """
             SELECT MAX(e.collected_at)
             FROM raw_events e
             LEFT JOIN analyses an ON an.analysis_id = e.triggered_analysis_id
             WHERE e.data_type = 'NEWS'
               AND e.title IS NOT NULL
-              AND ((coalesce(e.title, '') || ' ' || coalesce(e.content, '')) ~* :keywordPattern
-                   OR an.material_category IS NOT NULL)
+              AND (e.material_matched OR an.material_category IS NOT NULL)
             """)
-    Instant findLatestSupplyChainCollectedAt(String keywordPattern);
+    Instant findLatestSupplyChainCollectedAt();
 
     /**
      * 분석에 대응하는 수집 원본. 지도 마커의 제목을 한국어로 보여주기 위해 쓴다 —
