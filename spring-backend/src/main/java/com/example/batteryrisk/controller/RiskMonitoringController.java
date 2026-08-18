@@ -75,9 +75,36 @@ public class RiskMonitoringController {
             @Parameter(description = "최근 N일(1~180). 화면 기본 필터는 7일이다.", example = "7")
             @RequestParam(defaultValue = "7") @Min(1) @Max(180) int days,
 
-            @Parameter(description = "노출 건수(1~200)", example = "50")
-            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit) {
-        return ApiResponse.ok(riskMonitoringService.list(grade, confidence, country, material, days, limit));
+            @Parameter(description = "페이지 크기(1~200)", example = "20")
+            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit,
+
+            @Parameter(description = "건너뛸 건수. 과거 이벤트로 페이지를 넘길 때 쓴다.", example = "20")
+            @RequestParam(defaultValue = "0") @Min(0) int offset) {
+        return ApiResponse.ok(riskMonitoringService.list(grade, confidence, country, material, days, limit, offset));
+    }
+
+    @Operation(
+            summary = "리스크 이벤트 전체 건수 (구매팀)",
+            description = "/events 와 같은 필터 조건의 전체 건수입니다. 화면이 페이지 수를 계산해 "
+                    + "마지막 페이지에서 다음 버튼을 잠그는 데 씁니다. 목록과 반드시 같은 필터를 넘겨야 합니다.")
+    @PreAuthorize("permitAll()")
+    @GetMapping("/events/count")
+    public ApiResponse<Long> eventCount(
+            @Parameter(description = "심각/주의/정상. 생략하면 전체", example = "심각")
+            @RequestParam(required = false) String grade,
+
+            @Parameter(description = "확정/경고/참고(신뢰도). 생략하면 전체", example = "확정")
+            @RequestParam(required = false) String confidence,
+
+            @Parameter(description = "ISO 3166-1 alpha-2 국가 코드. 생략하면 전체", example = "CL")
+            @RequestParam(required = false) String country,
+
+            @Parameter(description = "자재 표기명(리튬) 또는 대분류(LITHIUM). 생략하면 전체", example = "리튬")
+            @RequestParam(required = false) String material,
+
+            @Parameter(description = "최근 N일(1~180)", example = "7")
+            @RequestParam(defaultValue = "7") @Min(1) @Max(180) int days) {
+        return ApiResponse.ok(riskMonitoringService.count(grade, confidence, country, material, days));
     }
 
     @Operation(

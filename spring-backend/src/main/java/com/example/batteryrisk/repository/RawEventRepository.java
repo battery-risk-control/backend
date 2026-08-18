@@ -41,9 +41,34 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
      * {@code (국가, 자재)}로 접어서, 같은 시점에 지도가 주의 3건 · 주요 알림이 2건을 보여줬다
      * (실측 2026-08-03). 주요 알림은 이 목록에서 파생되므로 여기를 맞추면 함께 맞는다.
      */
+    /**
+     * 등급·신뢰도 필터까지 SQL에서 끝내는 이유(2026-08-16, 서버 페이지네이션 도입): 둘을 Java에서
+     * 거르면 OFFSET이 "거르기 전" 행 기준이 되어, 등급 필터를 켠 채 페이지를 넘기면 항목이
+     * 겹치거나 빠진다(뉴스 피드가 중복 제거를 SQL로 내린 것과 같은 원리). 판정식은 화면 표시식과
+     * 반드시 같아야 한다:
+     *  - 등급: {@code COALESCE(완결브리핑.procurement_risk_level, an.severity)} —
+     *    {@code RiskMonitoringService.toItem}의 gradeOf(analysis, riskLevel)와 동일. 화면 등급명
+     *    (심각/주의/정상)→severity 코드 변환은 {@code RiskEventService.severityForGrade}가 하나의
+     *    표(GRADE_BY_SEVERITY)에서 도출해 넘긴다.
+     *  - 신뢰도: 완결 브리핑 있으면 '확정', 아니면 severity_score >= :warnMin 이면 '경고', 그 외
+     *    '참고' — {@code RiskEventService.newsConfidenceLabel}과 동일하며 :warnMin은 같은 상수
+     *    (EXTERNAL_SIGNAL_WARNING_MIN)를 서비스가 넘긴다.
+     *  두 식이 어긋나면 "목록에는 있는데 배지가 다른" 행이 생기므로
+     *  {@code RiskMonitoringPaginationTest}가 SQL 필터 결과와 Java 표시 결과의 일치를 검사한다.
+     *
+     * <p>완결 브리핑 판정은 {@link NewsEventSql#COMPLETED_NEWS_CTE}와 같은 조건(NEWS·composite·
+     * 본문 존재·review_passed, 최신 1건)이다 — 지도·KPI와 확정 기준이 갈리지 않게 한다.
+     *
+     * <p>정렬에 {@code id DESC}를 보조 키로 두는 이유: {@code collected_at}이 같은 행이 있으면
+     * OFFSET 페이지 경계가 실행마다 흔들려 항목이 겹치거나 빠질 수 있다. 보조 키로 순서를
+     * 결정적으로 만든다.
+     */
     @Query(nativeQuery = true, value = """
             WITH candidates AS (
                 SELECT r.*, an.material_category,
+                       an.severity AS an_severity,
+                       an.severity_score AS an_severity_score,
+                       an.analysis_id AS an_analysis_id,
             """ + NewsEventSql.EVENT_KEY + """
                        AS event_key
                 FROM raw_events r
@@ -60,13 +85,93 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
                 SELECT DISTINCT ON (event_key) *
                 FROM candidates
                 ORDER BY event_key, collected_at DESC
+            ),
+            graded AS (
+                SELECT d.*, nb.procurement_risk_level AS nb_level,
+                       (nb.briefing_id IS NOT NULL) AS confirmed
+                FROM deduped d
+                LEFT JOIN LATERAL (
+                    SELECT b.briefing_id, b.procurement_risk_level
+                    FROM ai_briefings b
+                    WHERE b.analysis_id = d.an_analysis_id
+                      AND b.source_type = 'NEWS'
+                      AND b.composite = TRUE
+                      AND NULLIF(BTRIM(b.briefing_text), '') IS NOT NULL
+                      AND b.review_passed = TRUE
+                    ORDER BY b.created_at DESC
+                    LIMIT 1
+                ) nb ON TRUE
             )
-            SELECT * FROM deduped
-            ORDER BY collected_at DESC
-            LIMIT :limit
+            SELECT * FROM graded
+            WHERE (CAST(:severityLevel AS VARCHAR) IS NULL
+                   OR COALESCE(nb_level, an_severity) = CAST(:severityLevel AS VARCHAR))
+              AND (CAST(:confidence AS VARCHAR) IS NULL
+                   OR (CASE WHEN confirmed THEN '확정'
+                            WHEN an_severity_score >= :warnMin THEN '경고'
+                            ELSE '참고' END) = CAST(:confidence AS VARCHAR))
+            ORDER BY collected_at DESC, id DESC
+            LIMIT :limit OFFSET :offset
             """)
-    List<RawEvent> findRiskMonitoringCandidates(
-            Instant since, String country, String materialCategory, int limit);
+    List<RawEvent> findRiskMonitoringPage(
+            Instant since, String country, String materialCategory,
+            String severityLevel, String confidence, double warnMin,
+            int limit, int offset);
+
+    /**
+     * {@link #findRiskMonitoringPage}와 같은 조건의 전체 건수. 화면이 마지막 페이지에서 화살표를
+     * 정확히 잠그려면 "다음이 있는지"가 아니라 전체가 몇 건인지 알아야 한다(뉴스 피드
+     * {@code countSupplyChainNews}와 같은 취지). 목록과 반드시 같은 조건을 유지할 것.
+     */
+    @Query(nativeQuery = true, value = """
+            WITH candidates AS (
+                SELECT r.id, r.collected_at,
+                       an.severity AS an_severity,
+                       an.severity_score AS an_severity_score,
+                       an.analysis_id AS an_analysis_id,
+            """ + NewsEventSql.EVENT_KEY + """
+                       AS event_key
+                FROM raw_events r
+                JOIN analyses an ON an.analysis_id = r.triggered_analysis_id
+                WHERE r.data_type = 'NEWS'
+                  AND r.title IS NOT NULL
+                  AND r.collected_at >= :since
+                  AND an.material_category IS NOT NULL
+                  AND (CAST(:country AS VARCHAR) IS NULL OR r.country_code = CAST(:country AS VARCHAR))
+                  AND (CAST(:materialCategory AS VARCHAR) IS NULL
+                       OR an.material_category = CAST(:materialCategory AS VARCHAR))
+            ),
+            deduped AS (
+                SELECT DISTINCT ON (event_key) *
+                FROM candidates
+                ORDER BY event_key, collected_at DESC
+            ),
+            graded AS (
+                SELECT d.*, nb.procurement_risk_level AS nb_level,
+                       (nb.briefing_id IS NOT NULL) AS confirmed
+                FROM deduped d
+                LEFT JOIN LATERAL (
+                    SELECT b.briefing_id, b.procurement_risk_level
+                    FROM ai_briefings b
+                    WHERE b.analysis_id = d.an_analysis_id
+                      AND b.source_type = 'NEWS'
+                      AND b.composite = TRUE
+                      AND NULLIF(BTRIM(b.briefing_text), '') IS NOT NULL
+                      AND b.review_passed = TRUE
+                    ORDER BY b.created_at DESC
+                    LIMIT 1
+                ) nb ON TRUE
+            )
+            SELECT COUNT(*) FROM graded
+            WHERE (CAST(:severityLevel AS VARCHAR) IS NULL
+                   OR COALESCE(nb_level, an_severity) = CAST(:severityLevel AS VARCHAR))
+              AND (CAST(:confidence AS VARCHAR) IS NULL
+                   OR (CASE WHEN confirmed THEN '확정'
+                            WHEN an_severity_score >= :warnMin THEN '경고'
+                            ELSE '참고' END) = CAST(:confidence AS VARCHAR))
+            """)
+    long countRiskMonitoringEvents(
+            Instant since, String country, String materialCategory,
+            String severityLevel, String confidence, double warnMin);
 
 
     /** 위와 같되 국가로 좁힌다. 지도 마커를 클릭했을 때 그 국가 뉴스만 보여주는 경로에서 쓴다. */

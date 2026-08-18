@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -71,7 +72,7 @@ class RiskMonitoringGradingTest {
     void beforeMultiAgentShowsExternalGradeAsProvisional() {
         stubList(newsEvent(1L, "CL"), completed("CL", "NORMAL", 54.1));
 
-        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50, 0).get(0);
 
         assertThat(item.grade()).isEqualTo("정상");
         assertThat(item.confidenceLabel()).isEqualTo("참고");
@@ -83,7 +84,7 @@ class RiskMonitoringGradingTest {
     void strongExternalSignalIsMarkedWarningWhileStillProvisional() {
         stubList(newsEvent(1L, "CL"), completed("CL", "CRITICAL", 85.0));
 
-        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50, 0).get(0);
 
         assertThat(item.grade()).isEqualTo("심각");
         assertThat(item.confidenceLabel()).isEqualTo("경고");
@@ -102,7 +103,7 @@ class RiskMonitoringGradingTest {
         // 세어, 같은 기사가 화면마다 다른 배지를 단다.
         stubNewsBriefing(analysis, "CRITICAL");
 
-        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50, 0).get(0);
 
         assertThat(item.grade()).isEqualTo("심각");
         assertThat(item.confidenceLabel()).isEqualTo("확정");
@@ -113,10 +114,10 @@ class RiskMonitoringGradingTest {
     @Test
     void newsWithoutAnalysisHasNoGrade() {
         RawEvent event = newsEvent(1L, "CL");
-        when(rawEventRepository.findRiskMonitoringCandidates(any(), any(), any(), anyInt()))
+        when(rawEventRepository.findRiskMonitoringPage(any(), any(), any(), any(), any(), anyDouble(), anyInt(), anyInt()))
                 .thenReturn(List.of(event));
 
-        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50, 0).get(0);
 
         assertThat(item.grade()).isNull();
         assertThat(item.confidenceLabel()).isEqualTo("참고");
@@ -223,13 +224,13 @@ class RiskMonitoringGradingTest {
         // 같은 자재의 유효 평가가 이미 있으므로, 리포지토리는 조기 종료 행이 아니라 이쪽을 돌려준다.
         stubDetail(event, analysis,
                 assessment("MAT-LI-CARB", BigDecimal.valueOf(19), "CRITICAL", BigDecimal.valueOf(82)));
-        when(rawEventRepository.findRiskMonitoringCandidates(any(), any(), any(), anyInt()))
+        when(rawEventRepository.findRiskMonitoringPage(any(), any(), any(), any(), any(), anyDouble(), anyInt(), anyInt()))
                 .thenReturn(List.of(event));
         when(analysisRepository.findAllById(any())).thenReturn(List.of(analysis));
         when(procurementRiskRepository.findLatestRiskLevelsByAnalysisIds(any()))
                 .thenReturn(Map.of(analysis.getAnalysisId(), "CRITICAL"));
 
-        EventItem item = service.list(null, null, null, null, 7, 50).get(0);
+        EventItem item = service.list(null, null, null, null, 7, 50, 0).get(0);
         EventDetail detail = service.detail(1L);
 
         assertThat(item.grade()).isEqualTo(detail.grade());
@@ -269,7 +270,7 @@ class RiskMonitoringGradingTest {
     void delegatesFiltersToQueryInsteadOfPostFiltering() {
         stubList(newsEvent(1L, "CL"), completed("CL", "NORMAL", 54.1));
 
-        service.list(null, null, "cl", "리튬", 7, 50);
+        service.list(null, null, "cl", "리튬", 7, 50, 0);
 
         // 자재 미분류 제외·날짜·국가·자재 필터와 중복 제거는 전부 SQL이 한다(2026-08-03).
         // 예전에는 최신 400건을 먼저 가져와 Java에서 걸렀는데, 관련 뉴스가 그 창 밖으로 밀려나
@@ -277,8 +278,8 @@ class RiskMonitoringGradingTest {
         // 그래서 이 테스트는 "걸러졌는가"가 아니라 "조건을 질의에 제대로 넘겼는가"를 본다.
         ArgumentCaptor<String> country = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> material = ArgumentCaptor.forClass(String.class);
-        verify(rawEventRepository).findRiskMonitoringCandidates(
-                any(), country.capture(), material.capture(), anyInt());
+        verify(rawEventRepository).findRiskMonitoringPage(
+                any(), country.capture(), material.capture(), any(), any(), anyDouble(), anyInt(), anyInt());
         assertThat(country.getValue()).isEqualTo("CL");
         // 화면은 표기명("리튬")도 보내지만 질의는 대분류로 받아야 한다.
         assertThat(material.getValue()).isEqualTo("LITHIUM");
@@ -294,7 +295,7 @@ class RiskMonitoringGradingTest {
 
     private void stubList(RawEvent event, Analysis analysis) {
         linkAnalysis(event, analysis);
-        when(rawEventRepository.findRiskMonitoringCandidates(any(), any(), any(), anyInt()))
+        when(rawEventRepository.findRiskMonitoringPage(any(), any(), any(), any(), any(), anyDouble(), anyInt(), anyInt()))
                 .thenReturn(List.of(event));
         when(analysisRepository.findAllById(any())).thenReturn(List.of(analysis));
     }
