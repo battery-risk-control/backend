@@ -148,6 +148,14 @@ class PlanningDashboardDetailSqlTest {
                                                 document_type, original_file_name, mime_type,
                                                 file_size_bytes, content_hash, file_path,
                                                 processing_status, chunk_count, created_at)
+                VALUES ('ctr_legacy_duplicate', 30, 10, 20, 'CONTRACT', 'ctr-010-old.pdf',
+                        'application/pdf', 900, RPAD('1', 64, '1'), 'contracts/ctr-010/old.pdf',
+                        'COMPLETED', 8, DATEADD('DAY', -1, CURRENT_TIMESTAMP))""", Map.of());
+        jdbc.update("""
+                INSERT INTO contract_documents (document_id, contract_id, supplier_id, material_id,
+                                                document_type, original_file_name, mime_type,
+                                                file_size_bytes, content_hash, file_path,
+                                                processing_status, chunk_count, created_at)
                 VALUES ('ctr_0a1b2c3d4e5f', 30, 10, 20, 'CONTRACT', 'ctr-010.pdf',
                         'application/pdf', 1024, RPAD('0', 64, '0'), 'contracts/ctr-010/original.pdf',
                         'COMPLETED', 12, CURRENT_TIMESTAMP)""", Map.of());
@@ -254,6 +262,13 @@ class PlanningDashboardDetailSqlTest {
         assertThat(detail.documents().get(0).documentId()).isEqualTo("ctr_0a1b2c3d4e5f");
         assertThat(detail.documents().get(0).originalFileName()).isEqualTo("ctr-010.pdf");
         assertThat(detail.documents().get(0).chunkCount()).isEqualTo(12);
+
+        var listItem = repository.findAllContracts().stream()
+                .filter(contract -> "CTR-010".equals(contract.contractNumber()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(listItem.documents()).hasSize(1);
+        assertThat(listItem.documents().get(0).documentId()).isEqualTo("ctr_0a1b2c3d4e5f");
     }
 
     @Test

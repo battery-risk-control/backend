@@ -520,7 +520,10 @@ public class PlanningDashboardRepository {
             long contractId = rs.getLong("contract_id");
             List<PlanningDashboardDto.ContractDocumentItem> documents = jdbc.query("""
                     SELECT document_id, original_file_name, processing_status, chunk_count
-                    FROM contract_documents WHERE contract_id = :contractId ORDER BY created_at DESC
+                    FROM contract_documents
+                    WHERE contract_id = :contractId
+                    ORDER BY created_at DESC, document_id DESC
+                    LIMIT 1
                     """, new MapSqlParameterSource("contractId", contractId), (drs, drow) ->
                     new PlanningDashboardDto.ContractDocumentItem(
                             drs.getString("document_id"), drs.getString("original_file_name"),
@@ -840,7 +843,8 @@ public class PlanningDashboardRepository {
                 SELECT document_id, original_file_name, processing_status, chunk_count
                 FROM contract_documents
                 WHERE contract_id = :contractId
-                ORDER BY document_id
+                ORDER BY created_at DESC, document_id DESC
+                LIMIT 1
                 """, new MapSqlParameterSource("contractId", row.contractId()),
                 // document_id는 BIGINT가 아니라 VARCHAR(40)이다(V1, 값 예: ctr_<uuid>).
                 // 포팅 원본의 getLong은 문서가 1건이라도 있으면 "Bad value for type long"으로 500.
