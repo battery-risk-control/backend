@@ -40,6 +40,9 @@ class OutboundDocumentServiceTest {
     @BeforeEach
     void setUp() {
         repository = mock(OutboundDocumentRepository.class);
+        when(repository.existsOutboundContract(2L)).thenReturn(true);
+        when(repository.existsProduct(3L)).thenReturn(true);
+        when(repository.existsCustomer(4L)).thenReturn(true);
     }
 
     private String successBody(String documentId, int chunkCount) {
@@ -51,6 +54,28 @@ class OutboundDocumentServiceTest {
                 "mock_embedding":true,"duplicate":false,"mock":true},
                 "timestamp":"2026-08-11T00:00:00Z"}
                 """.formatted(documentId, chunkCount);
+    }
+
+    @Test
+    void duplicateSeedRestoresOriginalMissingAfterContainerReplacement() throws Exception {
+        byte[] content = "restored delivery clause".getBytes();
+        String documentId = "outcon_" + UUID.randomUUID().toString().replace("-", "");
+        Path relativePath = Path.of("outbound-contracts", documentId, "original.txt");
+        OutboundDocument existing = OutboundDocument.pending(
+                documentId, 2L, 3L, 4L, "CONTRACT", "seed.txt", "text/plain",
+                content.length, "a".repeat(64), relativePath.toString().replace('\\', '/'));
+        existing.markCompleted(2, "MOCK_TOKEN_HASH", "mock-v1");
+        when(repository.findByOutboundContractIdAndContentHash(any(), any()))
+                .thenReturn(Optional.of(existing));
+        OutboundDocumentService service = new OutboundDocumentService(
+                RestClient.builder().baseUrl("http://localhost:8000").build(),
+                repository, 1024, tempDir.toString());
+
+        var result = service.upload(new MockMultipartFile(
+                "file", "seed.txt", "text/plain", content), 2L, 3L, 4L, "CONTRACT");
+
+        assertTrue(result.duplicate());
+        assertEquals("restored delivery clause", Files.readString(tempDir.resolve(relativePath)));
     }
 
     @Test

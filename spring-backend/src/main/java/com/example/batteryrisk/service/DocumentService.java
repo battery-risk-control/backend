@@ -83,6 +83,7 @@ public class DocumentService {
         Document sameContent = documentRepository.findByContractIdAndContentHash(contractId, contentHash)
                 .orElse(null);
         if (sameContent != null) {
+            restoreOriginalIfMissing(sameContent, content);
             return toUploadResponse(sameContent, true, true);
         }
 
@@ -111,6 +112,7 @@ public class DocumentService {
             Document duplicate = documentRepository.findByContractIdAndContentHash(contractId, contentHash)
                     .orElse(null);
             if (duplicate != null) {
+                restoreOriginalIfMissing(duplicate, content);
                 return toUploadResponse(duplicate, true, true);
             }
             throw new DocumentUploadException("DOCUMENT_METADATA_SAVE_FAILED", "문서 Metadata 저장에 실패했습니다.");
@@ -248,6 +250,20 @@ public class DocumentService {
         }
         return new DocumentDto.DownloadFile(
                 content, document.getOriginalFileName(), document.getMimeType());
+    }
+
+    /**
+     * ECS 교체처럼 DB는 유지되고 로컬 업로드 볼륨만 비워진 경우, RAG 시드의 동일 파일로
+     * 원본을 복구한다. 중복 업로드의 멱등성은 유지하면서 다운로드·재처리가 다시 가능해진다.
+     */
+    private void restoreOriginalIfMissing(Document document, byte[] content) {
+        Path storedFile = resolveStoredFile(Path.of(document.getFilePath()));
+        if (Files.isRegularFile(storedFile)) {
+            return;
+        }
+        log.warn("Missing original restored for duplicate document {}: {}",
+                document.getDocumentId(), storedFile);
+        overwriteOriginal(storedFile, content);
     }
 
     public DocumentDto.UploadResponse reprocess(String documentId) {
