@@ -113,7 +113,9 @@ public class RiskMonitoringService {
      * @param days       최근 N일. 1..{@value #MAX_DAYS}로 잘린다
      * @param limit      노출 건수. 1..{@value #MAX_LIMIT}로 잘린다
      */
-    public List<EventItem> list(String grade, String confidence, String country, String material, int days, int limit) {
+    public List<EventItem> list(
+            String grade, String confidence, String country, String material,
+            int days, int limit, int offset) {
         int cappedLimit = clamp(limit, MAX_LIMIT);
         Instant since = Instant.now().minus(clamp(days, MAX_DAYS), ChronoUnit.DAYS);
         String countryFilter = upperOrNull(country);
@@ -121,15 +123,20 @@ public class RiskMonitoringService {
         String confidenceFilter = trimToNull(confidence);
         String materialFilter = trimToNull(material);
 
-        // 날짜·국가·자재 필터와 제목 중복 제거를 SQL에서 끝낸다. 예전에는 최신 400건을 먼저
-        // 가져와 Java에서 걸렀는데, 그러면 관련 뉴스가 그 창 밖으로 밀려나 조회조차 되지
-        // 않았다(실측 최근 7일: 자재가 분류된 고유 뉴스 14건 중 최신 400건 안에는 4건뿐).
-        //
-        // 등급·신뢰도 필터만 Java에 남는다 — 둘 다 브리핑 조회 결과에서 나오므로 이 쿼리 안에서
-        // 계산할 수 없다. 그래서 SQL은 MAX_LIMIT까지 가져오고 등급·신뢰도를 거른 뒤 최종 limit을
-        // 적용한다. 자르는 시점이 "전체 뉴스"가 아니라 "이미 걸러진 관련 뉴스"라는 게 차이다.
-        List<RawEvent> events = rawEventRepository.findRiskMonitoringCandidates(
-                since, countryFilter, toMaterialCategory(materialFilter), MAX_LIMIT);
+        // 날짜·국가·자재·등급·신뢰도 필터와 제목 중복 제거를 전부 SQL에서 끝낸다(서버
+        // 페이지네이션, 2026-08-16). 예전에는 등급·신뢰도만 Java에서 걸렀는데, 그 구조에선
+        // OFFSET이 "거르기 전" 행 기준이라 필터를 켠 채 페이지를 넘기면 항목이 겹치거나 빠진다.
+        // 판정식을 SQL로 옮기되 표시는 여전히 toItem(Java)이 한다 — 두 식의 일치는
+        // RiskMonitoringPaginationTest가 검사한다.
+        String severityLevel = RiskEventService.severityForGrade(gradeFilter);
+        if (gradeFilter != null && severityLevel == null) {
+            // 모르는 등급명은 "그런 등급 없음" — 필터를 무시하고 전체를 돌려주면 안 된다.
+            return List.of();
+        }
+        List<RawEvent> events = rawEventRepository.findRiskMonitoringPage(
+                since, countryFilter, toMaterialCategory(materialFilter),
+                severityLevel, confidenceFilter, RiskEventService.EXTERNAL_SIGNAL_WARNING_MIN,
+                cappedLimit, Math.max(0, offset));
 
         Map<UUID, Analysis> analysesById = loadAnalyses(events);
         // 확정 판정을 지도·속보와 같은 기준으로 맞춘다 — "이 뉴스의 완결된 브리핑이 있는가".
@@ -146,12 +153,23 @@ public class RiskMonitoringService {
                     : newsBriefings.get(analysis.getAnalysisId());
             items.add(toItem(event, analysis, briefing));
         }
+        return items;
+    }
 
-        return items.stream()
-                .filter(item -> gradeFilter == null || gradeFilter.equals(item.grade()))
-                .filter(item -> confidenceFilter == null || confidenceFilter.equals(item.confidenceLabel()))
-                .limit(cappedLimit)
-                .toList();
+    /**
+     * {@link #list}와 같은 조건의 전체 건수. 화면이 페이지 수를 계산해 마지막 페이지에서
+     * 화살표를 잠근다. 목록과 같은 리포지토리 조건을 쓰므로 둘이 어긋나지 않는다.
+     */
+    public long count(String grade, String confidence, String country, String material, int days) {
+        Instant since = Instant.now().minus(clamp(days, MAX_DAYS), ChronoUnit.DAYS);
+        String gradeFilter = trimToNull(grade);
+        String severityLevel = RiskEventService.severityForGrade(gradeFilter);
+        if (gradeFilter != null && severityLevel == null) {
+            return 0;
+        }
+        return rawEventRepository.countRiskMonitoringEvents(
+                since, upperOrNull(country), toMaterialCategory(trimToNull(material)),
+                severityLevel, trimToNull(confidence), RiskEventService.EXTERNAL_SIGNAL_WARNING_MIN);
     }
 
     /**

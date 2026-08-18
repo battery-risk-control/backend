@@ -71,7 +71,9 @@ public class RiskEventService {
      * 매기므로, 화면에서 "주의할 만하다"고 표시하는 기준도 같아야 한다. 그쪽 값을 바꾸면 여기도 바꾼다
      * (실측 4,081건의 70th 퍼센타일로 캘리브레이션된 값이라 임의로 조정할 성질이 아니다).
      */
-    private static final double EXTERNAL_SIGNAL_WARNING_MIN = 67.0;
+    // package-private: RiskMonitoringService가 SQL 신뢰도 필터(:warnMin)에 같은 값을 넘긴다 —
+    // 상수를 복제하면 한쪽만 캘리브레이션이 바뀔 때 목록 필터와 화면 배지가 갈린다.
+    static final double EXTERNAL_SIGNAL_WARNING_MIN = 67.0;
 
     /**
      * severity → 프론트 RiskGrade("심각/주의/정상"). 프론트 타입에 없는 등급(UNKNOWN 등)은 매핑하지 않고
@@ -91,6 +93,24 @@ public class RiskEventService {
      */
     static String gradeOf(String severityOrRiskLevel) {
         return severityOrRiskLevel == null ? null : GRADE_BY_SEVERITY.get(severityOrRiskLevel);
+    }
+
+    /**
+     * 화면 등급명(심각/주의/정상) → severity/risk_level 코드. {@link #gradeOf}의 역변환이며
+     * <b>같은 표(GRADE_BY_SEVERITY)에서 도출</b>한다 — 리스크 모니터링 서버 페이지네이션의 SQL
+     * 등급 필터가 이 값을 받아 {@code COALESCE(브리핑등급, severity) = :severityLevel}로 거른다.
+     * 표를 따로 두면 목록 필터와 화면 배지가 갈린다. 모르는 등급명이면 null — 호출부는
+     * "그런 등급은 없다"로 다뤄 빈 결과를 반환해야 한다(필터 무시로 전체를 돌려주면 안 된다).
+     */
+    static String severityForGrade(String gradeLabel) {
+        if (gradeLabel == null) {
+            return null;
+        }
+        return GRADE_BY_SEVERITY.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(gradeLabel))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
     }
 
     /** 국가 기준점 좌표(수도). 국가 미상이거나 좌표 표에 없으면 null — 화면이 좌표 블록을 숨긴다. */
