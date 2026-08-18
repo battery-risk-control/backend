@@ -8,6 +8,8 @@ on:
       - "spring-backend/**"
       - "data/ERP_data/spring-csv/**"
       - "data/RAG_DATA/erp_aligned/**"
+      - "data/ERP_data/outbound-mock/**"
+      - "data/RAG_DATA/outbound_erp_aligned/**"
       - ".github/workflows/deploy-spring.yml"
   workflow_dispatch:
 
@@ -70,6 +72,8 @@ jobs:
           docker build \
             --build-context erpseed=./data/ERP_data/spring-csv \
             --build-context ragseed=./data/RAG_DATA/erp_aligned \
+            --build-context outbounderpseed=./data/ERP_data/outbound-mock \
+            --build-context outboundragseed=./data/RAG_DATA/outbound_erp_aligned \
             -f ./spring-backend/Dockerfile \
             -t "$IMAGE_URI" \
             ./spring-backend
