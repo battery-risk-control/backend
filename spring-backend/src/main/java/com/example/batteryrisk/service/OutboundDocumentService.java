@@ -103,6 +103,17 @@ public class OutboundDocumentService {
                 content, document.getOriginalFileName(), document.getMimeType());
     }
 
+    /** DB metadata만 남은 재배포 상태에서 이미지에 포함된 동일 시드로 원본을 복구한다. */
+    private void restoreOriginalIfMissing(OutboundDocument document, byte[] content) {
+        Path storedFile = resolveStoredFile(Path.of(document.getFilePath()));
+        if (Files.isRegularFile(storedFile)) {
+            return;
+        }
+        log.warn("Missing original restored for duplicate outbound document {}: {}",
+                document.getDocumentId(), storedFile);
+        overwriteOriginal(storedFile, content);
+    }
+
     public OutboundDocumentDto.UploadResponse upload(
             MultipartFile file, Long outboundContractId, Long productId,
             Long customerId, String requestedDocumentType) {
@@ -115,6 +126,7 @@ public class OutboundDocumentService {
                 .findByOutboundContractIdAndContentHash(outboundContractId, contentHash)
                 .orElse(null);
         if (sameContent != null) {
+            restoreOriginalIfMissing(sameContent, content);
             return toUploadResponse(sameContent, true, true);
         }
 
@@ -145,6 +157,7 @@ public class OutboundDocumentService {
                     .findByOutboundContractIdAndContentHash(outboundContractId, contentHash)
                     .orElse(null);
             if (duplicate != null) {
+                restoreOriginalIfMissing(duplicate, content);
                 return toUploadResponse(duplicate, true, true);
             }
             throw new DocumentUploadException("DOCUMENT_METADATA_SAVE_FAILED", "문서 Metadata 저장에 실패했습니다.");

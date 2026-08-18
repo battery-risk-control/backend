@@ -121,6 +121,24 @@ class DocumentServiceTest {
     }
 
     @Test
+    void duplicateSeedRestoresOriginalMissingAfterContainerReplacement() throws Exception {
+        byte[] content = "restored price clause".getBytes();
+        String documentId = "con_" + UUID.randomUUID().toString().replace("-", "");
+        Path relativePath = Path.of("contracts", documentId, "original.txt");
+        Document existing = Document.pending(
+                documentId, 1L, 2L, 3L, "CONTRACT", "seed.txt", "text/plain",
+                content.length, "a".repeat(64), relativePath.toString().replace('\\', '/'));
+        existing.markCompleted(2, "MOCK_TOKEN_HASH", "mock-v1");
+        when(repository.findByContractIdAndContentHash(any(), any())).thenReturn(Optional.of(existing));
+
+        var result = service.upload(new MockMultipartFile(
+                "file", "seed.txt", "text/plain", content), 1L, 2L, 3L, "CONTRACT");
+
+        assertTrue(result.duplicate());
+        assertEquals("restored price clause", Files.readString(tempDir.resolve(relativePath)));
+    }
+
+    @Test
     void persistsOriginalAndUsesSpringDocumentId() throws Exception {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://localhost:8000");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
