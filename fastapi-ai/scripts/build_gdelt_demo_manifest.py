@@ -276,6 +276,10 @@ def build_manifest(source_csv: Path, cache_dir: Path) -> tuple[list[dict], dict]
     restored: list[dict] = []
     # 자재별로 공급사 국가를 돌아가며 배정해(로테이션) 국가 다양성을 유지한다.
     shortage_rotation: dict[str, int] = defaultdict(int)
+    # 같은 기사(정규화 제목)가 GDELT에서 여러 GlobalEventID로 보고되면, 국가 로테이션 탓에
+    # '같은 제목·다른 국가' 중복 이벤트가 생긴다(event_key=제목|자재|국가라 갈라져 리스크 모니터링·
+    # AI 브리핑에 같은 헤드라인이 2~3번 뜬다). 제목 기준으로 한 번만 남겨 '한 기사=한 이벤트'로 만든다(2026-08-19).
+    seen_titles: set[str] = set()
     report = {"source": str(source_csv), "dates": {}, "missing_event_ids": [], "errors": []}
     for event_date, records in sorted(by_date.items()):
         day = event_date.strftime("%Y%m%d")
@@ -320,6 +324,12 @@ def build_manifest(source_csv: Path, cache_dir: Path) -> tuple[list[dict], dict]
             if not headline:
                 report.setdefault("dead_links", []).append(event_id)
                 continue
+            # 같은 헤드라인은 한 번만 — 국가 로테이션이 만든 '같은 제목·다른 국가' 중복을 막는다.
+            title_key = " ".join(headline.strip().lower().split())
+            if title_key in seen_titles:
+                report.setdefault("duplicate_titles", []).append(event_id)
+                continue
+            seen_titles.add(title_key)
             demo_mat = record.get("demo_material")
             restored.append({
                 "global_event_id": str(event_id),
