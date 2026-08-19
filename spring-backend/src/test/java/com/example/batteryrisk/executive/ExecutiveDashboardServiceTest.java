@@ -249,6 +249,13 @@ class ExecutiveDashboardServiceTest {
                 )
         );
 
+        // 2·3계층 메인 "심각/주의 건수"는 뉴스 사건 건수(loadRiskEventCounts)에서 온다.
+        when(
+                repository.loadRiskEventCounts()
+        ).thenReturn(
+                new ExecutiveDashboardRepository.RiskEventCounts(3, 5)
+        );
+
         ExecutiveDashboardDto.Dashboard result =
                 service.dashboard();
 
