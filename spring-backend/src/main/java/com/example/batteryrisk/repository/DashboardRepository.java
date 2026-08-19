@@ -90,7 +90,11 @@ public class DashboardRepository {
                 FROM procurement_risk_assessments p
                 JOIN completed_news cn ON cn.analysis_id = p.analysis_id
                 WHERE p.material_category IS NOT NULL
-                  AND p.created_at >= NOW() - INTERVAL '24 hours'
+                  -- 24h는 분석 생성시각(created_at)이 아니라 뉴스 표시 날짜(collected_at) 기준으로 센다.
+                  -- 데모 시간압축은 collected_at을 오늘/어제/그제로 되돌리는데(created_at은 전부 "지금"
+                  -- 이라 어제·그제까지 24h에 잡혔다), 표시 날짜로 세야 "24h=오늘치"가 된다. 실시간
+                  -- 뉴스는 collected_at≈created_at이라 영향 없다.
+                  AND cn.collected_at >= NOW() - INTERVAL '24 hours'
                 ORDER BY cn.event_key, p.created_at DESC
             )
             """;
@@ -184,7 +188,13 @@ public class DashboardRepository {
                     -- 2건이면 오래된 1건이 버려져 2가 1로 접혔다(실측: 검증 2건 → 화면 1건).
                     -- 브리핑 정본 테이블 ai_briefings에서 직접 센다 — loadSummary의 briefing_count가
                     -- 같은 테이블을 세는 것과 같은 원칙(자재 dedup은 위험도 집계용이지 브리핑 수 집계용이 아니다).
-                    (SELECT COUNT(*) FROM ai_briefings WHERE review_passed = TRUE) AS verified_briefing_count,
+                    -- 완결 게이트(composite=TRUE + 본문 존재)를 함께 건다 — 2·3계층
+                    -- ExecutiveDashboardRepository.loadVerificationSummary와 같은 모집단(AI 검증 화면에서
+                    -- 실제 상세 조회 가능한 브리핑)으로 맞춘다(2026-08-19). 이 게이트가 없으면 reviewer는
+                    -- 통과했으나 조기 종료된(composite=false) 브리핑까지 세어 두 화면 값이 갈렸다(실측 209 vs 192).
+                    (SELECT COUNT(*) FROM ai_briefings
+                     WHERE composite = TRUE AND briefing_text IS NOT NULL
+                       AND review_passed = TRUE) AS verified_briefing_count,
                     (SELECT MAX(assessed_at) FROM latest) AS latest_assessed_at,
                     (SELECT COUNT(*) FROM recent_24h WHERE procurement_risk_level = 'CRITICAL') AS critical_count_24h,
                     (SELECT COUNT(*) FROM recent_24h WHERE procurement_risk_level = 'WARNING') AS warning_count_24h,

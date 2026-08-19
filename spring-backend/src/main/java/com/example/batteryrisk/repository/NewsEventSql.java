@@ -22,7 +22,7 @@ package com.example.batteryrisk.repository;
  * 실제 원인이다(실측: LITHIUM/CL 완결 브리핑 4건이 전부 raw_event 없는 분석이었다). 이렇게
  * 걸러진 건은 사라지지 않고 {@link DashboardRepository#countOrphanNewsBriefings()}가 따로 센다.
  */
-final class NewsEventSql {
+public final class NewsEventSql {
 
     /**
      * 사건 식별 키 — <b>정규화한 원문 제목 · 자재 대분류 · 국가</b>.
@@ -53,7 +53,7 @@ final class NewsEventSql {
      * (원자재 점수)은 접기 전 이 CTE를 쓴다 — 먼저 접으면 대표로 뽑힌 분석에 평가 행이 없을 때
      * 그 사건이 통째로 사라진다(실측: 코발트의 최신 분석 a391238a에는 평가 행이 없다).
      */
-    static final String COMPLETED_NEWS_CTE = """
+    public static final String COMPLETED_NEWS_CTE = """
             completed_news AS (
                 SELECT b.analysis_id,
                        b.briefing_id,
