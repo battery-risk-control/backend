@@ -72,8 +72,8 @@ public class RiskMonitoringController {
             @Parameter(description = "자재 표기명(리튬) 또는 대분류(LITHIUM). 생략하면 전체", example = "리튬")
             @RequestParam(required = false) String material,
 
-            @Parameter(description = "최근 N일(1~180). 화면 기본 필터는 7일이다.", example = "7")
-            @RequestParam(defaultValue = "7") @Min(1) @Max(180) int days,
+            @Parameter(description = "최근 N일(1~180). 화면 기본 필터는 7일이다. 0이면 전체 기간(하한 없음).", example = "7")
+            @RequestParam(defaultValue = "7") @Min(0) @Max(180) int days,
 
             @Parameter(description = "페이지 크기(1~200)", example = "20")
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit,
@@ -102,8 +102,8 @@ public class RiskMonitoringController {
             @Parameter(description = "자재 표기명(리튬) 또는 대분류(LITHIUM). 생략하면 전체", example = "리튬")
             @RequestParam(required = false) String material,
 
-            @Parameter(description = "최근 N일(1~180)", example = "7")
-            @RequestParam(defaultValue = "7") @Min(1) @Max(180) int days) {
+            @Parameter(description = "최근 N일(1~180). 0이면 전체 기간(하한 없음).", example = "7")
+            @RequestParam(defaultValue = "7") @Min(0) @Max(180) int days) {
         return ApiResponse.ok(riskMonitoringService.count(grade, confidence, country, material, days));
     }
 

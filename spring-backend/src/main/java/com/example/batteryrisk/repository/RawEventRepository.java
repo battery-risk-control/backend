@@ -78,7 +78,8 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
                 JOIN analyses an ON an.analysis_id = r.triggered_analysis_id
                 WHERE r.data_type = 'NEWS'
                   AND r.title IS NOT NULL
-                  AND r.collected_at >= :since
+                  AND (CAST(:since AS timestamptz) IS NULL
+                       OR r.collected_at >= CAST(:since AS timestamptz))
                   AND an.material_category IS NOT NULL
                   AND (CAST(:country AS VARCHAR) IS NULL OR r.country_code = CAST(:country AS VARCHAR))
                   AND (CAST(:materialCategory AS VARCHAR) IS NULL
@@ -137,7 +138,8 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
                 JOIN analyses an ON an.analysis_id = r.triggered_analysis_id
                 WHERE r.data_type = 'NEWS'
                   AND r.title IS NOT NULL
-                  AND r.collected_at >= :since
+                  AND (CAST(:since AS timestamptz) IS NULL
+                       OR r.collected_at >= CAST(:since AS timestamptz))
                   AND an.material_category IS NOT NULL
                   AND (CAST(:country AS VARCHAR) IS NULL OR r.country_code = CAST(:country AS VARCHAR))
                   AND (CAST(:materialCategory AS VARCHAR) IS NULL
