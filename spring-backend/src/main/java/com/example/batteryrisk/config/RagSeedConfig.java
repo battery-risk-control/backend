@@ -112,8 +112,10 @@ public class RagSeedConfig {
                 try {
                     byte[] content = Files.readAllBytes(file);
                     MultipartFile multipartFile = new SeedMultipartFile(fileName, mimeTypeFor(fileName), content);
+                    // reembedDuplicate=true: 재배포로 ChromaDB가 비어도 시드가 중복으로 스킵하지 않고
+                    // 임베딩을 다시 채운다 — ECS에서 RAG 검색이 재배포 후 죽던 문제 복구(2026-08-19).
                     DocumentDto.UploadResponse response = documentService.upload(
-                            multipartFile, ids[0], ids[1], ids[2], documentType);
+                            multipartFile, ids[0], ids[1], ids[2], documentType, true);
                     log.info("RAG seed: {} → contract_id={} chunks={} dup={} embed={}",
                             erpContractId, ids[0], response.chunkCount(), response.duplicate(), response.embeddingType());
                     ok++;

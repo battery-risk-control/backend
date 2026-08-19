@@ -111,8 +111,9 @@ public class OutboundRagSeedConfig {
                 try {
                     byte[] content = Files.readAllBytes(file);
                     MultipartFile multipartFile = new SeedMultipartFile(fileName, mimeTypeFor(fileName), content);
+                    // reembedDuplicate=true: 재배포로 ChromaDB가 비어도 시드가 임베딩을 다시 채운다(RAG 복구).
                     OutboundDocumentDto.UploadResponse response = outboundDocumentService.upload(
-                            multipartFile, ids[0], ids[1], ids[2], documentType);
+                            multipartFile, ids[0], ids[1], ids[2], documentType, true);
                     log.info("Outbound RAG seed: {} → outbound_contract_id={} chunks={} dup={} embed={}",
                             erpOutboundContractId, ids[0], response.chunkCount(),
                             response.duplicate(), response.embeddingType());

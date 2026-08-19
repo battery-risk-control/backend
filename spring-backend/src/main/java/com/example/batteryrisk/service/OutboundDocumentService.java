@@ -117,16 +117,30 @@ public class OutboundDocumentService {
     public OutboundDocumentDto.UploadResponse upload(
             MultipartFile file, Long outboundContractId, Long productId,
             Long customerId, String requestedDocumentType) {
+        return upload(file, outboundContractId, productId, customerId, requestedDocumentType, false);
+    }
+
+    /**
+     * @param reembedDuplicate 중복이어도 ChromaDB 임베딩을 다시 채운다(재배포로 Chroma가 비는 ECS에서
+     *   RAG 시드가 벡터를 복구하도록). 인바운드 {@code DocumentService.upload(..., reembedDuplicate)}의
+     *   아웃바운드판(2026-08-19). UI 재업로드는 false로 종전 멱등 no-op을 유지한다.
+     */
+    public OutboundDocumentDto.UploadResponse upload(
+            MultipartFile file, Long outboundContractId, Long productId,
+            Long customerId, String requestedDocumentType, boolean reembedDuplicate) {
         FileMetadata metadata = validate(file, outboundContractId, productId, customerId, requestedDocumentType);
         byte[] content = read(file);
         String contentHash = sha256(content);
 
-        // 같은 계약에 바이트까지 동일한 파일이 이미 있으면 아무 것도 하지 않는다(멱등).
+        // 같은 계약에 바이트까지 동일한 파일이 이미 있으면 기본적으로 아무 것도 하지 않는다(멱등).
         OutboundDocument sameContent = documentRepository
                 .findByOutboundContractIdAndContentHash(outboundContractId, contentHash)
                 .orElse(null);
         if (sameContent != null) {
             restoreOriginalIfMissing(sameContent, content);
+            if (reembedDuplicate) {
+                return reembedExisting(sameContent, content);
+            }
             return toUploadResponse(sameContent, true, true);
         }
 
@@ -188,6 +202,27 @@ public class OutboundDocumentService {
                 log.error("Failed to persist FAILED status for outbound document {}",
                         document.getDocumentId(), saveException);
             }
+            throw exception;
+        }
+    }
+
+    /**
+     * 중복 문서의 ChromaDB 임베딩을 다시 채운다(파일·메타데이터·document_id 유지, force_reprocess로 upsert).
+     * 재배포로 Chroma가 비었을 때 아웃바운드 RAG 시드가 벡터를 복구하는 경로. 인바운드
+     * {@code DocumentService.reembedExisting}의 아웃바운드판(2026-08-19).
+     */
+    private OutboundDocumentDto.UploadResponse reembedExisting(OutboundDocument existing, byte[] content) {
+        existing.markProcessing();
+        documentRepository.saveAndFlush(existing);
+        try {
+            OutboundDocumentDto.FastApiData data = processWithFastApi(existing, content, true);
+            existing.markCompleted(
+                    data.chunkCount(), data.embeddingType(), data.embeddingVersion());
+            documentRepository.saveAndFlush(existing);
+            return toUploadResponse(existing, data.duplicate(), data.mock());
+        } catch (DocumentUploadException exception) {
+            existing.markFailed(exception.getCode(), exception.getMessage());
+            documentRepository.saveAndFlush(existing);
             throw exception;
         }
     }

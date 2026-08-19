@@ -75,15 +75,31 @@ public class DocumentService {
     public DocumentDto.UploadResponse upload(
             MultipartFile file, Long contractId, Long supplierId,
             Long materialId, String requestedDocumentType) {
+        return upload(file, contractId, supplierId, materialId, requestedDocumentType, false);
+    }
+
+    /**
+     * @param reembedDuplicate 내용이 동일한 중복이어도 ChromaDB 임베딩을 다시 채운다. 재배포마다 Chroma가
+     *   비워지는 환경(ECS, 영속 볼륨 없음)에서 RAG 시드가 "중복"으로 스킵돼 벡터만 사라진 채 메타데이터는
+     *   남아 검색이 0건이 되는 문제를 막는다(2026-08-19). FastAPI는 같은 document_id에 upsert하므로 멱등이다.
+     *   UI 재업로드는 false로 종전처럼 멱등 no-op을 유지한다.
+     */
+    public DocumentDto.UploadResponse upload(
+            MultipartFile file, Long contractId, Long supplierId,
+            Long materialId, String requestedDocumentType, boolean reembedDuplicate) {
         FileMetadata metadata = validate(file, contractId, supplierId, materialId, requestedDocumentType);
         byte[] content = read(file);
         String contentHash = sha256(content);
 
-        // 같은 계약에 바이트까지 동일한 파일이 이미 있으면 아무 것도 하지 않는다(멱등).
+        // 같은 계약에 바이트까지 동일한 파일이 이미 있으면 기본적으로 아무 것도 하지 않는다(멱등).
         Document sameContent = documentRepository.findByContractIdAndContentHash(contractId, contentHash)
                 .orElse(null);
         if (sameContent != null) {
             restoreOriginalIfMissing(sameContent, content);
+            if (reembedDuplicate) {
+                // Chroma가 재배포로 비어 있을 수 있으므로 임베딩을 강제로 다시 채운다(RAG 복구).
+                return reembedExisting(sameContent, content);
+            }
             return toUploadResponse(sameContent, true, true);
         }
 
@@ -142,6 +158,28 @@ public class DocumentService {
             } catch (RuntimeException saveException) {
                 log.error("Failed to persist FAILED status for document {}", document.getDocumentId(), saveException);
             }
+            throw exception;
+        }
+    }
+
+    /**
+     * 내용이 동일한 중복 문서의 ChromaDB 임베딩을 다시 채운다. 파일·메타데이터는 그대로 두고
+     * document_id도 유지한 채 force_reprocess로 FastAPI를 불러 청크를 upsert한다(멱등). 재배포로
+     * Chroma가 비었을 때 RAG 시드가 벡터를 복구하는 경로다 — FastAPI의 InMemory 문서 스토어도
+     * 재기동 시 비므로 force여도 전체 재임베딩이 돌아 실제로 벡터가 채워진다.
+     */
+    private DocumentDto.UploadResponse reembedExisting(Document existing, byte[] content) {
+        existing.markProcessing();
+        documentRepository.saveAndFlush(existing);
+        try {
+            DocumentDto.FastApiData data = processWithFastApi(existing, content, true);
+            existing.markCompleted(
+                    data.chunkCount(), data.embeddingType(), data.embeddingVersion());
+            documentRepository.saveAndFlush(existing);
+            return toUploadResponse(existing, data.duplicate(), data.mock());
+        } catch (DocumentUploadException exception) {
+            existing.markFailed(exception.getCode(), exception.getMessage());
+            documentRepository.saveAndFlush(existing);
             throw exception;
         }
     }
