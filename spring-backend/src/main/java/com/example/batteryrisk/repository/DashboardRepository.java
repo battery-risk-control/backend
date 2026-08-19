@@ -192,9 +192,12 @@ public class DashboardRepository {
                     -- ExecutiveDashboardRepository.loadVerificationSummary와 같은 모집단(AI 검증 화면에서
                     -- 실제 상세 조회 가능한 브리핑)으로 맞춘다(2026-08-19). 이 게이트가 없으면 reviewer는
                     -- 통과했으나 조기 종료된(composite=false) 브리핑까지 세어 두 화면 값이 갈렸다(실측 209 vs 192).
-                    (SELECT COUNT(*) FROM ai_briefings
-                     WHERE composite = TRUE AND briefing_text IS NOT NULL
-                       AND review_passed = TRUE) AS verified_briefing_count,
+                    -- 같은 뉴스 사건 재브리핑은 event_key로 접어 사건 수를 센다(2026-08-19). 2·3계층 AI
+                    -- 브리핑 KPI(aiBriefingKpi)와 같은 규칙 — 계약·자재는 각각 유지, analysis_id 있는 것만.
+                    (SELECT COUNT(DISTINCT """ + " " + NewsEventSql.BRIEFING_DEDUP_KEY + """
+                       ) FROM ai_briefings b
+                     WHERE b.composite = TRUE AND b.briefing_text IS NOT NULL
+                       AND b.review_passed = TRUE AND b.analysis_id IS NOT NULL) AS verified_briefing_count,
                     (SELECT MAX(assessed_at) FROM latest) AS latest_assessed_at,
                     (SELECT COUNT(*) FROM recent_24h WHERE procurement_risk_level = 'CRITICAL') AS critical_count_24h,
                     (SELECT COUNT(*) FROM recent_24h WHERE procurement_risk_level = 'WARNING') AS warning_count_24h,

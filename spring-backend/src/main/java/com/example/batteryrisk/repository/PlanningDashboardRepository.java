@@ -543,17 +543,30 @@ public class PlanningDashboardRepository {
     // "AI 브리핑 취합"은 1계층과 동일하게 실제 생성 브리핑(ai_briefings)만 센다 — analyses(브리핑 전
     // 단계)를 세면 멀티에이전트가 아직 안 돈 정상건까지 잡혀 라벨('브리핑')과 데이터('분석')가 어긋난다.
     // ai_briefings.material_category가 직접 있어(V28) analyses 조인 없이 같은 뷰로 사업부 매핑이 된다.
+    // 같은 사건 재브리핑은 BRIEFING_DEDUP_KEY로 접어 KPI·목록·총계와 같은 사건 수를 센다.
     public List<PlanningDashboardDto.RankedBarItem> loadBriefingCountByUnit() {
         return jdbc.query("""
+                WITH confirmed AS (
+                    SELECT b.material_category, b.created_at,
+                """ + NewsEventSql.BRIEFING_DEDUP_KEY + """
+                           AS dedup_key
+                    FROM ai_briefings b
+                    WHERE b.created_at >= date_trunc('quarter', now())
+                      AND b.analysis_id IS NOT NULL
+                      AND b.composite = TRUE
+                      AND b.briefing_text IS NOT NULL
+                      AND b.review_passed IS TRUE
+                ),
+                deduped AS (
+                    SELECT material_category,
+                           ROW_NUMBER() OVER (PARTITION BY dedup_key ORDER BY created_at DESC) AS rn
+                    FROM confirmed
+                )
                 SELECT bu.name, COUNT(*) AS briefing_count
-                FROM ai_briefings b
-                JOIN material_category_business_units cb ON cb.material_category = b.material_category
+                FROM deduped d
+                JOIN material_category_business_units cb ON cb.material_category = d.material_category
                 JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
-                WHERE b.created_at >= date_trunc('quarter', now())
-                  AND b.analysis_id IS NOT NULL
-                  AND b.composite = TRUE
-                  AND b.briefing_text IS NOT NULL
-                  AND b.review_passed IS TRUE
+                WHERE d.rn = 1
                 GROUP BY bu.name
                 ORDER BY bu.name
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new PlanningDashboardDto.RankedBarItem(
@@ -567,35 +580,50 @@ public class PlanningDashboardRepository {
                 .addValue("limit", limit)
                 .addValue("offset", offset);
         return jdbc.query("""
+                WITH confirmed AS (
+                    SELECT
+                        b.analysis_id,
+                        b.material_category,
+                        b.material_name,
+                        b.procurement_risk_level AS risk_level,
+                        b.created_at,
+                        COALESCE(
+                            NULLIF(BTRIM((
+                                SELECT re.title_ko
+                                FROM raw_events re
+                                WHERE re.triggered_analysis_id = b.analysis_id
+                                  AND re.data_type = 'NEWS'
+                                ORDER BY re.collected_at DESC
+                                LIMIT 1
+                            )), ''),
+                            NULLIF(BTRIM(b.subject_title), ''),
+                            NULLIF(BTRIM(b.source_headline), ''),
+                            '제목 없음'
+                        ) AS headline,
+                    """ + NewsEventSql.BRIEFING_DEDUP_KEY + """
+                               AS dedup_key
+                    FROM ai_briefings b
+                    -- 신뢰도 '확정'(멀티에이전트 종합 완료 composite + 검증 통과 review_passed)만 노출.
+                    -- 3계층 최근 브리핑과 같은 기준 — 브리핑까지 다 생성돼 확정된 건만 목록에 올린다.
+                    WHERE b.analysis_id IS NOT NULL
+                      AND b.composite = TRUE
+                      AND b.briefing_text IS NOT NULL
+                      AND b.review_passed IS TRUE
+                ),
+                -- 같은 사건 재브리핑은 최신 1건만 남긴다(BRIEFING_DEDUP_KEY). 계약·자재는 각각 유지.
+                deduped AS (
+                    SELECT confirmed.*,
+                           ROW_NUMBER() OVER (PARTITION BY dedup_key ORDER BY created_at DESC) AS rn
+                    FROM confirmed
+                )
                 SELECT
-                    b.analysis_id,
-                    b.material_category,
-                    b.material_name,
-                    b.procurement_risk_level AS risk_level,
-                    COALESCE(
-                        NULLIF(BTRIM((
-                            SELECT re.title_ko
-                            FROM raw_events re
-                            WHERE re.triggered_analysis_id = b.analysis_id
-                              AND re.data_type = 'NEWS'
-                            ORDER BY re.collected_at DESC
-                            LIMIT 1
-                        )), ''),
-                        NULLIF(BTRIM(b.subject_title), ''),
-                        NULLIF(BTRIM(b.source_headline), ''),
-                        '제목 없음'
-                    ) AS headline,
+                    d.analysis_id, d.material_category, d.material_name, d.risk_level, d.headline,
                     COALESCE(bu.name, '미분류') AS business_unit_name
-                FROM ai_briefings b
-                LEFT JOIN material_category_business_units cb ON cb.material_category = b.material_category
+                FROM deduped d
+                LEFT JOIN material_category_business_units cb ON cb.material_category = d.material_category
                 LEFT JOIN business_units bu ON bu.business_unit_id = cb.business_unit_id
-                -- 신뢰도 '확정'(멀티에이전트 종합 완료 composite + 검증 통과 review_passed)만 노출.
-                -- 3계층 최근 브리핑과 같은 기준 — 브리핑까지 다 생성돼 확정된 건만 목록에 올린다.
-                WHERE b.analysis_id IS NOT NULL
-                  AND b.composite = TRUE
-                  AND b.briefing_text IS NOT NULL
-                  AND b.review_passed IS TRUE
-                ORDER BY b.created_at DESC
+                WHERE d.rn = 1
+                ORDER BY d.created_at DESC
                 LIMIT :limit OFFSET :offset
                 """, params, (rs, rowNum) -> {
             // 뱃지 등급은 종합 위험등급(procurement_risk_level, ai_briefings에 NOT NULL). NORMAL/WARNING/CRITICAL
@@ -612,13 +640,19 @@ public class PlanningDashboardRepository {
         });
     }
 
-    /** {@link #findRecentBriefings}과 같은 모집단(WHERE 조건 = 확정 브리핑)의 전체 건수 — 페이지네이션 총 페이지 계산용. */
+    /** {@link #findRecentBriefings}과 같은 모집단(확정 브리핑, 사건 중복 제거)의 전체 사건 수 — 페이지네이션 총 페이지 계산용. */
     public long countRecentBriefings() {
         Long count = jdbc.queryForObject(
                 """
-                    SELECT COUNT(*) FROM ai_briefings b
-                    WHERE b.analysis_id IS NOT NULL AND b.composite = TRUE
-                      AND b.briefing_text IS NOT NULL AND b.review_passed IS TRUE
+                    WITH confirmed AS (
+                        SELECT
+                    """ + NewsEventSql.BRIEFING_DEDUP_KEY + """
+                               AS dedup_key
+                        FROM ai_briefings b
+                        WHERE b.analysis_id IS NOT NULL AND b.composite = TRUE
+                          AND b.briefing_text IS NOT NULL AND b.review_passed IS TRUE
+                    )
+                    SELECT COUNT(DISTINCT dedup_key) FROM confirmed
                     """,
                 new MapSqlParameterSource(), Long.class);
         return count == null ? 0L : count;
@@ -631,23 +665,34 @@ public class PlanningDashboardRepository {
      * 이번 분기 '확정'(멀티에이전트 종합 완료 composite + 검증 통과 review_passed) 브리핑 건수와
      * 그중 정상·주의·심각 비중·건수. 최근 브리핑 목록·사업부별 분포와 같은 확정 기준이라 화면의
      * 모든 숫자가 일치한다(조기종료 등 확정 아닌 건은 어디에도 잡히지 않는다).
+     *
+     * <p>같은 뉴스 사건이 여러 번 브리핑되면 {@link NewsEventSql#BRIEFING_DEDUP_KEY}로 접어 사건당 최신 1건만
+     * 센다(2026-08-19) — 대시보드 메인 "뉴스 사건 수"와 같은 취급. 계약·자재 브리핑은 각각 유지.
      */
     public AiBriefingKpi aiBriefingKpi() {
         return jdbc.queryForObject("""
                 WITH quarter AS (
-                    SELECT * FROM ai_briefings
-                    WHERE created_at >= date_trunc('quarter', now())
-                      AND analysis_id IS NOT NULL
-                      AND composite = TRUE
-                      AND briefing_text IS NOT NULL
-                      AND review_passed IS TRUE
+                    SELECT b.procurement_risk_level, b.created_at,
+                """ + NewsEventSql.BRIEFING_DEDUP_KEY + """
+                           AS dedup_key
+                    FROM ai_briefings b
+                    WHERE b.created_at >= date_trunc('quarter', now())
+                      AND b.analysis_id IS NOT NULL
+                      AND b.composite = TRUE
+                      AND b.briefing_text IS NOT NULL
+                      AND b.review_passed IS TRUE
+                ),
+                deduped AS (
+                    SELECT procurement_risk_level,
+                           ROW_NUMBER() OVER (PARTITION BY dedup_key ORDER BY created_at DESC) AS rn
+                    FROM quarter
                 )
                 SELECT
                     COUNT(*) AS briefing_count,
                     COUNT(*) FILTER (WHERE procurement_risk_level = 'NORMAL') AS normal_count,
                     COUNT(*) FILTER (WHERE procurement_risk_level = 'WARNING') AS warning_count,
                     COUNT(*) FILTER (WHERE procurement_risk_level = 'CRITICAL') AS critical_count
-                FROM quarter
+                FROM deduped WHERE rn = 1
                 """, new MapSqlParameterSource(), (rs, rowNum) -> new AiBriefingKpi(
                 rs.getLong("briefing_count"),
                 rs.getLong("normal_count"), rs.getLong("warning_count"), rs.getLong("critical_count")));
