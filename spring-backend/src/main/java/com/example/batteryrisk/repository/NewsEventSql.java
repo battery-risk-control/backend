@@ -47,6 +47,26 @@ public final class NewsEventSql {
                     + " || '|' || COALESCE(an.country_code, '')";
 
     /**
+     * ai_briefings를 <b>사건 단위로 접기 위한 중복 제거 키</b>(2026-08-19). 같은 뉴스 사건이 서로 다른
+     * raw_event로 여러 번 브리핑되면 하나로 접는다 — 정규화 원문제목 | 자재 | 국가(뉴스 raw_event 기준).
+     * 뉴스 raw_event가 없는 계약·자재 브리핑은 접지 않고 각각 유지한다(analysis_id로 폴백).
+     *
+     * <p>별칭 약속: ai_briefings는 {@code b}, 상관 서브쿼리 raw_events는 {@code re}. 이 조각을 쓰는
+     * 쿼리는 반드시 {@code FROM ai_briefings b}이고 {@code b.analysis_id IS NOT NULL}이어야 한다
+     * (analysis_id가 null이면 폴백 키가 null이 되어 COUNT(DISTINCT)에서 빠진다). 텍스트 블록이 아니라
+     * 문자열이라 정규식 {@code '\\s+'}가 그대로 나간다({@link #EVENT_KEY}와 같은 이유). H2(테스트)에서도
+     * 돌도록 {@code ::text} 대신 {@code CAST(... AS VARCHAR)}를 쓴다.
+     */
+    public static final String BRIEFING_DEDUP_KEY =
+            "COALESCE("
+            + "(SELECT regexp_replace(btrim(lower(COALESCE(re.title, re.title_ko))), '\\s+', ' ', 'g')"
+            + " || '|' || COALESCE(b.material_category, '') || '|' || COALESCE(re.country_code, '')"
+            + " FROM raw_events re"
+            + " WHERE re.triggered_analysis_id = b.analysis_id AND re.data_type = 'NEWS' AND re.title IS NOT NULL"
+            + " ORDER BY re.collected_at DESC LIMIT 1),"
+            + " 'analysis:' || CAST(b.analysis_id AS VARCHAR))";
+
+    /**
      * 완결 NEWS 사건의 <b>원본 행</b>. 한 사건이 여러 번 분석됐으면 분석 수만큼 행이 나온다.
      *
      * <p>접는 것은 {@link #DEDUPED_NEWS_EVENTS_CTE}다. 사건에 딸린 평가를 전부 훑어야 하는 쪽
