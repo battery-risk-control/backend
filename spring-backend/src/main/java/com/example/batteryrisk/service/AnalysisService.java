@@ -121,7 +121,13 @@ public class AnalysisService {
                 }
                 // 게이트를 내렸으면 KG 확정 없이도 태운다. 그 사실은 FastAPI가 응답 warnings에
                 // 남기므로(KG 게이트 우회 문구) 결과만 보고도 근거 없는 지목인지 구분할 수 있다.
-                if (!kgGateEnabled || erpContext.kgShortageConfirmed()) {
+                //
+                // 데모(DEMO_GDELT)는 여기(자동 경로)서 멀티에이전트를 태우지 않는다. 이 경로는 analysis가
+                // 아직 flush 전이라 procurement_risk_assessments에 analysis_id=null로 저장돼 KPI에서
+                // 배제되고, 게다가 여기서 브리핑을 만들면 dedup이 이후 버튼 경로(analysis_id 채움)를
+                // 막는다. 데모는 DemoGdeltReplayStartup이 분석 커밋 후 버튼 경로로 1회 태워 KPI에 잡는다.
+                boolean isDemo = "DEMO_GDELT".equals(request.sourceName());
+                if (!isDemo && (!kgGateEnabled || erpContext.kgShortageConfirmed())) {
                     triggerMultiAgentBriefingSafely(analysis, data, erpContext, materialCategory);
                 }
             }

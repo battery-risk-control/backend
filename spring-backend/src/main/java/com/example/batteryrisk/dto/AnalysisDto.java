@@ -16,7 +16,8 @@ public final class AnalysisDto {
             @JsonProperty("news_count") Integer newsCount,
             @JsonProperty("gdacs_alert_level") Integer gdacsAlertLevel,
             @JsonProperty("stock_volatility_20d") Double stockVolatility20d,
-            @JsonProperty("bdi_index") Double bdiIndex
+            @JsonProperty("bdi_index") Double bdiIndex,
+            @JsonProperty("tone_score") Double toneScore
     ) {}
 
     /** FastAPI ExtractionResult와 동일한 필드 구성 — 이미 완료된 추출 결과를 /analyze로 그대로 전달할 때 사용합니다. */

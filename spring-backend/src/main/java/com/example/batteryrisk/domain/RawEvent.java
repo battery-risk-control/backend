@@ -58,6 +58,9 @@ public class RawEvent {
     @Column(name = "triggered_analysis_id")
     private UUID triggeredAnalysisId;
 
+    @Column(name = "analysis_attempts", nullable = false)
+    private short analysisAttempts;
+
     @Column(name = "collected_at", nullable = false)
     private Instant collectedAt;
 
@@ -84,6 +87,12 @@ public class RawEvent {
 
     public void markTriggeredAnalysis(UUID analysisId) {
         this.triggeredAnalysisId = analysisId;
+    }
+
+    public void markAnalysisAttempt() { this.analysisAttempts++; }
+
+    public void applyReplayCollectedAt(Instant replayedAt) {
+        if (replayedAt != null) this.collectedAt = replayedAt;
     }
 
     /** 번역 성공. 빈 문자열은 저장하지 않는다 — 화면에 빈 헤드라인이 뜨느니 원문이 낫다. */
@@ -113,5 +122,6 @@ public class RawEvent {
     public Double getGoldsteinScale() { return goldsteinScale; }
     public String getPayloadJson() { return payloadJson; }
     public UUID getTriggeredAnalysisId() { return triggeredAnalysisId; }
+    public short getAnalysisAttempts() { return analysisAttempts; }
     public Instant getCollectedAt() { return collectedAt; }
 }

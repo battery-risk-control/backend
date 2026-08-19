@@ -10,6 +10,7 @@ on:
       - "data/RAG_DATA/erp_aligned/**"
       - "data/ERP_data/outbound-mock/**"
       - "data/RAG_DATA/outbound_erp_aligned/**"
+      - "data/demo/gdelt_demo_manifest.json"
       - ".github/workflows/deploy-spring.yml"
   workflow_dispatch:
 
@@ -96,6 +97,22 @@ jobs:
             --region "$AWS_REGION" \
             --query "taskDefinition" \
             > task-definition.json
+
+      - name: Configure GDELT demo replay environment
+        run: |
+          jq '(.containerDefinitions[] | select(.name == "spring") | .environment) =
+              (((.containerDefinitions[] | select(.name == "spring") | .environment) // [])
+              | map(select(.name != "DEMO_GDELT_REPLAY_ENABLED"
+                           and .name != "DEMO_GDELT_REPLAY_LIMIT"
+                           and .name != "DEMO_GDELT_MAX_ATTEMPTS"
+                           and .name != "KG_GATE_ENABLED"))
+              + [
+                  {"name":"DEMO_GDELT_REPLAY_ENABLED","value":"true"},
+                  {"name":"DEMO_GDELT_REPLAY_LIMIT","value":"200"},
+                  {"name":"DEMO_GDELT_MAX_ATTEMPTS","value":"3"},
+                  {"name":"KG_GATE_ENABLED","value":"true"}
+                ])' task-definition.json > task-definition.demo.json
+          mv task-definition.demo.json task-definition.json
 
       - name: Update Spring container image
         id: render-task

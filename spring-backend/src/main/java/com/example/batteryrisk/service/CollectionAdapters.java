@@ -5,12 +5,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /** F4 외부 데이터 소스 하나를 표준화된 형태로 수집해오는 어댑터입니다. */
 interface DataSourceAdapter {
@@ -97,6 +99,72 @@ class GdeltRealtimeTriageAdapter implements DataSourceAdapter {
                     "GDELT-CURSOR-ADVANCE-SENTINEL", null, null, null, null, null, newCursorValue, null));
         }
         log.info("GDELT 실시간 트리아지 완료: {}건 크롤링 성공, 새 커서={}", candidates.size(), newCursorValue);
+        return items;
+    }
+}
+
+@Component
+class GdeltDemoReplayAdapter implements DataSourceAdapter {
+    // index별 상대 오프셋. CollectionService가 이 값을 "최신 실뉴스 상단 앵커 + 오프셋(초)"로
+    // 적용해 데모를 전부 실뉴스 위 조밀한 구간에 배치한다(과거명은 _MINUTES지만 실제 단위는 초).
+    // 값 1,5,9,…,397 → 데모 100건이 앵커 위 약 6.6분 안에 index 순으로 깔린다.
+    private static final int REPLAY_INITIAL_OFFSET_MINUTES = 1;
+    private static final int REPLAY_SPACING_MINUTES = 4;
+
+    private final RestClient fastApiRestClient;
+    private final GdeltEventArchiveService gdeltEventArchiveService;
+    private final int replayLimit;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    GdeltDemoReplayAdapter(RestClient fastApiRestClient, GdeltEventArchiveService gdeltEventArchiveService,
+            @Value("${app.demo-gdelt.replay-limit:200}") int replayLimit) {
+        this.fastApiRestClient = fastApiRestClient;
+        this.gdeltEventArchiveService = gdeltEventArchiveService;
+        this.replayLimit = replayLimit;
+    }
+
+    public String sourceName() { return "DEMO_GDELT"; }
+    public String dataType() { return "NEWS"; }
+
+    public List<CollectionDto.CollectedItem> collect(String ignored) {
+        CollectionDto.FastApiRealtimeFetchResponse response = fastApiRestClient.post()
+                .uri("/api/v1/internal/realtime-pipeline/demo-replay")
+                .body(new CollectionDto.DemoReplayRequest(replayLimit))
+                .retrieve().body(CollectionDto.FastApiRealtimeFetchResponse.class);
+        if (response == null || !response.success() || response.data() == null) return List.of();
+        List<CollectionDto.CollectedItem> items = new ArrayList<>();
+        int index = 0;
+        for (CollectionDto.RealtimeCandidate candidate : response.data().items()) {
+            String payload;
+            try {
+                // Map.of는 10쌍 상한이라 (C) 필드까지 담으려면 ofEntries를 쓴다. null 금지이므로 기본값으로 방어.
+                payload = objectMapper.writeValueAsString(Map.ofEntries(
+                        Map.entry("replayed", true),
+                        Map.entry("global_event_id", candidate.globalEventId()),
+                        Map.entry("original_event_date",
+                                candidate.originalEventDate() == null ? "" : candidate.originalEventDate()),
+                        Map.entry("num_articles", candidate.numArticles() == null ? 0 : candidate.numArticles()),
+                        Map.entry("avg_tone", candidate.avgTone() == null ? 0.0 : candidate.avgTone()),
+                        // 시간압축: 이 이벤트를 넣을 사이트 날짜 버킷(0=오늘,1=어제,2=그제).
+                        Map.entry("demo_day", candidate.demoDay() == null ? 0 : candidate.demoDay()),
+                        // (C) 추출 오버라이드용 — Spring이 LLM 재추출 대신 이 값으로 자재·관련성을 강제한다.
+                        Map.entry("material_enum", candidate.materialEnum() == null ? "" : candidate.materialEnum()),
+                        Map.entry("event_type", candidate.eventType() == null ? "" : candidate.eventType()),
+                        Map.entry("tone_score", candidate.toneScore() == null ? 0.0 : candidate.toneScore()),
+                        Map.entry("impact_domain",
+                                candidate.impactDomain() == null ? "PRODUCTION" : candidate.impactDomain()),
+                        Map.entry("replay_offset_minutes",
+                                REPLAY_INITIAL_OFFSET_MINUTES + index * REPLAY_SPACING_MINUTES)));
+            } catch (Exception exception) {
+                throw new IllegalStateException("GDELT 데모 payload 생성 실패", exception);
+            }
+            items.add(new CollectionDto.CollectedItem(
+                    "GDELT-DEMO-" + candidate.globalEventId(), candidate.title(), candidate.content(),
+                    candidate.sourceUrl(), gdeltEventArchiveService.fipsToIso2(candidate.actionGeoCountryCode()),
+                    payload,
+                    null, candidate.goldsteinScale()));
+            index++;
+        }
         return items;
     }
 }

@@ -1,0 +1,8 @@
+.git
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/build
+**/bin
+data/demo/cache
+data/demo/gdelt_recovery_report.json

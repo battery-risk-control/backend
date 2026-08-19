@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 
 from app.schemas.common import ApiResponse
-from app.schemas.realtime_pipeline import RealtimeFetchRequest, RealtimeFetchResult, RealtimeCandidate
+from app.schemas.realtime_pipeline import DemoReplayRequest, RealtimeFetchRequest, RealtimeFetchResult, RealtimeCandidate
 from app.services.realtime_gdelt_service import fetch_and_triage
+from app.services.demo_gdelt_replay_service import load_demo_candidates
 
 router = APIRouter(prefix="/api/v1/internal/realtime-pipeline", tags=["realtime-pipeline"])
 
@@ -22,3 +23,10 @@ def fetch_and_triage_route(request: RealtimeFetchRequest) -> ApiResponse[Realtim
         for c in candidates
     ]
     return ApiResponse(data=RealtimeFetchResult(items=items, new_cursor_value=new_cursor_value))
+
+
+@router.post("/demo-replay", response_model=ApiResponse[RealtimeFetchResult])
+def demo_replay_route(request: DemoReplayRequest) -> ApiResponse[RealtimeFetchResult]:
+    """확정된 과거 GDELT manifest를 실시간 후보와 같은 DTO로 반환합니다."""
+    items = [RealtimeCandidate(**item) for item in load_demo_candidates(request.limit)]
+    return ApiResponse(data=RealtimeFetchResult(items=items, new_cursor_value=None))

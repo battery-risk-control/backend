@@ -13,6 +13,9 @@ import java.util.UUID;
 
 public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
     boolean existsBySourceAndExternalId(String source, String externalId);
+    Optional<RawEvent> findBySourceAndExternalId(String source, String externalId);
+    boolean existsBySourceAndTriggeredAnalysisIdIsNullAndAnalysisAttemptsLessThan(
+            String source, short maxAttempts);
 
     boolean existsBySourceAndContentHash(String source, String contentHash);
 
@@ -298,6 +301,45 @@ public interface RawEventRepository extends JpaRepository<RawEvent, Long> {
               AND (e.material_matched OR an.material_category IS NOT NULL)
             """)
     Instant findLatestSupplyChainCollectedAt();
+
+    /**
+     * 데모(DEMO_GDELT)를 제외한 실뉴스 collected_at의 최댓값.
+     *
+     * <p>데모 재주입이 자신의 이벤트를 "현재 최신 뉴스 상단"에 앵커할 때 기준으로 쓴다 —
+     * 이 값 위로 collected_at을 배치하면 데모가 실시간 뉴스에 묻히지 않고 항상 목록 최상단에 뜬다.
+     * 데모 자신은 제외해야(source &lt;&gt; 'DEMO_GDELT') 재앵커 시 자기 이전 위치를 기준 삼는 순환이 없다.
+     */
+    @Query("""
+            SELECT MAX(e.collectedAt) FROM RawEvent e
+            WHERE e.dataType = 'NEWS' AND e.source <> 'DEMO_GDELT'
+            """)
+    Instant findMaxNonDemoNewsCollectedAt();
+
+    /**
+     * 현재 DB에 저장된 데모(DEMO_GDELT) 이벤트의 external_id 전부.
+     *
+     * <p>재주입 시 현재 매니페스트가 담은 external_id 집합과 대조해, 매니페스트에 없는(옛
+     * 매니페스트에서 넘어온) 데모가 남아 있으면 전량 리셋 후 새로 주입하는 판단에 쓴다.
+     */
+    @Query("SELECT e.externalId FROM RawEvent e WHERE e.source = 'DEMO_GDELT'")
+    List<String> findDemoExternalIds();
+
+    /**
+     * KPI 반영이 아직 안 된 데모 이벤트 id — 제목 있음·재시도 상한 미만이고, 해당 analysis에
+     * 연결된 procurement_risk_assessments(analysis_id 채워진 KPI-가시 행)가 <b>아직 없는</b> 것.
+     * 미분석(triggered_analysis_id NULL)과 "분석은 됐으나 브리핑 전"을 모두 잡아, 분석→버튼경로
+     * 브리핑까지 완료(=assessment 생성)되면 자동으로 목록에서 빠진다(재시작에도 안전).
+     * 최신 collected_at 순 — 화면 상단 최신 데모부터 KPI가 위에서부터 채워지게 한다.
+     */
+    @Query(nativeQuery = true, value = """
+            SELECT e.id FROM raw_events e
+            WHERE e.source = 'DEMO_GDELT' AND e.title IS NOT NULL AND e.analysis_attempts < :maxAttempts
+              AND NOT EXISTS (
+                  SELECT 1 FROM procurement_risk_assessments pra
+                  WHERE pra.analysis_id = e.triggered_analysis_id)
+            ORDER BY e.collected_at DESC
+            """)
+    List<Long> findPendingDemoEventIds(short maxAttempts);
 
     /**
      * 분석에 대응하는 수집 원본. 지도 마커의 제목을 한국어로 보여주기 위해 쓴다 —
