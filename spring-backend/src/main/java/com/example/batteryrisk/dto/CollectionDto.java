@@ -54,6 +54,7 @@ public final class CollectionDto {
 
     /** FastAPI POST /api/v1/internal/realtime-pipeline/fetch-and-triage 연동 DTO. */
     public record RealtimeFetchRequest(@JsonProperty("cursor_value") String cursorValue) {}
+    public record DemoReplayRequest(int limit) {}
 
     public record RealtimeCandidate(
             @JsonProperty("global_event_id") String globalEventId,
@@ -61,7 +62,15 @@ public final class CollectionDto {
             String content,
             @JsonProperty("source_url") String sourceUrl,
             @JsonProperty("action_geo_country_code") String actionGeoCountryCode,
-            @JsonProperty("goldstein_scale") Double goldsteinScale
+            @JsonProperty("goldstein_scale") Double goldsteinScale,
+            @JsonProperty("num_articles") Integer numArticles,
+            @JsonProperty("avg_tone") Double avgTone,
+            @JsonProperty("original_event_date") String originalEventDate,
+            @JsonProperty("demo_day") Integer demoDay,
+            @JsonProperty("material_enum") String materialEnum,
+            @JsonProperty("event_type") String eventType,
+            @JsonProperty("tone_score") Double toneScore,
+            @JsonProperty("impact_domain") String impactDomain
     ) {}
 
     public record RealtimeFetchResult(

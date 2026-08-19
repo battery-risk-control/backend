@@ -67,10 +67,13 @@ public class ExecutiveDashboardService {
         ExecutiveDashboardDto.Recent24hSummary recent24h =
                 repository.loadRecent24hSummary();
 
+        // 2·3계층 메인 "심각 N건 / 주의 M건"은 원자재 종수(1계층)가 아니라 뉴스 사건 건수로 센다.
+        ExecutiveDashboardRepository.RiskEventCounts eventCounts = repository.loadRiskEventCounts();
+
         ExecutiveDashboardDto.ExecutiveKpi kpi =
                 new ExecutiveDashboardDto.ExecutiveKpi(
-                        riskSummary.criticalCount(),
-                        riskSummary.warningCount(),
+                        eventCounts.criticalCount(),
+                        eventCounts.warningCount(),
                         averageRiskScore(materialRisk),
                         verificationSummary.passedCount(),
                         verificationSummary.reviewRequiredCount(),

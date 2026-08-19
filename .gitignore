@@ -9,6 +9,8 @@ project-backups/
 .idea/
 .pytest_cache/
 .env
+data/demo/cache/
+data/demo/gdelt_recovery_report.json
 # .env 백업본. 실 OPENAI_API_KEY·KOREAEXIM_API_KEY가 그대로 들어 있는데 .env와 달리
 # 이름이 달라 무시되지 않아, git add -A 한 번이면 키가 커밋된다. 사본도 같이 막는다.
 .env.bak*

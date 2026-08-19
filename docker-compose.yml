@@ -66,7 +66,9 @@ services:
     restart: unless-stopped
 
   fastapi:
-    build: ./fastapi-ai
+    build:
+      context: .
+      dockerfile: fastapi-ai/Dockerfile
     container_name: battery-risk-fastapi
     # Swagger로 RAG 에이전트의 조항 유형(clause_type) 판별 테스트 시 필요 (개발용 — 프론트 연동엔 불필요)
     environment:
@@ -131,8 +133,11 @@ services:
       # 실제 추출을 검증할 때만 MOCK_MODE=false로 덮어쓴다.
       # ("true" 하드코딩이었으나 셸에서 덮어쓸 수 없어 변수 형태로 바꿨다.)
       MOCK_MODE: ${MOCK_MODE:-true}
+      DEMO_GDELT_MANIFEST_PATH: ${DEMO_GDELT_MANIFEST_PATH:-/app/data/demo/gdelt_demo_manifest.json}
     ports:
       - "${FASTAPI_PORT:-8000}:8000"
+    volumes:
+      - battery_gdelt_demo_data:/app/data/demo
     depends_on:
       - chroma
       # 그래프가 다 만들어진 뒤에 뜨게 한다. 먼저 뜨면 첫 몇 건이 "매칭 없음"으로 폴백해
@@ -197,6 +202,9 @@ services:
       # 이 플래그와 무관하게 항상 동작하므로, 기본 off로 두어도 분석 테스트 경로는 막히지 않는다.
       COLLECTION_SCHEDULER_ENABLED: ${COLLECTION_SCHEDULER_ENABLED:-false}
       COLLECTION_ANALYSIS_ENABLED: ${COLLECTION_ANALYSIS_ENABLED:-false}
+      DEMO_GDELT_REPLAY_ENABLED: ${DEMO_GDELT_REPLAY_ENABLED:-false}
+      DEMO_GDELT_REPLAY_LIMIT: ${DEMO_GDELT_REPLAY_LIMIT:-200}
+      DEMO_GDELT_MAX_ATTEMPTS: ${DEMO_GDELT_MAX_ATTEMPTS:-3}
       # 제목 한국어 번역(5분 주기). 분석과 독립이며 훨씬 싸다 — 제목만 번역하므로 기사당 약 $0.00004.
       # 기본 off인 이유는 analysis-enabled와 같다: LLM 호출이라 켠 걸 깜빡하면 비용이 계속 나간다.
       COLLECTION_TRANSLATION_ENABLED: ${COLLECTION_TRANSLATION_ENABLED:-false}
@@ -247,7 +255,7 @@ services:
       postgres:
         condition: service_healthy
       fastapi:
-        condition: service_started
+        condition: service_healthy
       # service_healthy로 기다린다 — Spring의 자동 분석 경로가 기동 직후부터 KG를 부른다.
       kg:
         condition: service_healthy
@@ -263,3 +271,4 @@ volumes:
   battery_postgres_data:
   battery_chroma_data:
   battery_spring_uploads:
+  battery_gdelt_demo_data:

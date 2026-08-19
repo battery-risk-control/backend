@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - "fastapi-ai/**"
+      - "data_core/**"
+      - "data/demo/gdelt_demo_manifest.json"
+      - ".dockerignore"
       - ".github/workflows/deploy-agent.yml"
   workflow_dispatch:
 
@@ -53,7 +56,7 @@ jobs:
           docker build \
             -f ./fastapi-ai/Dockerfile \
             -t "$IMAGE_URI" \
-            ./fastapi-ai
+            .
 
           docker push "$IMAGE_URI"
 

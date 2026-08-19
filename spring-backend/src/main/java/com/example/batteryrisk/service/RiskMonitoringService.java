@@ -110,14 +110,16 @@ public class RiskMonitoringService {
      * @param confidence "확정/경고/참고"(신뢰도). null/공백이면 전체
      * @param country    ISO 3166-1 alpha-2. null/공백이면 전체
      * @param material   자재 표기명("리튬") 또는 대분류("LITHIUM"). null/공백이면 전체
-     * @param days       최근 N일. 1..{@value #MAX_DAYS}로 잘린다
+     * @param days       최근 N일. 1..{@value #MAX_DAYS}로 잘린다. 0이면 전체 기간(하한 없음)
      * @param limit      노출 건수. 1..{@value #MAX_LIMIT}로 잘린다
      */
     public List<EventItem> list(
             String grade, String confidence, String country, String material,
             int days, int limit, int offset) {
         int cappedLimit = clamp(limit, MAX_LIMIT);
-        Instant since = Instant.now().minus(clamp(days, MAX_DAYS), ChronoUnit.DAYS);
+        // days<=0 은 화면의 "전체 기간" 선택 — 수집일 하한을 없앤다(null → SQL이 하한 조건을 건너뛴다).
+        // 과거 날짜로 재주입한 데모(2020~2026)를 노출하려면 이 경로가 필요하다.
+        Instant since = days <= 0 ? null : Instant.now().minus(clamp(days, MAX_DAYS), ChronoUnit.DAYS);
         String countryFilter = upperOrNull(country);
         String gradeFilter = trimToNull(grade);
         String confidenceFilter = trimToNull(confidence);
@@ -161,7 +163,8 @@ public class RiskMonitoringService {
      * 화살표를 잠근다. 목록과 같은 리포지토리 조건을 쓰므로 둘이 어긋나지 않는다.
      */
     public long count(String grade, String confidence, String country, String material, int days) {
-        Instant since = Instant.now().minus(clamp(days, MAX_DAYS), ChronoUnit.DAYS);
+        // days<=0 은 "전체 기간" — 목록과 같은 규칙으로 하한을 없앤다(둘이 어긋나면 페이지 수가 틀어진다).
+        Instant since = days <= 0 ? null : Instant.now().minus(clamp(days, MAX_DAYS), ChronoUnit.DAYS);
         String gradeFilter = trimToNull(grade);
         String severityLevel = RiskEventService.severityForGrade(gradeFilter);
         if (gradeFilter != null && severityLevel == null) {
