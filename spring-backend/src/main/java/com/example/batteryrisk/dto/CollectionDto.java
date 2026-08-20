@@ -59,6 +59,8 @@ public final class CollectionDto {
     public record RealtimeCandidate(
             @JsonProperty("global_event_id") String globalEventId,
             String title,
+            /** 데모 매니페스트에 미리 번역해 둔 한국어 제목. 없으면 null → 주입 시 영문 제목으로 폴백. */
+            @JsonProperty("title_kr") String titleKr,
             String content,
             @JsonProperty("source_url") String sourceUrl,
             @JsonProperty("action_geo_country_code") String actionGeoCountryCode,

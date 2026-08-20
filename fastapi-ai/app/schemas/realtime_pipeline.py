@@ -8,6 +8,9 @@ class RealtimeFetchRequest(ApiModel):
 class RealtimeCandidate(ApiModel):
     global_event_id: str
     title: str
+    # 데모 매니페스트에 미리 번역해 둔 한국어 제목. 이 필드가 없으면 Pydantic이 값을 버려
+    # Spring이 title_ko를 못 채운다(데모는 collected_at이 과거라 번역 스케줄러가 못 잡음).
+    title_kr: str | None = None
     content: str
     source_url: str
     action_geo_country_code: str | None = None

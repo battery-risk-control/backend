@@ -200,6 +200,7 @@ class ExecutiveDashboardServiceTest {
                         null,
                         null,
                         false,
+                        null,
                         null
                 );
 

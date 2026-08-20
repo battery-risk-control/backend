@@ -297,13 +297,20 @@ public class AiBriefingRepository {
      */
     public List<AiBriefingDto.BriefingListItem> findPage(
             BriefingListFilter filter, int page, int size) {
+        // subject_title은 브리핑 생성 시점에 박히는 스냅샷이라, 그 뒤 raw_events.title_ko가
+        // 채워져도(예: 데모 재주입 백필) 옛 영문 제목이 목록에 그대로 남는다. 저장값을 고치는 대신
+        // 조회 때 title_ko를 우선해, 지도·속보·모니터링과 같은 "번역본 우선" 표기를 목록에도 준다.
+        // triggered_analysis_id는 유일하므로(1:1) LEFT JOIN이 행을 늘리지 않고, 계약 브리핑처럼
+        // analysis_id가 없거나 title_ko가 비면 COALESCE가 기존 subject_title로 폴백한다.
         return jdbc.query("""
-                SELECT briefing_id, source_type, source_ref, subject_title, news_id,
-                       procurement_risk_level, procurement_risk_score, composite,
-                       review_passed, trigger_type, created_at
-                FROM ai_briefings
+                SELECT b.briefing_id, b.source_type, b.source_ref,
+                       COALESCE(NULLIF(BTRIM(re.title_ko), ''), b.subject_title) AS subject_title,
+                       b.news_id, b.procurement_risk_level, b.procurement_risk_score, b.composite,
+                       b.review_passed, b.trigger_type, b.created_at
+                FROM ai_briefings b
+                LEFT JOIN raw_events re ON re.triggered_analysis_id = b.analysis_id
                 """ + LIST_CONDITIONS + """
-                ORDER BY created_at DESC
+                ORDER BY b.created_at DESC
                 LIMIT :size OFFSET :offset
                 """,
                 listParams(filter)

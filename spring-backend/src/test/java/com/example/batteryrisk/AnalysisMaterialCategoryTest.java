@@ -7,6 +7,7 @@ import com.example.batteryrisk.repository.AnalysisSupplierRecommendationReposito
 import com.example.batteryrisk.repository.ErpRepository;
 import com.example.batteryrisk.service.AiBriefingService;
 import com.example.batteryrisk.service.AnalysisService;
+import com.example.batteryrisk.service.AutoBriefingWriter;
 import com.example.batteryrisk.service.ErpExposureRequestService;
 import com.example.batteryrisk.service.MultiAgentOrchestrationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,13 +51,15 @@ class AnalysisMaterialCategoryTest {
             mock(MultiAgentOrchestrationService.class);
     // 자동 경로가 만든 브리핑 본문을 ai_briefings에 남기는 지점(V29).
     private final AiBriefingService aiBriefingService = mock(AiBriefingService.class);
+    // 평가+브리핑을 한 트랜잭션으로 원자 저장하는 지점 — 자동 브리핑 트리거는 이제 여기로 나간다.
+    private final AutoBriefingWriter autoBriefingWriter = mock(AutoBriefingWriter.class);
     // KG가 자재를 확정하지 못했을 때 대분류를 ERP 자재로 펼치는 폴백 조회에 쓰인다.
     private final ErpRepository erpRepository = mock(ErpRepository.class);
 
     private final AnalysisService service = new AnalysisService(
             fastApiRestClient, analysisRepository, supplierRecommendationRepository,
             erpExposureRequestService, multiAgentOrchestrationService,
-            aiBriefingService, erpRepository);
+            aiBriefingService, autoBriefingWriter, erpRepository);
 
     @BeforeEach
     void setUp() {
@@ -102,7 +105,8 @@ class AnalysisMaterialCategoryTest {
 
         assertThat(saved.getMaterialCategory()).isEqualTo("LITHIUM");
         verifyNoInteractions(erpExposureRequestService);
-        verify(multiAgentOrchestrationService, never()).generate(any());
+        // 자동 브리핑 트리거는 이제 AutoBriefingWriter로 나간다(평가+브리핑 원자 저장). NORMAL은 건너뛴다.
+        verify(autoBriefingWriter, never()).generateAndRecord(any(), any(), any(), any(), any());
     }
 
     @Test

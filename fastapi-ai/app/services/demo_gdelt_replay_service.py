@@ -31,6 +31,9 @@ def load_demo_candidates(limit: int = 100) -> list[dict]:
         result.append({
             "global_event_id": str(record["global_event_id"]),
             "title": record.get("title") or f"[과거 사건 재현] {material} {event_type}",
+            # 매니페스트에 미리 번역해 둔 한국어 제목. 데모는 collected_at이 과거라 번역 스케줄러가
+            # 못 잡으므로(항상 최신순 뒤로 밀림), 이 값을 Spring이 raw_events.title_ko에 바로 채운다.
+            "title_kr": record.get("title_kr"),
             "content": record.get("content") or summary,
             "source_url": record.get("source_url") or raw.get("SOURCEURL") or "https://www.gdeltproject.org/",
             "action_geo_country_code": raw.get("ActionGeo_CountryCode"),

@@ -111,7 +111,13 @@ public final class RiskEventDto {
              */
             boolean multiAgentCompleted,
             /** 이 분석으로 만들어진 최신 브리핑. 없으면 null이라 화면이 "생성"을 권한다. */
-            java.util.UUID briefingId
+            java.util.UUID briefingId,
+            /**
+             * 분석이 만든 한국어 요약(analyses.summary_kr). 없으면 null(예전 뉴스·미분석 기사).
+             * 마커 클릭 시 뉴스 상세가 영문 제목(event_summary) 대신 이 요약을 본문으로 보여준다 —
+             * 뉴스 속보 경로(summary_kr)와 같은 값을 실어 두 경로의 상세가 어긋나지 않게 한다.
+             */
+            String summaryKr
     ) {}
 
     /**
