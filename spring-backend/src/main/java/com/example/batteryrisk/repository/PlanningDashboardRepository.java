@@ -180,21 +180,31 @@ public class PlanningDashboardRepository {
      * ({@code material_consumptions.average_daily_usage} 합계). 일 사용량이 0/없으면 null.
      */
     private static final String LATEST_MATERIAL_SEVERITY_CTE = """
-            WITH assessed AS (
+            WITH latest_raw AS (
+                -- 자재별 최신 평가 1건을 대표로 뽑는다(확인 완료 여부와 무관하게 먼저 뽑는다).
                 SELECT DISTINCT ON (p.erp_material_id)
                        p.erp_material_id,
                        p.procurement_risk_level AS severity,
-                       p.procurement_risk_score AS score
+                       p.procurement_risk_score AS score,
+                       p.assessment_id
                 FROM procurement_risk_assessments p
                 WHERE p.erp_exposure_score IS NOT NULL
                   AND p.erp_material_id IS NOT NULL
                   AND NOT p.mock
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM procurement_risk_acknowledgements ack
-                      WHERE ack.assessment_id = p.assessment_id
-                  )
                 ORDER BY p.erp_material_id, p.created_at DESC
+            ),
+            assessed AS (
+                -- 대표(최신) 평가가 확인 완료면 그 자재를 통째로 제외한다(2026-08-20). 자재당 평가가
+                -- 30건 넘어 "확인 완료된 평가만 빼기"(dedup 앞 필터)로는 다음 평가가 대표로 승격돼
+                -- 자재가 안 빠졌다 — 1계층 "확인 완료" 버튼은 자재 대표 평가 1건을 처리하므로, 대표가
+                -- 처리되면 자재가 랭킹·최고 위험 점수·심각 자재 KPI에서 빠지도록 대표 단위로 판정한다.
+                SELECT erp_material_id, severity, score
+                FROM latest_raw
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM procurement_risk_acknowledgements ack
+                    WHERE ack.assessment_id = latest_raw.assessment_id
+                )
             ),
             material_inventory AS (
                 SELECT material_id,

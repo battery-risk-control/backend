@@ -101,6 +101,12 @@ public class ExecutiveDashboardRepository {
      * 1계층이 자재 대분류로 접어 "원자재 N종"을 세는 것과 달리, 여기선 사건(event_key)으로 접어
      * "뉴스 건수"를 센다(2026-08-19, 라벨 "건"에 맞춤). 날짜 필터는 없다 — 데모가 원본 과거
      * 날짜(collected_at)라 뉴스피드엔 안 떠도 이 지표엔 잡히게 한다. 사건 안에서는 최신 평가를 쓴다.
+     *
+     * <p><b>확인 완료(acknowledge)된 평가는 제외한다</b>(2026-08-20). 1계층에서 "확인 완료"를 누르면
+     * {@code procurement_risk_acknowledgements}에 assessment_id가 적히는데, 이 메인 KPI는 그걸
+     * 무시해 확인 완료 항목으로 옮겨도 건수가 줄지 않았다. {@link com.example.batteryrisk.repository.DashboardRepository}
+     * 의 1계층 CTE와 같은 {@code NOT EXISTS} 가드를 걸어, 확인 완료된 평가는 사건 대표 선정에서
+     * 빠진다 — 사건의 모든 평가가 확인 완료면 그 사건은 통째로 카운트에서 사라진다.
      */
     public RiskEventCounts loadRiskEventCounts() {
         return jdbc.queryForObject("WITH " + NewsEventSql.COMPLETED_NEWS_CTE + """
@@ -110,6 +116,10 @@ public class ExecutiveDashboardRepository {
                     FROM procurement_risk_assessments p
                     JOIN completed_news cn ON cn.analysis_id = p.analysis_id
                     WHERE p.material_category IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM procurement_risk_acknowledgements a
+                          WHERE a.assessment_id = p.assessment_id
+                      )
                     ORDER BY cn.event_key, p.created_at DESC
                 )
                 SELECT
