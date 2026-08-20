@@ -23,6 +23,7 @@ def test_manifest_maps_to_realtime_candidate(monkeypatch, tmp_path):
     assert load_demo_candidates(1) == [{
         "global_event_id": "123",
         "title": "[과거 사건 재현] 니켈 생산 중단",
+        "title_kr": None,
         "content": "니켈 생산이 중단되었습니다.",
         "source_url": "https://example.com/news",
         "action_geo_country_code": "ID",
@@ -30,4 +31,9 @@ def test_manifest_maps_to_realtime_candidate(monkeypatch, tmp_path):
         "num_articles": 42,
         "avg_tone": -8.1,
         "original_event_date": None,
+        "demo_day": 0,
+        "material_enum": None,
+        "event_type": "생산 중단",
+        "tone_score": None,
+        "impact_domain": "PRODUCTION",
     }]

@@ -153,6 +153,8 @@ class GdeltDemoReplayAdapter implements DataSourceAdapter {
                         Map.entry("tone_score", candidate.toneScore() == null ? 0.0 : candidate.toneScore()),
                         Map.entry("impact_domain",
                                 candidate.impactDomain() == null ? "PRODUCTION" : candidate.impactDomain()),
+                        // 사전 번역된 한국어 제목 — 주입 시 raw_events.title_ko에 바로 채운다(아래 CollectionService).
+                        Map.entry("title_kr", candidate.titleKr() == null ? "" : candidate.titleKr()),
                         Map.entry("replay_offset_minutes",
                                 REPLAY_INITIAL_OFFSET_MINUTES + index * REPLAY_SPACING_MINUTES)));
             } catch (Exception exception) {

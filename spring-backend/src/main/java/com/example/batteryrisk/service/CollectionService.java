@@ -249,6 +249,13 @@ public class CollectionService {
                         long offsetSeconds = Math.max(0L,
                                 Math.round(payloadNumber(item.payloadJson(), "replay_offset_minutes", 0.0)));
                         existing.applyReplayCollectedAt(demoOriginalCollectedAt(item.payloadJson(), offsetSeconds));
+                        // 이전 실행에서 title_ko 없이 주입된 데모 행을 매니페스트 한국어 제목으로 백필한다
+                        // (매니페스트 ID가 그대로면 자동 리셋이 안 걸려 이 분기로만 갱신되기 때문).
+                        // 이미 같은 값이면 건너뛰어 translationAttempts가 매 재기동마다 늘지 않게 한다.
+                        String titleKr = payloadString(item.payloadJson(), "title_kr");
+                        if (titleKr != null && !titleKr.isBlank() && !titleKr.equals(existing.getTitleKo())) {
+                            existing.applyTranslatedTitle(titleKr);
+                        }
                         rawEventRepository.saveAndFlush(existing);
                     }
                 }
@@ -268,6 +275,12 @@ public class CollectionService {
             if ("DEMO_GDELT".equals(sourceName)) {
                 long offsetSeconds = Math.max(0L, Math.round(payloadNumber(rawEvent, "replay_offset_minutes", 0.0)));
                 rawEvent.applyReplayCollectedAt(demoOriginalCollectedAt(rawEvent.getPayloadJson(), offsetSeconds));
+                // 데모 제목은 매니페스트 사전 번역본(title_kr)으로 title_ko를 바로 채운다 — 데모는
+                // collected_at이 과거라 번역 스케줄러(최신순)가 영영 못 잡기 때문. 없으면 영문 제목 유지.
+                String titleKr = payloadString(rawEvent, "title_kr");
+                if (titleKr != null && !titleKr.isBlank()) {
+                    rawEvent.applyTranslatedTitle(titleKr);
+                }
             }
             rawEventRepository.saveAndFlush(rawEvent);
             newItems++;
@@ -490,7 +503,10 @@ public class CollectionService {
     }
 
     private String payloadString(RawEvent event, String field) {
-        String payloadJson = event.getPayloadJson();
+        return payloadString(event.getPayloadJson(), field);
+    }
+
+    private String payloadString(String payloadJson, String field) {
         if (payloadJson == null || payloadJson.isBlank()) return null;
         try {
             JsonNode value = objectMapper.readTree(payloadJson).get(field);
