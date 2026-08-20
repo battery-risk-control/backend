@@ -426,6 +426,10 @@ public class RiskEventService {
         // 지도는 analyses에서 출발하므로 수집 이벤트 id가 없다. 같은 조회로 함께 뽑아 둔다 —
         // 화면이 "이 기사로 브리핑 생성"을 누를 때 필요한 값이라 속보와 같은 걸 실어 줘야 한다.
         Map<UUID, Long> eventIds = loadEventIds(candidates);
+        // 마커 날짜는 분석 생성 시각(createdAt)이 아니라 기사 수집 시각(collected_at)으로 표기한다 —
+        // 데모(GDELT 재주입)는 collected_at이 원본 과거 날짜라, 이 값을 써야 마커가 뉴스 속보와 같은
+        // 실제 날짜를 보인다(재주입 시각으로 최신처럼 뜨지 않는다).
+        Map<UUID, java.time.Instant> collectedAt = loadCollectedAt(candidates);
         // 등급·확정·브리핑 id를 **같은 행 하나**에서 뽑는다. 따로 조회하면 등급은 계약 브리핑에서,
         // id는 뉴스 브리핑에서 오는 식으로 다시 어긋난다.
         Map<UUID, AiBriefingRepository.NewsBriefingRef> newsBriefings =
@@ -465,6 +469,7 @@ public class RiskEventService {
                     newsConfidenceLabel(analysis, true),
                     koreanTitles.get(analysis.getAnalysisId()),
                     eventIds.get(analysis.getAnalysisId()),
+                    collectedAt.get(analysis.getAnalysisId()),
                     newsBriefing.procurementRiskLevel(),
                     newsBriefing.briefingId()));
         }
@@ -851,7 +856,7 @@ public class RiskEventService {
      */
     private static RiskBoardItem toBoardItem(
             Analysis analysis, String grade, String confidenceLabel, String koreanTitle,
-            Long eventId, String riskLevel, UUID briefingId) {
+            Long eventId, java.time.Instant collectedAt, String riskLevel, UUID briefingId) {
         CountryRef country = COUNTRIES.get(analysis.getCountryCode());
         String category = analysis.getMaterialCategory();
         return new RiskBoardItem(
@@ -859,22 +864,26 @@ public class RiskEventService {
                 MATERIAL_NAME_KO.getOrDefault(category, category),
                 grade,
                 confidenceLabel,
-                // summary_kr은 FastAPI 추출 결과라 analyses에 저장되지 않는다. 요약을 노출하려면
-                // analyses에 summary 컬럼 추가가 선행되어야 하므로, 지금은 뉴스 제목을 쓴다.
-                // 번역본이 있으면 그걸 쓴다 — 없으면 지도만 영문 제목이 떠 속보와 어긋난다.
+                // event_summary는 마커 라벨·툴팁·상세 헤드라인에 쓰는 "제목"이다 — 번역본이 있으면
+                // 그걸, 없으면 원문(영문)을 쓴다. 본문 요약은 아래 summaryKr로 따로 실어 보낸다.
                 koreanTitle != null && !koreanTitle.isBlank() ? koreanTitle : analysis.getEventTitle(),
                 analysis.getCountryCode(),
                 country != null ? country.name() : null,
                 country != null ? new Coordinates(country.lat(), country.lng()) : null,
                 linkableUrl(analysis.getSourceUrl()),
-                analysis.getCreatedAt(),
+                // 수집 시각을 우선 쓰고, 수집 원본이 없는 분석(수동 생성 등)만 분석 생성 시각으로 폴백한다.
+                collectedAt != null ? collectedAt : analysis.getCreatedAt(),
                 eventId,
                 analysis.getAnalysisId(),
                 analysis.getSeverity(),
                 analysis.getSeverityScore(),
                 riskLevel,
                 riskLevel != null,
-                briefingId);
+                briefingId,
+                // 분석이 만든 한국어 요약. 마커 클릭 시 뉴스 상세가 영문 제목 대신 이 요약을 본문으로
+                // 쓴다(뉴스 속보 경로와 동일). analyses.summary_kr은 나중에 추가된 컬럼이라, 이전엔
+                // 없다는 전제로 제목만 내려보냈다 — 이제 저장되므로 그대로 실어 보낸다.
+                analysis.getSummaryKr());
     }
 
     /**
@@ -893,6 +902,24 @@ public class RiskEventService {
             ids.putIfAbsent(event.getTriggeredAnalysisId(), event.getId());
         }
         return ids;
+    }
+
+    /**
+     * 분석 id → 수집 이벤트의 collected_at. 지도 마커 날짜를 분석 생성 시각이 아니라 기사 수집
+     * 시각으로 표기하기 위함이다 — 데모(GDELT 재주입)는 collected_at이 원본 과거 날짜라, 이 값을
+     * 써야 마커가 뉴스 속보와 같은 실제 날짜를 보인다. 수집 원본이 없는 분석은 빠지고(호출부가
+     * createdAt으로 폴백), {@link #loadEventIds}·{@link #loadKoreanTitles}와 같은 조회를 쓴다.
+     */
+    private Map<UUID, java.time.Instant> loadCollectedAt(List<Analysis> analyses) {
+        if (analyses.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, java.time.Instant> collectedAt = new LinkedHashMap<>();
+        for (RawEvent event : rawEventRepository.findByTriggeredAnalysisIdIn(
+                analyses.stream().map(Analysis::getAnalysisId).collect(Collectors.toSet()))) {
+            collectedAt.putIfAbsent(event.getTriggeredAnalysisId(), event.getCollectedAt());
+        }
+        return collectedAt;
     }
 
     /** 분석 id → 번역된 뉴스 제목. 번역 스케줄러가 아직 안 돈 기사는 빠진다(원문으로 폴백). */
@@ -925,7 +952,8 @@ public class RiskEventService {
                 // 버튼이 생긴다. 시각도 같은 이유로 비운다.
                 null,
                 null,
-                // 수집 이벤트·분석·평가·브리핑이 전부 없는 자리표시자다.
-                null, null, null, null, null, false, null);
+                // 수집 이벤트·분석·평가·브리핑이 전부 없는 자리표시자다. 마지막 null은 summaryKr —
+                // placeholder는 분석이 없어 요약도 없다(화면이 제목만 쓴다).
+                null, null, null, null, null, false, null, null);
     }
 }
