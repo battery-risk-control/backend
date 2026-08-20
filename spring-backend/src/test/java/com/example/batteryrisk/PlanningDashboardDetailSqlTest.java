@@ -54,6 +54,7 @@ class PlanningDashboardDetailSqlTest {
         jdbc.getJdbcTemplate().execute("""
                 CREATE TABLE IF NOT EXISTS ai_briefings (
                     analysis_id            UUID,
+                    source_type            VARCHAR(20),
                     material_category      VARCHAR(50),
                     material_name          VARCHAR(200),
                     procurement_risk_level VARCHAR(20),

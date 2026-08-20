@@ -556,6 +556,7 @@ public class PlanningDashboardRepository {
                       AND b.composite = TRUE
                       AND b.briefing_text IS NOT NULL
                       AND b.review_passed IS TRUE
+                    """ + NEWS_BRIEFING_LINK_GUARD + """
                 ),
                 deduped AS (
                     SELECT material_category,
@@ -575,6 +576,25 @@ public class PlanningDashboardRepository {
 
     // 최근 브리핑 목록도 ai_briefings 단독으로 뽑는다(analysis_id 있는 것 = 뉴스 기반 브리핑).
     // 드릴다운 키는 analysis_id 그대로 — 상세(findBriefingDetail)가 이미 ai_briefings 조인이라 그대로 작동.
+    /**
+     * 확정 뉴스 브리핑은 수집 이벤트(raw_events)에 연결된 것만 인정하는 가드.
+     *
+     * <p>재분석 등으로 raw_events.triggered_analysis_id가 새 분석을 가리키게 되면, 옛 분석의
+     * 브리핑이 <b>고아</b>로 남는다 — 이 브리핑은 title_ko를 못 받아 화면에 영문 원제목으로 뜨고
+     * (지도·속보와 어긋남), 어느 raw_event도 안 가리켜 상세에서 "리스크 이벤트를 찾을 수 없습니다"가
+     * 나며, KPI(사건 기준)엔 안 잡히는데 브리핑 카운트만 부풀린다(25 vs 24의 원인).
+     *
+     * <p>{@link ExecutiveDashboardRepository#loadRiskEventCounts}가 "완결 브리핑까지 간 뉴스 사건"을
+     * raw_events 연결로 세는 것과 같은 기준으로 목록·총계·KPI를 맞춘다. 계약 브리핑
+     * (source_type&lt;&gt;'NEWS')은 원래 raw_events가 없으므로 그대로 유지한다.
+     */
+    private static final String NEWS_BRIEFING_LINK_GUARD =
+            // IS DISTINCT FROM: source_type이 정확히 'NEWS'일 때만 raw_events 연결을 요구하고,
+            // 'CONTRACT'·'MATERIAL'·NULL은 그대로 통과시킨다(계약·자재 브리핑은 raw_events가 없다).
+            " AND (b.source_type IS DISTINCT FROM 'NEWS'"
+            + " OR EXISTS (SELECT 1 FROM raw_events rex"
+            + " WHERE rex.triggered_analysis_id = b.analysis_id AND rex.data_type = 'NEWS'))";
+
     public List<PlanningDashboardDto.BriefingSummaryItem> findRecentBriefings(int limit, int offset) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("limit", limit)
@@ -609,6 +629,7 @@ public class PlanningDashboardRepository {
                       AND b.composite = TRUE
                       AND b.briefing_text IS NOT NULL
                       AND b.review_passed IS TRUE
+                    """ + NEWS_BRIEFING_LINK_GUARD + """
                 ),
                 -- 같은 사건 재브리핑은 최신 1건만 남긴다(BRIEFING_DEDUP_KEY). 계약·자재는 각각 유지.
                 deduped AS (
@@ -651,6 +672,7 @@ public class PlanningDashboardRepository {
                         FROM ai_briefings b
                         WHERE b.analysis_id IS NOT NULL AND b.composite = TRUE
                           AND b.briefing_text IS NOT NULL AND b.review_passed IS TRUE
+                    """ + NEWS_BRIEFING_LINK_GUARD + """
                     )
                     SELECT COUNT(DISTINCT dedup_key) FROM confirmed
                     """,
@@ -681,6 +703,7 @@ public class PlanningDashboardRepository {
                       AND b.composite = TRUE
                       AND b.briefing_text IS NOT NULL
                       AND b.review_passed IS TRUE
+                    """ + NEWS_BRIEFING_LINK_GUARD + """
                 ),
                 deduped AS (
                     SELECT procurement_risk_level,
